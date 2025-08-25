@@ -1,4 +1,4 @@
-# ✅ Resumen de Cambios Realizados a la Plantilla
+# ✅ Despliegue local
 
 ---
 
