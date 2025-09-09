@@ -1,0 +1,17 @@
+<% layout('layout') -%>
+
+<section class="login-section">
+  <h2>Iniciar Sesión</h2>
+  <% if (typeof error !== 'undefined') { %>
+    <div class="error"><%= error %></div>
+  <% } %>
+  <form method="POST" action="/auth/login">
+    <label for="username">Usuario:</label>
+    <input type="text" id="username" name="username" required>
+
+    <label for="password">Contraseña:</label>
+    <input type="password" id="password" name="password" required>
+
+    <button type="submit">Entrar</button>
+  </form>
+</section>

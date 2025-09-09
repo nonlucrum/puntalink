@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Informe de Cálculos Técnicos</title>
+  <link rel="stylesheet" href="/styles.css"/>
+</head>
+<body>
+  <header>
+    <h1>Informe de Cálculos Técnicos</h1>
+  </header>
+
+  <main>
+    <section>
+      <h2>Resumen Ejecutivo</h2>
+      <p>Se realizó el análisis estadístico de <%= summary.totalVariables %> variables
+      con un total de <%= summary.totalObservaciones %> observaciones. Los valores analizados
+      presentan un rango de <%= summary.rangoVariables.min %> a <%= summary.rangoVariables.max %>.</p>
+    </section>
+
+    <section>
+      <h2>Tabla de Frecuencias</h2>
+      <table>
+        <thead>
+          <tr>
+            <% Object.keys(outputs.tablaFrecuencias[0]).forEach(header => { %>
+              <th><%= header %></th>
+            <% }) %>
+          </tr>
+        </thead>
+        <tbody>
+          <% outputs.tablaFrecuencias.forEach(row => { %>
+            <tr>
+              <% Object.values(row).forEach(value => { %>
+                <td><%= value %></td>
+              <% }) %>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Análisis Estadístico</h2>
+      <ul>
+        <li>Media: <%= outputs.estadisticos.media %></li>
+        <li>Mediana: <%= outputs.estadisticos.mediana %></li>
+        <li>Moda: <%= Array.isArray(outputs.estadisticos.moda) ? outputs.estadisticos.moda.join(', ') : outputs.estadisticos.moda %></li>
+        <li>Varianza: <%= outputs.estadisticos.varianza %></li>
+        <li>Desviación estándar: <%= outputs.estadisticos.desviacionEstandar %></li>
+        <li>Rango: <%= outputs.estadisticos.rango %></li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    <p>© <%= new Date().getFullYear() %> PuntaLink - Todos los derechos reservados</p>
+  </footer>
+</body>
+</html>
