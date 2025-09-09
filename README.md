@@ -1,139 +1,199 @@
-# ✅ Despliegue local
+[README.txt](https://github.com/user-attachments/files/22225214/README.txt)
+README — PuntaLink (análisis + pilares/“muertos” + reportes)
+============================================================================
 
----
+Aplicación Node/Express con interfaz web para:
+- procesar datos CSV simples (frecuencias),
+- calcular cargas de viento y disposición de braces,
+- dimensionar bloques de “muertos” (pág. 3–5),
+- estimar acero (longitudinal + estribos) y alambre de amarre,
+- construir y descargar un reporte (PDF/DOCX) con todo (pág. 6).
 
-## 📁 Backend
+----------------------------------------------------------------------------
+REQUISITOS
+----------------------------------------------------------------------------
+- Node.js >= 18 (recomendado LTS 20) y npm
+  Verifica:
+    node -v
+    npm -v
 
-### 🔧 Cambios en el archivo `.env`
-- Se dejó el siguiente valor para el usuario de base de datos:
-  ```env
-  DB_USER=root
-  DB_PASSWORD=<usa MYSQL_ROOT_PASSWORD del archivo docker-compose.yml>
-  ```
-- Se reemplazó el valor de `DB_HOST` que decía `"localhost"` por `"db_test"`, que es el nombre del servicio de MariaDB en `docker-compose.yml`.
+- (Opcional) Git para clonar.
 
----
+Windows – si “npm/node no se reconoce”:
+1) Instala Node LTS con Winget o instalador oficial:
+    winget install OpenJS.NodeJS.LTS
+2) Cierra y vuelve a abrir PowerShell/VS Code.
+3) Verifica: node -v  y  npm -v
+   Si sigue sin verse, agrega a PATH y reinicia la terminal:
+    C:\Program Files\nodejs
 
-### 🕒 Agregado de archivo `wait-for-db.sh`
-- Se detectó que el backend intentaba conectarse a la base de datos antes de que estuviera lista.
-- Se creó el script `wait-for-db.sh` para esperar a que MariaDB esté accesible antes de iniciar el backend.
+----------------------------------------------------------------------------
+INSTALACIÓN
+----------------------------------------------------------------------------
+1) Clonar (o descargar ZIP):
+    git clone <tu-repo> puntalink
+    cd puntalink
 
-**Contenido del archivo:**
-```sh
-#!/bin/sh
+2) Instalar dependencias:
+    npm install
 
-echo "Esperando a que MariaDB esté disponible en $DB_HOST:$DB_PORT..."
+3) (Opcional) crear .env (si existe .env.example):
+    cp .env.example .env
+   Variables disponibles:
+    PORT=3000
 
-while ! nc -z "$DB_HOST" "$DB_PORT"; do
-  sleep 1
-done
+----------------------------------------------------------------------------
+EJECUTAR
+----------------------------------------------------------------------------
+Desarrollo (recarga automática):
+    npm run dev
+La app estará en:
+    http://localhost:3000
 
-echo "MariaDB está disponible, iniciando backend..."
-exec "$@"
-```
+Producción:
+    npm start
+o con puerto distinto:
+    PORT=4000 npm start
 
----
+----------------------------------------------------------------------------
+ESTRUCTURA DEL PROYECTO (resumen)
+----------------------------------------------------------------------------
+.
+├─ app.js                         # servidor Express
+├─ routes/
+│  ├─ pilares.js                  # /api/pilares/compute
+│  ├─ reportes.js                 # /api/reportes/pilares/:format
+│  └─ informes.js                 # /api/informes/export/:format  (CSV)
+├─ controllers/
+│  ├─ pilaresController.js        # orquesta servicios y valida req
+│  ├─ reportePilaresController.js # genera PDF/DOCX (pág. 6)
+│  └─ informeController.js        # export CSV a PDF/DOCX
+├─ services/
+│  └─ pilares.js                  # lógica de cálculo (pág. 1–5)
+├─ public/
+│  ├─ index.html                  # UI completa
+│  ├─ script.js                   # lógica front (CSV + pilares + reportes)
+│  └─ styles.css                  # estilos
+└─ package.json
 
-### 🐳 Cambios en el `Dockerfile`
-Se modificó el `Dockerfile` para:
+Nota: los nombres exactos pueden variar según tu repo; arriba está lo que usamos en esta implementación.
 
-1. Instalar `netcat`.
-2. Copiar y dar permisos al script `wait-for-db.sh`.
-3. Usar el script como punto de entrada del contenedor.
+----------------------------------------------------------------------------
+USO (UI)
+----------------------------------------------------------------------------
+1) CSV
+   - Pega texto "Variable,Frecuencia" y pulsa "Procesar Datos".
+   - Exporta desde “Resultados” a PDF/DOCX.
 
-**Nuevo Dockerfile:**
-```dockerfile
-FROM node:14
+2) Pilares / Viento (pág. 1–2)
+   - Elige Tipo de Pilar (corrido/aislado).
+   - Completa V, FRz, Kzt, Fx, T, P.
+   - En Brace: θ, NB (opcional), tipo, Y inserto.
+   - (Opcional) Segmentación: sMax y/o longitudes por segmento.
 
-WORKDIR /app
+3) Muertos (pág. 3–5)
+   - Parámetros generales (µ, densidad, SF, “braces por grupo”).
+   - Dimensiones L, A, h mínima.
+   - Armado: recubrimiento, espac. longitudinal inicial, tipo de varilla (o φ),
+     s de estribos y barras por nivel (sup/med/inf).
+   - Alambre: La por nudo y Ø alambre.
+   - Pulsa “Calcular pilar” → verás KPIs y tablas (segmentos, bloque, acero,
+     alambre, totales).
 
-COPY Backend/package*.json ./
+4) Reporte (pág. 6)
+   - En “6/7 — Generar Reporte” escribe Eje y Muro.
+   - “Agregar Deadman” → precarga X y espaciamientos desde lo calculado
+     (puedes editar).
+   - “Agregar Brace” → precarga cantidad/ángulo/NB/Y desde lo calculado.
+   - Descarga Reporte (PDF) o (DOCX).
 
-RUN apt-get update && apt-get install -y netcat
+----------------------------------------------------------------------------
+ENDPOINTS (para test rápido)
+----------------------------------------------------------------------------
+1) Cálculo de pilares
+   POST /api/pilares/compute
+   Content-Type: application/json
 
-RUN npm install
+   Body mínimo (pilar corrido):
+   {
+     "tipoPilar":"corrido",
+     "sitio":{"V":32,"FRz":1,"Kzt":1,"Fx":1,"T":20,"P":1013.25},
+     "geom":{"h":3,"L":5},
+     "coeficientes":{"Cp_muro":0.8},
+     "brace":{"theta":45,"NB":1.2,"yInserto":3,"tipo":"B04"},
+     "diseno":{"sMax":4},
+     "segmentos":[5],
+     "muerto":{
+       "mu":0.4,"densidad":2400,"sf":1.0,"grupoSize":2,
+       "dim":{"L":1.0,"A":0.6,"hMin":0.5},
+       "armado":{
+         "rec":0.04,"espLongIni":0.25,
+         "tipoLong":"#4","tipoEstr":"#3",
+         "sEstribo_m":0.2,"nSup":2,"nMed":0,"nInf":2
+       },
+       "alambre":{"La":0.25,"d_mm":1.2}
+     }
+   }
 
-COPY Backend ./
+2) Reporte (PDF/DOCX)
+   POST /api/reportes/pilares/pdf
+   POST /api/reportes/pilares/docx
 
-COPY Backend/wait-for-db.sh /wait-for-db.sh
-RUN chmod +x /wait-for-db.sh
+   Body:
+   {
+     "reporte": {
+       "deadman":[{"eje":"A","muro":"Muro 1","tipo":"rect","espLong":0.25,"espTransv":0.2,"X":1.6}],
+       "braces":[{"eje":"A","muro":"Muro 1","tipo":"B04","cantidad":4,"X":1.6,"theta":45,"NB":1.2,"Y":3}]
+     },
+     "calculos": { ...respuesta de /api/pilares/compute... }
+   }
 
-EXPOSE 3000
+----------------------------------------------------------------------------
+DATOS DE EJEMPLO RÁPIDOS
+----------------------------------------------------------------------------
+seed.csv
+Variable,Frecuencia
+48,1
+49,2
+50,3
+51,4
+52,5
 
-CMD ["/wait-for-db.sh", "npm", "start"]
-```
+----------------------------------------------------------------------------
+SCRIPTS DISPONIBLES
+----------------------------------------------------------------------------
+En package.json:
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js"
+  }
 
----
+----------------------------------------------------------------------------
+SOLUCIÓN DE PROBLEMAS
+----------------------------------------------------------------------------
+- “app crashed – waiting for file changes”:
+  Revisa la consola: suele ser un error de sintaxis en algún .js.
+  Corrige y nodemon se reinicia solo.
 
-### 🌐 Corrección de CORS en `app.js`
-- Se resolvió un error de CORS usando el paquete `cors`, aceptando el origen `http://127.0.0.1:3000`.
+- Puerto en uso:
+    PORT=4000 npm start
 
-**Configuración en el `.env`:**
-```env
-ORIGIN=http://127.0.0.1:3000
-```
+- PDF/DOCX no descargan:
+    npm i pdfkit docx
+  Revisa que app.js tenga montadas las rutas reportes e informes.
 
-**Uso en `app.js`:**
-```js
-import cors from 'cors';
+- Windows: “npm/node no se reconoce”:
+  Reinstala Node LTS y asegúrate de que
+    C:\Program Files\nodejs
+  esté en PATH. Cierra y reabre la terminal.
 
-app.use(cors({
-  origin: process.env.ORIGIN,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
-```
+----------------------------------------------------------------------------
+ESTADO / ROADMAP
+----------------------------------------------------------------------------
+- Pág. 1–6 implementadas (incluye alambre y reporte).
+- Deadman triangular y aislado: placeholders en UI; cálculo específico pendiente.
 
----
-
-### ⚠️ Corrección de IP en servidor Express
-- Se identificó que `process.env.IP` estaba definido como `"localhost"`, lo cual impedía conexiones externas.
-- Se eliminó el uso de esa variable y se forzó el backend a escuchar en `0.0.0.0`.
-
-**Código actualizado:**
-```js
-app.listen(port, '0.0.0.0', () => {
-  console.log(`Server is running on http://0.0.0.0:${port}`);
-});
-```
-
----
-
-## 📁 Frontend
-
-### 🌍 Cambios en el archivo `.env`
-- Se reemplazó:
-  ```env
-  VITE_APP_HOST=localhost
-  ```
-  por:
-  ```env
-  VITE_APP_HOST=0.0.0.0
-  ```
-
-- Se añadió la variable:
-  ```env
-  VITE_BACKEND_URL=http://127.0.0.1:4000
-  ```
-
----
-
-### 🧩 Corrección de importaciones sensibles a mayúsculas
-En el archivo `src/components/User.jsx` se encontraron importaciones como:
-
-```js
-import Formulario from './User/Formulario';
-import ListaUsuarios from './User/ListaUsuario';
-```
-
-Pero la carpeta correcta es `user` (en minúsculas). En sistemas Linux esto genera errores.
-
-**Soluciones:**
-
-1. Renombrar la carpeta a `User`, o
-2. Corregir las importaciones:
-
-```js
-import Formulario from './user/Formulario';
-import ListaUsuarios from './user/ListaUsuario';
-```
+----------------------------------------------------------------------------
+LICENCIA
+----------------------------------------------------------------------------
+Uso interno/educativo (ajústalo según tus necesidades).
