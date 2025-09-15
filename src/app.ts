@@ -3,7 +3,7 @@ import cors from 'cors';
 import morgan from 'morgan';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import importRouter from './routes/import.js';
+import router from './routes/import.js';
 import estructuralRouter from './routes/estructural.js';
 
 const app = express();
@@ -16,7 +16,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
-app.use('/api/import', importRouter);
+app.use('/api/import', router);
 app.use('/api/estructural', estructuralRouter);
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
