@@ -1,289 +1,47 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>PuntaLink - Sistema de Análisis</title>
-  <link rel="stylesheet" href="styles.css"/>
-</head>
-<body>
-  <header class="header">
-    <div class="container header__inner">
-      <h1 class="brand">PuntaLink</h1>
-      <span class="muted">Sistema de análisis y cálculo</span>
-    </div>
-  </header>
-
-  <main class="container space-y">
-    <!-- ===== CSV Estadística ===== -->
-    <section class="card">
-      <h2 class="section-title">Importar Datos desde TXT</h2>
-      <div class="field">
-        <label for="txtInput">Selecciona tu archivo .TXT exportado</label>
-        <input type="file" id="txtInput" accept=".txt" />
-      </div>
-      <div class="actions">
-        <button id="btnUploadTxt" class="btn">Subir y procesar TXT</button>
-      </div>
-      <div id="tablaPaneles"></div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PuntaLink Pro - Carga y Cálculo</title>
+  </head>
+  <body>
+    <h1>PuntaLink Pro</h1>
+    <section>
+      <h2>1) Cargar archivo (.txt/.csv)</h2>
+      <form id="uploadForm">
+        <input type="file" name="file" accept=".txt,.csv" required />
+        <button type="submit">Subir y parsear</button>
+      </form>
+      <pre id="out"></pre>
     </section>
-
-
-    <section id="results-section" class="card hidden">
-      <h2 class="section-title">Resultados</h2>
-      <div id="summary" class="summary grid-3"></div>
-      <div class="table-wrap">
-        <table id="results-table"></table>
-      </div>
-      <div id="export-section" class="actions">
-        <button id="export-pdf-btn" class="btn">Exportar a PDF</button>
-        <button id="export-docx-btn" class="btn btn--ghost">Exportar a DOCX</button>
-      </div>
+    <section>
+      <h2>2) Ejecutar cálculos</h2>
+      <button id="btnCalc">Calcular con ejemplo</button>
+      <pre id="calcOut"></pre>
     </section>
-
-    <hr/>
-
-    <!-- ===== Pilares / Viento ===== -->
-    <section class="grid gap">
-      <div class="card">
-        <h2 class="section-title">Tipo de Pilar</h2>
-        <div class="field">
-          <label for="tipo-pilar">Selecciona</label>
-          <select id="tipo-pilar">
-            <option value="corrido">Pilar corrido (muro)</option>
-            <option value="aislado">Pilar aislado (cilíndrico)</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2 class="section-title">Datos del sitio / viento</h2>
-        <div class="grid-3 gap">
-          <div class="field"><label>V (m/s)</label><input id="V" type="number" step="0.1" placeholder="32"></div>
-          <div class="field"><label>F(Rz)</label><input id="FRz" type="number" step="0.01" value="1"></div>
-          <div class="field"><label>Kzt</label><input id="Kzt" type="number" step="0.01" value="1"></div>
-          <div class="field"><label>Fx</label><input id="Fx" type="number" step="0.01" value="1"></div>
-          <div class="field"><label>T (°C)</label><input id="T" type="number" step="0.1" value="20"></div>
-          <div class="field"><label>P (hPa)</label><input id="P" type="number" step="0.01" value="1013.25"></div>
-        </div>
-      </div>
-    </section>
-
-    <section class="grid gap">
-      <div id="geom-corrido" class="card">
-        <h2 class="section-title">Geometría (muro)</h2>
-        <div class="grid-3 gap">
-          <div class="field"><label>h (m)</label><input id="h" type="number" step="0.01" placeholder="3.0"></div>
-          <div class="field"><label>L (m)</label><input id="L" type="number" step="0.01" placeholder="5.0"></div>
-          <div class="field"><label>Cp muro</label><input id="Cp" type="number" step="0.01" value="0.8"></div>
-        </div>
-      </div>
-
-      <div id="geom-aislado" class="card hidden">
-        <h2 class="section-title">Geometría (cilíndrico)</h2>
-        <div class="grid-3 gap">
-          <div class="field"><label>h (m)</label><input id="h_iso" type="number" step="0.01" placeholder="3.5"></div>
-          <div class="field"><label>D (m)</label><input id="D" type="number" step="0.01" placeholder="0.25"></div>
-          <div class="field"><label>Cd cilindro</label><input id="Cd" type="number" step="0.01" value="1.2"></div>
-        </div>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2 class="section-title">Brace</h2>
-      <div class="grid-3 gap">
-        <div class="field"><label>θ (grados)</label><input id="theta" type="number" step="0.1" value="45"></div>
-        <div class="field"><label>NB (m, opcional)</label><input id="NB" type="number" step="0.01" placeholder="1.2"></div>
-        <div class="field"><label>Tipo (catálogo)</label><input id="tipoBrace" type="text" placeholder="B04 / B7a …"></div>
-        <div class="field"><label>Y inserto (m)</label><input id="yInserto" type="number" step="0.01" placeholder="(por defecto: h)"></div>
-      </div>
-      <div class="actions">
-        <button id="calc-pilares" class="btn">Calcular pilar</button>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2 class="section-title">Disposición / Segmentación (tilt-up / precast)</h2>
-      <div class="grid-3 gap">
-        <div class="field"><label>sMax (m) máx. entre braces</label><input id="sMax" type="number" step="0.01" placeholder="4.0"></div>
-        <div class="field"><label>Segmentos (m) CSV</label><input id="segmentos" type="text" placeholder="ej: 6,3.5,4.2"></div>
-        <div class="field"><label class="muted">Tip</label><div class="muted">Si no indicas segmentos, se toma 1 segmento = L del muro.</div></div>
-      </div>
-    </section>
-
-    <!-- ===== Muertos / Anclaje (pág. 3–5) ===== -->
-    <section class="card">
-      <h2 class="section-title">Muertos / Anclaje (pág. 3–5)</h2>
-      <div class="grid-3 gap">
-        <!-- parámetros generales -->
-        <div class="field"><label>µ (fricción)</label><input id="mu" type="number" step="0.01" value="0.40"></div>
-        <div class="field"><label>Densidad (kg/m³)</label><input id="densidad" type="number" step="1" value="2400"></div>
-        <div class="field"><label>Factor seguridad (SF)</label><input id="sf" type="number" step="0.1" value="1.0"></div>
-
-        <div class="field"><label>Braces por grupo</label><input id="grupoSize" type="number" step="1" value="2"></div>
-
-        <!-- dimensiones del bloque -->
-        <div class="field"><label>L (m) bloque</label><input id="Lm" type="number" step="0.01" value="1.00"></div>
-        <div class="field"><label>A (m) bloque</label><input id="Am" type="number" step="0.01" value="0.60"></div>
-        <div class="field"><label>h mínima (m)</label><input id="hMin" type="number" step="0.01" value="0.50"></div>
-
-        <!-- armado base -->
-        <div class="field"><label>Recubrimiento (m)</label><input id="rec" type="number" step="0.005" value="0.04"></div>
-        <div class="field"><label>Esp. long. inicial (m)</label><input id="espLongIni" type="number" step="0.01" value="0.25"></div>
-
-        <!-- selección de varillas y φ -->
-        <div class="field">
-          <label>Tipo varilla LONG</label>
-          <select id="tipoLong">
-            <option value="">(usar φ)</option>
-            <option value="#3">#3</option>
-            <option value="#4">#4</option>
-            <option value="#5">#5</option>
-            <option value="#6">#6</option>
-          </select>
-        </div>
-        <div class="field"><label>φ long (mm)</label><input id="phiLong" type="number" step="0.1" placeholder="12"></div>
-
-        <div class="field">
-          <label>Tipo varilla ESTR</label>
-          <select id="tipoEstr">
-            <option value="">(usar φ)</option>
-            <option value="#3">#3</option>
-            <option value="#4">#4</option>
-            <option value="#5">#5</option>
-            <option value="#6">#6</option>
-          </select>
-        </div>
-        <div class="field"><label>φ estribo (mm)</label><input id="phiEstr" type="number" step="0.1" placeholder="8"></div>
-        <div class="field"><label>s estribo (m)</label><input id="sEstribo" type="number" step="0.01" value="0.20"></div>
-
-        <!-- # barras por nivel -->
-        <div class="field"><label># long. superior</label><input id="nSup" type="number" step="1" value="2"></div>
-        <div class="field"><label># long. medio</label><input id="nMed" type="number" step="1" value="0"></div>
-        <div class="field"><label># long. inferior</label><input id="nInf" type="number" step="1" value="2"></div>
-
-        <!-- Alambre de amarre -->
-        <div class="field"><label>La amarre (m)</label><input id="La" type="number" step="0.01" value="0.25"></div>
-        <div class="field"><label>Ø alambre (mm)</label><input id="dAlambre" type="number" step="0.01" value="1.2"></div>
-      </div>
-    </section>
-
-    <section id="salida-pilares" class="card hidden">
-      <h2 class="section-title">Resultados Pilar</h2>
-
-      <!-- KPIs viento / geometría -->
-      <div class="kpis grid-4">
-        <div class="kpi"><span class="kpi__label">q<sub>z,site</sub></span><span id="kpi-qz" class="kpi__val">—</span><small class="muted">kPa</small></div>
-        <div class="kpi"><span class="kpi__label">F viento</span><span id="kpi-F" class="kpi__val">—</span><small class="muted">kN</small></div>
-        <div class="kpi"><span class="kpi__label">Área A</span><span id="kpi-A" class="kpi__val">—</span><small class="muted">m²</small></div>
-        <div class="kpi"><span class="kpi__label">L brace</span><span id="kpi-Lb" class="kpi__val">—</span><small class="muted">m</small></div>
-      </div>
-
-      <!-- KPIs del bloque “muerto” -->
-      <div class="kpis grid-4 mt">
-        <div class="kpi"><span class="kpi__label">W requerido</span><span id="kpi-W" class="kpi__val">—</span><small class="muted">kN</small></div>
-        <div class="kpi"><span class="kpi__label">Volumen</span><span id="kpi-Vol" class="kpi__val">—</span><small class="muted">m³</small></div>
-        <div class="kpi"><span class="kpi__label">h bloque</span><span id="kpi-h" class="kpi__val">—</span><small class="muted">m</small></div>
-        <div class="kpi"><span class="kpi__label"># varillas</span><span id="kpi-nLong" class="kpi__val">—</span><small class="muted">long.</small></div>
-      </div>
-
-      <!-- KPI acero total -->
-      <div class="kpis grid-4 mt">
-        <div class="kpi"><span class="kpi__label">Acero total</span><span id="kpi-kgSteel" class="kpi__val">—</span><small class="muted">kg</small></div>
-      </div>
-
-      <!-- tablas -->
-      <div class="table-wrap mt">
-        <table id="tabla-segmentos"></table>
-      </div>
-
-      <div class="table-wrap mt">
-        <table id="tabla-muertos"></table>
-      </div>
-
-      <div class="table-wrap mt">
-        <table id="tabla-acero"></table>
-      </div>
-
-      <div class="table-wrap mt">
-        <table id="tabla-alambre"></table>
-      </div>
-
-      <div class="table-wrap mt">
-        <table id="tabla-totales"></table>
-      </div>
-
-      <details class="mt">
-        <summary>Ver JSON completo</summary>
-        <pre id="json-out"></pre>
-      </details>
-    </section>
-
-    <!-- ===== 6/7 — Generar Reporte ===== -->
-    <section class="card">
-      <h2 class="section-title">6/7 — Generar Reporte</h2>
-
-      <div class="grid-3 gap">
-        <div class="field"><label>Eje</label><input id="rep-eje" type="text" placeholder="Ej: A"></div>
-        <div class="field"><label>Nombre del Muro</label><input id="rep-muro" type="text" placeholder="Muro 1"></div>
-        <div class="field">
-          <label>Tipo de Deadman</label>
-          <select id="rep-dead-tipo">
-            <option value="rect">Rectangular</option>
-            <option value="tri">Triangular (en desarrollo)</option>
-            <option value="aislado">Aislado (en desarrollo)</option>
-          </select>
-        </div>
-
-        <div class="field"><label>Esp. Long (m)</label><input id="rep-espLong" type="number" step="0.01" placeholder="auto"></div>
-        <div class="field"><label>Esp. Transv (m)</label><input id="rep-espTransv" type="number" step="0.01" placeholder="auto"></div>
-        <div class="field"><label>X (m)</label><input id="rep-X" type="number" step="0.01" placeholder="auto"></div>
-      </div>
-
-      <div class="actions">
-        <button id="btn-add-deadman" class="btn">Agregar Deadman (desde cálculos)</button>
-      </div>
-
-      <div class="table-wrap mt">
-        <table id="tabla-deadman"></table>
-      </div>
-
-      <hr class="my"/>
-
-      <div class="grid-4 gap">
-        <div class="field"><label>Cantidad de Braces</label><input id="rep-br-cantidad" type="number" step="1" placeholder="auto"></div>
-        <div class="field"><label>Tipo Brace</label><input id="rep-br-tipo" type="text" placeholder="auto"></div>
-        <div class="field"><label>NB ± (m)</label><input id="rep-br-nb" type="number" step="0.01" placeholder="auto"></div>
-        <div class="field"><label>Y (m)</label><input id="rep-br-y" type="number" step="0.01" placeholder="auto"></div>
-      </div>
-
-      <div class="actions">
-        <button id="btn-add-brace" class="btn btn--ghost">Agregar Brace (desde cálculos)</button>
-      </div>
-
-      <div class="table-wrap mt">
-        <table id="tabla-braces"></table>
-      </div>
-
-      <div class="actions mt">
-        <button id="btn-rep-pdf" class="btn">Descargar Reporte (PDF)</button>
-        <button id="btn-rep-docx" class="btn btn--ghost">Descargar Reporte (DOCX)</button>
-      </div>
-    </section>
-
-    <!-- Loader -->
-    <div id="loading" class="loading hidden">
-      <div class="spinner"></div>
-      <span>Procesando…</span>
-    </div>
-  </main>
-
-  <footer class="footer">
-    <div class="container">
-      <p>© <span id="year"></span> PuntaLink — Todos los derechos reservados</p>
-    </div>
-  </footer>
-
-  <script src="script.js"></script>
-</body>
+    <script>
+      const out = document.getElementById('out');
+      const calcOut = document.getElementById('calcOut');
+      document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const r = await fetch('/api/import', { method: 'POST', body: fd });
+        const j = await r.json();
+        out.textContent = JSON.stringify(j, null, 2);
+      });
+      document.getElementById('btnCalc').addEventListener('click', async () => {
+        const body = {
+          datos: [
+            { Variable: 10, Frecuencia: 3 },
+            { Variable: 12, Frecuencia: 2 },
+            { Variable: 9,  Frecuencia: 1 }
+          ]
+        };
+        const r = await fetch('/api/calculos/procesar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const j = await r.json();
+        calcOut.textContent = JSON.stringify(j, null, 2);
+      });
+    </script>
+  </body>
 </html>
