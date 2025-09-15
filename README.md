@@ -1,59 +1,42 @@
-# PuntaLink Pro (mejorado)
+# PuntaLink TS Struct (TypeScript)
 
-Repositorio base (TypeScript + Express) para cargar archivos `.txt`/`.csv` con datos de paneles y ejecutar cálculos (frecuencias y estadísticos) útiles para el flujo de **PuntaLink**.
+Base lista en **TypeScript + Express** para:
+- Cargar archivos `.txt/.csv` (`/api/import`).
+- Ejecutar **cálculos estructurales básicos** (`/api/estructural/calc`) y servir un front mínimo.
 
-## Características
-- API REST con Express (TypeScript).
-- Endpoint para **subir y parsear** archivos `.txt`/`.csv` (`/api/import`).
-- Endpoint para **procesar cálculos** a partir de datos tabulares (`/api/calculos/procesar`).
-- Parser tolerante a coma decimal, separador coma o tab.
-- Estructura modular (routes/controllers/services/lib).
-- Lista para Docker y CI mínimo.
+> Nota: Las fórmulas de `src/services/estructural.ts` son **plantillas** para que adaptes con tu **esquema de cálculos** (viento, "muertos" cilíndricos/aislados, etc.).
 
-## Rutas
-- `POST /api/import` → `multipart/form-data` con `file`: `.txt`/`.csv`. Responde filas parseadas.
-- `POST /api/calculos/procesar` → JSON como:
-  ```json
-  {
-    "datos": [
-      {"Variable": 10, "Frecuencia": 3},
-      {"Variable": 12, "Frecuencia": 2}
-    ]
-  }
-  ```
-  Devuelve resumen (media, mediana, moda, varianza, etc.) y frecuencias acumuladas.
+## Requisitos
+- Node 18 o 20
 
-## Uso local
+## Uso
 ```bash
 cp .env.example .env
 npm i
 npm run dev
-# Abrir http://localhost:3000
+# http://localhost:3000
 ```
 
-## Docker
-```bash
-docker compose up --build
+### Endpoints
+- `POST /api/import` → `multipart/form-data` con `file`.
+- `POST /api/estructural/calc` → Body JSON de ejemplo:
+```json
+{
+  "velocidadViento": 28,
+  "coefForma": 1.2,
+  "areaExpuesta": 12.5,
+  "alturaPanel": 3.0,
+  "anchoPanel": 4.2,
+  "densidadHormigon": 2400,
+  "seguridad": 1.5
+}
 ```
 
-## Estructura
-```
-src/
-  app.ts
-  server.ts
-  routes/
-    import.ts
-    calculos.ts
-  controllers/
-    calculosController.ts
-  services/
-    calculos.ts
-  lib/
-    parser.ts
-public/
-  index.html
-```
+## Dónde editar tus fórmulas
+- `src/services/estructural.ts`: implementa/ajusta:
+  - `calcularCargasBasicas()`
+  - `dimensionarMuertos()`
+  - `calcularEstructural()`
 
-## Notas
-- Adapta `src/lib/parser.ts` si tu TXT tiene encabezados distintos.
-- Conecta tu lógica estructural a partir de `src/services/calculos.ts`.
+### Siguiente paso
+Pásame tu **esquema exacto** (variables + ecuaciones) y te lo dejo integrado.

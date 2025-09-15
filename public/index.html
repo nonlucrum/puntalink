@@ -3,21 +3,21 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>PuntaLink Pro - Carga y Cálculo</title>
+    <title>PuntaLink TS Struct</title>
   </head>
   <body>
-    <h1>PuntaLink Pro</h1>
+    <h1>PuntaLink TS Struct</h1>
     <section>
-      <h2>1) Cargar archivo (.txt/.csv)</h2>
+      <h2>Subir archivo (.txt/.csv)</h2>
       <form id="uploadForm">
         <input type="file" name="file" accept=".txt,.csv" required />
-        <button type="submit">Subir y parsear</button>
+        <button type="submit">Parsear</button>
       </form>
       <pre id="out"></pre>
     </section>
     <section>
-      <h2>2) Ejecutar cálculos</h2>
-      <button id="btnCalc">Calcular con ejemplo</button>
+      <h2>Calcular (ejemplo rápido)</h2>
+      <button id="btnCalc">Calcular estructural</button>
       <pre id="calcOut"></pre>
     </section>
     <script>
@@ -27,20 +27,20 @@
         e.preventDefault();
         const fd = new FormData(e.target);
         const r = await fetch('/api/import', { method: 'POST', body: fd });
-        const j = await r.json();
-        out.textContent = JSON.stringify(j, null, 2);
+        out.textContent = JSON.stringify(await r.json(), null, 2);
       });
       document.getElementById('btnCalc').addEventListener('click', async () => {
         const body = {
-          datos: [
-            { Variable: 10, Frecuencia: 3 },
-            { Variable: 12, Frecuencia: 2 },
-            { Variable: 9,  Frecuencia: 1 }
-          ]
+          velocidadViento: 28,
+          coefForma: 1.2,
+          areaExpuesta: 12.5,
+          alturaPanel: 3.0,
+          anchoPanel: 4.2,
+          densidadHormigon: 2400,
+          seguridad: 1.5
         };
-        const r = await fetch('/api/calculos/procesar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-        const j = await r.json();
-        calcOut.textContent = JSON.stringify(j, null, 2);
+        const r = await fetch('/api/estructural/calc', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        calcOut.textContent = JSON.stringify(await r.json(), null, 2);
       });
     </script>
   </body>
