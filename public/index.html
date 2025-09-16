@@ -1,47 +1,192 @@
 <!doctype html>
 <html lang="es">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>PuntaLink TS Struct</title>
-  </head>
-  <body>
-    <h1>PuntaLink TS Struct</h1>
-    <section>
-      <h2>Subir archivo (.txt/.csv)</h2>
-      <form id="uploadForm">
-        <input type="file" name="file" accept=".txt,.csv" required />
-        <button type="submit">Parsear</button>
-      </form>
-      <pre id="out"></pre>
-    </section>
-    <section>
-      <h2>Calcular (ejemplo rápido)</h2>
-      <button id="btnCalc">Calcular estructural</button>
-      <pre id="calcOut"></pre>
-    </section>
-    <script>
-      const out = document.getElementById('out');
-      const calcOut = document.getElementById('calcOut');
-      document.getElementById('uploadForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const fd = new FormData(e.target);
-        const r = await fetch('/api/import', { method: 'POST', body: fd });
-        out.textContent = JSON.stringify(await r.json(), null, 2);
-      });
-      document.getElementById('btnCalc').addEventListener('click', async () => {
-        const body = {
-          velocidadViento: 28,
-          coefForma: 1.2,
-          areaExpuesta: 12.5,
-          alturaPanel: 3.0,
-          anchoPanel: 4.2,
-          densidadHormigon: 2400,
-          seguridad: 1.5
-        };
-        const r = await fetch('/api/estructural/calc', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-        calcOut.textContent = JSON.stringify(await r.json(), null, 2);
-      });
-    </script>
-  </body>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PuntaLink R1</title>
+  <style>
+    body{font-family:system-ui,Arial,sans-serif;max-width:1100px;margin:24px auto;padding:0 16px}
+    section{border:1px solid #ddd;border-radius:12px;padding:16px;margin:14px 0}
+    label{display:block;margin:8px 0 4px}
+    input,button,textarea{font:inherit}
+    button{padding:8px 12px;border-radius:8px;border:1px solid #999;cursor:pointer}
+    pre{background:#fafafa;border:1px solid #eee;padding:12px;border-radius:8px;overflow:auto;max-height:300px}
+    table{border-collapse:collapse;width:100%;margin-top:8px}
+    th,td{border:1px solid #ccc;padding:6px;text-align:center}
+    thead{background:#f5f5f5}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .ok{color:#0a7}.err{color:#c00}
+  </style>
+</head>
+<body>
+  <h1>PuntaLink R1</h1>
+  <p id="status">Servidor: comprobando…</p>
+
+  <!-- 1) SUBIR ARCHIVO -->
+  <section>
+    <h2>1) Subir archivo (.txt/.csv)</h2>
+    <form id="uploadForm">
+      <input type="file" name="file" accept=".txt,.csv" required />
+      <button type="submit">Subir y parsear</button>
+    </form>
+    <pre id="uploadOut"></pre>
+  </section>
+
+  <!-- 2) PREVIEW PANELS PLUS -->
+  <section>
+    <h2>2) Vista previa Panels Plus</h2>
+    <label for="raw">Pega aquí tu reporte Panels Plus (.txt):</label>
+    <textarea id="raw" rows="10" style="width:100%"></textarea>
+    <div style="margin-top:8px">
+      <button id="btnPreview">Previsualizar</button>
+    </div>
+    <div id="previewOut"></div>
+  </section>
+
+  <!-- 3) PARÁMETROS MANUALES -->
+  <section>
+    <h2>3) Parámetros manuales</h2>
+    <div class="grid">
+      <div>
+        <label>Velocidad del viento</label>
+        <input id="vVal" type="number" step="any" value="72" />
+        <select id="vUnit"><option value="km/h" selected>km/h</option><option value="m/s">m/s</option></select>
+        <label>Cd</label><input id="coef" type="number" step="any" value="1.2" />
+        <label>Área expuesta (m²)</label><input id="area" type="number" step="any" value="12.5" />
+        <label>Alto panel (m)</label><input id="alto" type="number" step="any" value="3" />
+        <label>Ancho panel (m)</label><input id="ancho" type="number" step="any" value="4.2" />
+        <label>Seguridad</label><input id="seg" type="number" step="any" value="1.5" />
+        <div style="margin-top:8px"><button id="btnParams">Enviar parámetros</button></div>
+      </div>
+      <div>
+        <strong>Normalización</strong>
+        <pre id="paramsOut"></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4) CÁLCULO -->
+  <section>
+    <h2>4) Cálculo estructural</h2>
+    <button id="btnCalc">Calcular con los valores de arriba</button>
+    <pre id="calcOut"></pre>
+  </section>
+
+  <!-- 5) PROYECTOS -->
+  <section>
+    <h2>5) Proyectos</h2>
+    <div class="grid">
+      <div>
+        <label>Nombre</label><input id="projName" type="text" value="Muro A" />
+        <div style="margin-top:8px"><button id="btnCreateProj">Crear proyecto</button></div>
+      </div>
+      <div>
+        <button id="btnListProj">Listar proyectos</button>
+        <div id="projectsTable" style="margin-top:8px"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6) PDF -->
+  <section>
+    <h2>6) Generar PDF</h2>
+    <button id="btnPdf">Descargar informe.pdf</button>
+  </section>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const api = (p) => p;
+
+    async function health(){
+      try{const r=await fetch(api('/api/health')); const j=await r.json();
+        $('status').textContent=j.ok?'Servidor OK':'Servidor con problemas';
+        $('status').className=j.ok?'ok':'err';
+      }catch{ $('status').textContent='Servidor no responde'; $('status').className='err';}
+    }
+
+    function renderTable(headers, rows){
+      if(!rows?.length) return '<em>Sin datos</em>';
+      let h='<table><thead><tr>';
+      headers.forEach(c=>h+=`<th>${c}</th>`); h+='</tr></thead><tbody>';
+      rows.forEach(r=>{ h+='<tr>'; headers.forEach(c=>h+=`<td>${r[c]??''}</td>`); h+='</tr>';});
+      return h+='</tbody></table>';
+    }
+
+    function collectParams(){
+      const v={valor:Number($('vVal').value), unidad:$('vUnit').value};
+      return { velocidadViento:v, coefForma:Number($('coef').value), areaExpuesta:Number($('area').value),
+               altoPanel:Number($('alto').value), anchoPanel:Number($('ancho').value), seguridad:Number($('seg').value) };
+    }
+
+    // 1) Upload
+    $('uploadForm').addEventListener('submit', async e=>{
+      e.preventDefault();
+      const fd=new FormData(e.target);
+      const r=await fetch(api('/api/import'),{method:'POST',body:fd});
+      $('uploadOut').textContent=JSON.stringify(await r.json(),null,2);
+    });
+
+    // 2) Preview
+    $('btnPreview').addEventListener('click', async ()=>{
+      const raw=$('raw').value;
+      const r=await fetch(api('/api/preview'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({raw})});
+      const j=await r.json();
+      if(j.kind==='panelsplus'){
+        $('previewOut').innerHTML=`<p><strong>Panels Plus</strong> — filas: ${j.count}</p>${renderTable(j.headers,j.sample)}`;
+      }else{
+        $('previewOut').innerHTML=`<p><strong>CSV/TSV</strong></p><pre>${JSON.stringify(j.sample,null,2)}</pre>`;
+      }
+    });
+
+    // 3) Params
+    $('btnParams').addEventListener('click', async ()=>{
+      const body=collectParams();
+      const r=await fetch(api('/api/params'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      $('paramsOut').textContent=JSON.stringify(await r.json(),null,2);
+    });
+
+    // 4) Calc
+    $('btnCalc').addEventListener('click', async ()=>{
+      const p=collectParams();
+      const payload={velocidadViento:p.velocidadViento.unidad==='km/h'?p.velocidadViento.valor/3.6:p.velocidadViento.valor,
+                     coefForma:p.coefForma, areaExpuesta:p.areaExpuesta, alturaPanel:p.altoPanel, anchoPanel:p.anchoPanel,
+                     densidadHormigon:2400, seguridad:p.seguridad};
+      const r=await fetch(api('/api/estructural/calc'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      $('calcOut').textContent=JSON.stringify(await r.json(),null,2);
+    });
+
+    // 5) Proyectos
+    async function renderProjects(list){
+      if(!Array.isArray(list)||!list.length){ $('projectsTable').innerHTML='<em>No hay proyectos</em>'; return; }
+      const headers=['id','name','createdAt'];
+      $('projectsTable').innerHTML=renderTable(headers,list.map(p=>({id:p.id,name:p.name,createdAt:new Date(p.createdAt).toLocaleString()})));
+    }
+    $('btnCreateProj').addEventListener('click', async ()=>{
+      const p=collectParams();
+      const payload={velocidadViento:p.velocidadViento.unidad==='km/h'?p.velocidadViento.valor/3.6:p.velocidadViento.valor,
+                     coefForma:p.coefForma, areaExpuesta:p.areaExpuesta, alturaPanel:p.altoPanel, anchoPanel:p.anchoPanel,
+                     densidadHormigon:2400, seguridad:p.seguridad};
+      const r=await fetch(api('/api/projects'),{method:'POST',headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({name:$('projName').value||'Proyecto',params:payload})});
+      const j=await r.json(); alert(r.ok?'Proyecto creado':'Error: '+(j.error||r.status));
+    });
+    $('btnListProj').addEventListener('click', async ()=>{
+      const r=await fetch(api('/api/projects')); renderProjects(await r.json());
+    });
+
+    // 6) PDF
+    $('btnPdf').addEventListener('click', async ()=>{
+      const p=collectParams();
+      const payload={velocidadViento:p.velocidadViento.unidad==='km/h'?p.velocidadViento.valor/3.6:p.velocidadViento.valor,
+                     coefForma:p.coefForma, areaExpuesta:p.areaExpuesta, alturaPanel:p.altoPanel, anchoPanel:p.anchoPanel,
+                     densidadHormigon:2400, seguridad:p.seguridad};
+      const r=await fetch(api('/api/report/pdf'),{method:'POST',headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({params:payload,titulo:'Informe PuntaLink'})});
+      const blob=await r.blob(); const url=URL.createObjectURL(blob);
+      const a=document.createElement('a'); a.href=url; a.download='informe.pdf'; a.click(); URL.revokeObjectURL(url);
+    });
+
+    health();
+  </script>
+</body>
 </html>
