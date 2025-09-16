@@ -1,10 +1,10 @@
-import 'dotenv/config';
-import app from './app.js';
-import pool from './db.js';
+import app from './app';
+import pool from './db';
 
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
+
 app.listen(PORT, () => {
-  console.log(`[puntalink-pro-ts-struct] Servidor en puerto ${PORT}`);
+  console.log(`Servidor escuchando en puerto ${PORT}`);
 });
 
 // Funcion Prueba Conexion DB
