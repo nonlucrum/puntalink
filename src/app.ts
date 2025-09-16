@@ -77,14 +77,18 @@ function parseTXT_MinColumns(raw: string) {
     if (!ln) continue;
     if (!/^\(\d+\)/.test(ln)) continue;
 
-    const cols = ln.split(',').map(c => c.trim());
+    // Paso 1: convertir comas decimales en puntos (ej: "66,5" → "66.5")
+    const fixedLine = ln.replace(/(\d),(\d)/g, "$1.$2");
+
+    // Paso 2: separar columnas por comas
+    const cols = fixedLine.split(",").map(c => c.trim());
     if (cols.length < 5) continue;
 
     const panel = cols[0];
-    const thickness = cols[1] || '';
-    const area = cols[2] || '';
-    const weight = cols[3] || '';
-    const volume = cols[4] || '';
+    const thickness = cols[1] || "";
+    const area = cols[2] || "";
+    const weight = cols[3] || "";
+    const volume = cols[4] || "";
 
     if (!thickness) continue;
     paneles.push({ panel, thickness, area, weight, volume });
