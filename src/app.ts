@@ -1,4 +1,5 @@
 import express, { Request, Response, NextFunction } from 'express';
+import { addMuro, overrideMuros } from './db';
 import path from 'path';
 import cors from 'cors';
 import morgan from 'morgan';
@@ -62,7 +63,7 @@ app.get('/perfil', authMiddleware, (req: Request, res: Response) => {
 // ===== Importación TXT: lee SOLO Panel, Thickness, Area, Weight, Volume =====
 const upload = multer({ storage: multer.memoryStorage() });
 
-function parseTXT_MinColumns(raw: string) {
+async function parseTXT_MinColumns(raw: string) {
   const lines = raw.split(/\r?\n/);
   const paneles: Array<{
     panel: string;
@@ -92,18 +93,33 @@ function parseTXT_MinColumns(raw: string) {
 
     if (!thickness) continue;
     paneles.push({ panel, thickness, area, weight, volume });
+
+    const nuevoMuro = await addMuro(
+        1,          // pk_proyecto
+        panel,      // id_muro
+        parseFloat(thickness),  // grosor
+        parseFloat(area),       // area
+        parseFloat(weight),      // peso
+        parseFloat(volume)        // volumen
+    );
+
+    console.log("Muro agregado:", nuevoMuro);
   }
 
   return paneles;
 }
 
-app.post(/.*import.*/i, upload.single('file'), (req: Request, res: Response) => {
+app.post(/.*import.*/i, upload.single('file'), async (req: Request, res: Response) => {
   try {
+
+    const pk_proy = 1; // Cambia esto si el proyecto es dinámico
+    await overrideMuros(pk_proy); // <-- Borra los muros antes de importar
+
     if (!req.file) {
       return res.status(400).json({ paneles: [] });
     }
     const txt = req.file.buffer.toString('utf-8');
-    const paneles = parseTXT_MinColumns(txt);
+    const paneles = await parseTXT_MinColumns(txt);
     return res.json({ paneles });
   } catch (err: any) {
     console.error('Import TXT error:', err);
