@@ -1,45 +1,128 @@
-// src/app.ts
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
+import path from 'path';
 import cors from 'cors';
 import morgan from 'morgan';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import bodyParser from 'body-parser';
+import multer from 'multer';
 
-import importRouter from './routes/import.js';
-import estructuralRouter from './routes/estructural.js';
-import paramsRouter from './routes/params.js';
-import previewRouter from './routes/preview.js';
-import reportRouter from './routes/report.js';
-import projectsRouter from './routes/projects.js';
+import indexRouter from './routes/index';
+import authRouter from './routes/auth';
+import dashboardRouter from './routes/dashboard';
+import calculosRouter from './routes/calculos';
+import verificacionRouter from './routes/verificacion';
+import informeRouter from './routes/informe';
+import informesRouter from './routes/informes';
+import pilaresRouter from './routes/pilares';
+import reportesRouter from './routes/reportes';
+import importRouter from './routes/import';
 
-// 1) Crear la app ANTES de usarla
+// 🔹 Importamos el middleware de auth
+import { authMiddleware } from './middleware/auth';
+
 const app = express();
 
-// 2) Middlewares
-app.use(express.json({ limit: '5mb' }));
-app.use(express.urlencoded({ extended: true }));
-app.use(cors({ origin: process.env.CORS_ORIGINS?.split(',') ?? '*' }));
+// ===== Logger simple (para ver URLs exactas) =====
+app.use((req: Request, _res: Response, next: NextFunction) => {
+  console.log(`[${req.method}] ${req.url}`);
+  next();
+});
+
+// ===== Middlewares =====
+app.use(cors());
 app.use(morgan('dev'));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
-// 3) Archivos estáticos
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// ===== Static & views =====
 app.use(express.static(path.join(__dirname, '..', 'public')));
+app.set('views', path.join(__dirname, '..', 'views'));
+app.set('view engine', 'html'); // cambia si usas ejs/pug/etc.
 
-// 4) Rutas API (ya con app inicializada)
-app.use('/api/import', importRouter);
-app.use('/api/estructural', estructuralRouter);
-app.use('/api/params', paramsRouter);
-app.use('/api/preview', previewRouter);
-app.use('/api/report', reportRouter);
-app.use('/api/projects', projectsRouter);
+// ===== Healthcheck =====
+app.get('/health', (_req: Request, res: Response) => {
+  res.json({ ok: true, service: 'puntalink-pro-ts-struct' });
+});
 
-// 5) Healthcheck
-app.get('/api/health', (_req, res) => res.json({ ok: true }));
+// ===== Rutas base =====
+app.use('/', indexRouter);
+app.use('/auth', authRouter);
+app.use('/dashboard', dashboardRouter);
+app.use('/calculos', calculosRouter);
+app.use('/verificacion', verificacionRouter);
+app.use('/informe', informeRouter);
+app.use('/informes', informesRouter);
+app.use('/pilares', pilaresRouter);
+app.use('/reportes', reportesRouter);
 
-// 6) Index
-app.get('/', (_req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+// ===== Ejemplo de ruta protegida =====
+app.get('/perfil', authMiddleware, (req: Request, res: Response) => {
+  res.json({ message: 'Bienvenido a tu perfil', user: (req as any).user });
+});
+
+// ===== Importación TXT: lee SOLO Panel, Thickness, Area, Weight, Volume =====
+const upload = multer({ storage: multer.memoryStorage() });
+
+function parseTXT_MinColumns(raw: string) {
+  const lines = raw.split(/\r?\n/);
+  const paneles: Array<{
+    panel: string;
+    thickness: string;
+    area: string;
+    weight: string;
+    volume: string;
+  }> = [];
+
+  for (const line of lines) {
+    const ln = line.trim();
+    if (!ln) continue;
+    if (!/^\(\d+\)/.test(ln)) continue;
+
+    const cols = ln.split(',').map(c => c.trim());
+    if (cols.length < 5) continue;
+
+    const panel = cols[0];
+    const thickness = cols[1] || '';
+    const area = cols[2] || '';
+    const weight = cols[3] || '';
+    const volume = cols[4] || '';
+
+    if (!thickness) continue;
+    paneles.push({ panel, thickness, area, weight, volume });
+  }
+
+  return paneles;
+}
+
+app.post(/.*import.*/i, upload.single('file'), (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ paneles: [] });
+    }
+    const txt = req.file.buffer.toString('utf-8');
+    const paneles = parseTXT_MinColumns(txt);
+    return res.json({ paneles });
+  } catch (err: any) {
+    console.error('Import TXT error:', err);
+    return res.status(500).json({ paneles: [] });
+  }
+});
+
+app.use(['/import', '/import/txt', '/api/import', '/importar'], importRouter);
+
+// ===== 404 para APIs =====
+app.use('/api', (req: Request, res: Response) => {
+  res.status(404).json({ ok: false, error: 'Recurso API no encontrado' });
+});
+
+// ===== 404 general (páginas) =====
+app.use((req: Request, res: Response) => {
+  res.status(404).send('Página no encontrada');
+});
+
+// ===== Error handler =====
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  console.error(err);
+  res.status(500).json({ error: err?.message ?? 'Error interno del servidor' });
 });
 
 export default app;
