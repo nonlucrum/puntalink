@@ -1,351 +1,234 @@
-// Espera a que el DOM esté listo
 document.addEventListener('DOMContentLoaded', () => {
-
-  /* ===========================
-   * Utilidades de la interfaz
-   * =========================== */
-  const yearEl = document.getElementById('year');
-  if (yearEl) yearEl.textContent = new Date().getFullYear();
-
-  const loadingEl = document.getElementById('loading');
-  const showLoading = () => loadingEl && loadingEl.classList.remove('hidden');
-  const hideLoading = () => loadingEl && loadingEl.classList.add('hidden');
-
-  // Devuelve el valor o un guion si es nulo/indefinido
-  const valOrDash = (v) => (v === 0 || (v && v !== null && v !== undefined) ? v : '—');
-  // Formatea números con decimales seguros
-  const numSafe = (x, d = 3) => (typeof x === 'number' && isFinite(x)) ? x.toFixed(d) : '—';
-
-  /* ======================================================
-   * A) ESTADÍSTICA (CSV)
-   * ====================================================== */
-  // Elementos de la interfaz para estadística
-  const inputDataEl = document.getElementById('input-data');
-  const processBtn = document.getElementById('process-btn');
-  const summaryEl = document.getElementById('summary');
-  const resultsTableEl = document.getElementById('results-table');
-  const resultsSection = document.getElementById('results-section');
-  const exportSection = document.getElementById('export-section');
-  const exportPdfBtn = document.getElementById('export-pdf-btn');
-  const exportDocxBtn = document.getElementById('export-docx-btn');
   const txtInput = document.getElementById('txtInput');
   const btnUploadTxt = document.getElementById('btnUploadTxt');
+  const btnClearTxt = document.getElementById('btnClearTxt');
   const tablaPaneles = document.getElementById('tablaPaneles');
+  const btnCalcular = document.getElementById('btnCalcular');
+  const btnInforme = document.getElementById('btnInforme');
+  const resultadosCalculo = document.getElementById('resultadosCalculo');
 
-  // Importar datos desde archivo TXT
+  let panelesActuales = [];
+  let resultadosActuales = [];
+
+  // Mostrar el botón cancelar cuando se selecciona archivo y validar formato
+  if (txtInput) {
+    txtInput.addEventListener('change', () => {
+      console.log('[FRONTEND] Archivo seleccionado');
+      const hasFile = txtInput.files.length > 0;
+      btnClearTxt.style.display = hasFile ? '' : 'none';
+      
+      if (hasFile) {
+        const file = txtInput.files[0];
+        console.log('[FRONTEND] Archivo:', file.name, 'Tamaño:', file.size, 'bytes');
+        // Validar que el archivo sea .txt
+        if (!file.name.toLowerCase().endsWith('.txt')) {
+          console.log('[FRONTEND] Error: Archivo no es .txt');
+          tablaPaneles.innerHTML = '<p class="error">Archivo no válido, solo debe subir archivos .txt</p>';
+          btnUploadTxt.disabled = true;
+          btnUploadTxt.style.opacity = '0.5';
+          return;
+        } else {
+          console.log('[FRONTEND] Archivo .txt válido');
+          // Archivo válido
+          tablaPaneles.innerHTML = '';
+          btnUploadTxt.disabled = false;
+          btnUploadTxt.style.opacity = '1';
+        }
+      } else {
+        console.log('[FRONTEND] No hay archivo seleccionado');
+        // No hay archivo seleccionado
+        tablaPaneles.innerHTML = '';
+        btnUploadTxt.disabled = false;
+        btnUploadTxt.style.opacity = '1';
+      }
+    });
+  }
+
+  // Subir y procesar TXT
   if (btnUploadTxt && txtInput) {
     btnUploadTxt.addEventListener('click', async () => {
+      console.log('[FRONTEND] Botón subir TXT clickeado');
       if (!txtInput.files.length) {
-        alert('Selecciona un archivo TXT');
+        console.log('[FRONTEND] No hay archivos seleccionados');
         return;
       }
-      const data = new FormData();
-      data.append('file', txtInput.files[0]);
+      const file = txtInput.files[0];
+      console.log('[FRONTEND] Preparando subida de archivo:', file.name);
+      
+      const formData = new FormData();
+      formData.append('file', file);
+
+      tablaPaneles.innerHTML = 'Procesando...';
+      resultadosCalculo.innerHTML = '';
+      btnCalcular.style.display = 'none';
+      btnInforme.style.display = 'none';
+      console.log('[FRONTEND] UI actualizada, enviando petición al servidor');
+
       try {
-        showLoading();
-        const resp = await fetch('http://localhost:4008/api/import-txt', { method: 'POST', body: data });
+        console.log('[FRONTEND] Enviando petición POST a /api/importar-muros');
+        const resp = await fetch('http://localhost:4008/api/importar-muros', {
+          method: 'POST',
+          body: formData
+        });
+        console.log('[FRONTEND] Respuesta recibida:', resp.status, resp.statusText);
         const json = await resp.json();
-        const paneles = json.paneles;
-        // Renderiza la tabla de paneles si hay datos
-        if (paneles && paneles.length > 0) {
-          const headers = Object.keys(paneles[0]);
-          let html = "<table><thead><tr>";
-          headers.forEach(h => html += `<th>${h}</th>`);
-          html += "</tr></thead><tbody>";
-          paneles.forEach(row => {
-            html += "<tr>";
-            headers.forEach(h => html += `<td>${row[h]}</td>`);
-            html += "</tr>";
-          });
-          html += "</tbody></table>";
-          document.getElementById('tablaPaneles').innerHTML = html;
-        } else {
-          document.getElementById('tablaPaneles').innerHTML = "<p>No se encontraron datos.</p>";
-        }
-        // Alternativa de renderizado
-        if (json.paneles && Array.isArray(json.paneles)) {
-          tablaPaneles.innerHTML = `
-            <table>
-              <thead>
-                <tr>${Object.keys(json.paneles[0]).map(k => `<th>${k}</th>`).join('')}</tr>
-              </thead>
-              <tbody>
-                ${json.paneles.map(row => `<tr>${Object.values(row).map(v => `<td>${v}</td>`).join('')}</tr>`).join('')}
-              </tbody>
-            </table>
-          `;
-        } else {
-          tablaPaneles.innerHTML = "<p>No se encontraron paneles en el archivo.</p>";
-        }
-      } catch (err) {
-        alert('Error procesando el TXT: ' + err.message);
-      } finally {
-        hideLoading();
-      }
-    });
-  }
-
-  // Procesa los datos CSV ingresados manualmente
-  if (processBtn) {
-    processBtn.addEventListener('click', async () => {
-      const rawText = (inputDataEl?.value || '').trim();
-      if (!rawText) {
-        alert('Por favor ingrese datos en formato CSV.');
-        return;
-      }
-      // Convierte el texto en filas de objetos
-      const rows = rawText.split('\n').map(line => {
-        const [Variable, Frecuencia] = line.split(',').map(item => (item || '').trim());
-        return { Variable, Frecuencia };
-      });
-
-      try {
-        showLoading();
-        const response = await fetch('/api/calculos', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(rows)
-        });
-        if (!response.ok) throw new Error('Error en el procesamiento de datos');
-        const data = await response.json();
-        renderCsvResults(data);
-        resultsSection?.classList.remove('hidden');
-        exportSection?.classList.remove('hidden');
-        window.calculosData = data; // para exportación
-      } catch (err) {
-        alert(err.message);
-      } finally {
-        hideLoading();
-      }
-    });
-  }
-
-  // Botones para exportar resultados
-  if (exportPdfBtn) exportPdfBtn.addEventListener('click', () => exportReport('pdf'));
-  if (exportDocxBtn) exportDocxBtn.addEventListener('click', () => exportReport('docx'));
-
-  // Renderiza los resultados estadísticos en la interfaz
-  function renderCsvResults(data) {
-    if (!data || !data.summary || !data.outputs?.tablaFrecuencias?.length) {
-      if (summaryEl) summaryEl.innerHTML = '<p>No hay resultados.</p>';
-      if (resultsTableEl) resultsTableEl.innerHTML = '';
-      return;
-    }
-    if (summaryEl) {
-      summaryEl.innerHTML = `
-        <div class="card mini"><strong>Total de Variables</strong><div>${data.summary.totalVariables}</div></div>
-        <div class="card mini"><strong>Total de Observaciones</strong><div>${data.summary.totalObservaciones}</div></div>
-        <div class="card mini"><strong>Rango</strong><div>${data.summary.rangoVariables.min} – ${data.summary.rangoVariables.max}</div></div>
-      `;
-    }
-    const headers = Object.keys(data.outputs.tablaFrecuencias[0]);
-    let thead = '<thead><tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr></thead>';
-    let tbody = '<tbody>' + data.outputs.tablaFrecuencias.map(row =>
-      '<tr>' + headers.map(h => `<td>${row[h]}</td>`).join('') + '</tr>'
-    ).join('') + '</tbody>';
-    if (resultsTableEl) resultsTableEl.innerHTML = thead + tbody;
-  }
-
-  // Exporta el reporte en PDF o DOCX
-  async function exportReport(format) {
-    if (!window.calculosData) {
-      alert('No hay datos para exportar.');
-      return;
-    }
-    try {
-      showLoading();
-      const response = await fetch(`/api/informes/export/${format}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: window.calculosData })
-      });
-      if (!response.ok) throw new Error('Error al exportar el informe');
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `informe-calculos.${format}`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    } catch (err) {
-      alert(err.message);
-    } finally {
-      hideLoading();
-    }
-  }
-
-  /* ======================================================
-   * B) PILARES / VIENTO (pág. 1–5)
-   * ====================================================== */
-  // Elementos de la interfaz para pilares
-  const tipoSel = document.getElementById('tipo-pilar');
-  const corr = document.getElementById('geom-corrido');
-  const aisl = document.getElementById('geom-aislado');
-
-  // Cambia la vista según el tipo de pilar seleccionado
-  if (tipoSel) {
-    tipoSel.addEventListener('change', () => {
-      const v = tipoSel.value;
-      if (corr) corr.classList.toggle('hidden', v !== 'corrido');
-      if (aisl) aisl.classList.toggle('hidden', v !== 'aislado');
-    });
-  }
-
-  // Elementos y KPIs para cálculo de pilares
-  const btnCalcPilares = document.getElementById('calc-pilares');
-  const salidaPilares = document.getElementById('salida-pilares');
-  const jsonOut = document.getElementById('json-out');
-  const kpiQz = document.getElementById('kpi-qz');
-  const kpiF  = document.getElementById('kpi-F');
-  const kpiA  = document.getElementById('kpi-A');
-  const kpiLb = document.getElementById('kpi-Lb');
-  const kpiW    = document.getElementById('kpi-W');
-  const kpiVol  = document.getElementById('kpi-Vol');
-  const kpiH    = document.getElementById('kpi-h');
-  const kpiN    = document.getElementById('kpi-nLong');
-  const kpiKgSteel = document.getElementById('kpi-kgSteel');
-  const tablaSegmentos = document.getElementById('tabla-segmentos');
-  const tablaMuertos   = document.getElementById('tabla-muertos');
-  const tablaAcero     = document.getElementById('tabla-acero');
-  const tablaAlambre   = document.getElementById('tabla-alambre');
-  const tablaTotales   = document.getElementById('tabla-totales');
-
-  // Calcula los resultados de pilares y muestra en la interfaz
-  if (btnCalcPilares) {
-    btnCalcPilares.addEventListener('click', async () => {
-      // Recopila todos los datos del formulario
-      const tipo = tipoSel?.value || 'corrido';
-      // ... (recopilación de datos de sitio, geometría, muerto, armado, etc.)
-      // (El bloque de recopilación de datos se mantiene igual, solo se ha resumido aquí para claridad)
-      // Construye el payload para la API
-      const payload = { /* ...todos los datos recopilados... */ };
-
-      try {
-        showLoading();
-        const r = await fetch('/api/pilares/compute', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const data = await r.json();
-        if (!r.ok) throw new Error(data.error || 'Error de cálculo');
-        // Renderiza los KPIs y tablas según los resultados
-        // ... (renderizado de KPIs y tablas, igual que el original)
-        // Muestra el JSON de salida
-        if (jsonOut) jsonOut.textContent = JSON.stringify(data, null, 2);
-        salidaPilares?.classList.remove('hidden');
-        window.calculosData = data;
-      } catch (e) {
-        alert(e.message);
-      } finally {
-        hideLoading();
-      }
-    });
-  }
-
-  /* ======================================================
-   * C) REPORTE 6/7 — construir tablas y exportar
-   * ====================================================== */
-  (function initReporte() {
-    // Estado local para el reporte
-    const state = {
-      deadman: [],
-      braces: []
-    };
-
-    // Elementos de las tablas del reporte
-    const deadTbl = document.getElementById('tabla-deadman');
-    const brTbl   = document.getElementById('tabla-braces');
-
-    // Renderiza la tabla de "muertos"
-    function renderDeadman() {
-      if (!deadTbl) return;
-      if (!state.deadman.length) {
-        deadTbl.innerHTML = '<tbody><tr><td>Sin filas aún.</td></tr></tbody>';
-        return;
-      }
-      const thead = `<thead><tr>
-        <th>#</th><th>Eje</th><th>Muro</th><th>Tipo</th>
-        <th>Esp. Long (m)</th><th>Esp. Transv (m)</th><th>X (m)</th>
-      </tr></thead>`;
-      const tbody = '<tbody>' + state.deadman.map((d,i)=>`
-        <tr><td>${i+1}</td><td>${d.eje||'—'}</td><td>${d.muro||'—'}</td>
-        <td>${d.tipo||'rect'}</td><td>${d.espLong??'—'}</td><td>${d.espTransv??'—'}</td><td>${d.X??'—'}</td></tr>`
-      ).join('') + '</tbody>';
-      deadTbl.innerHTML = thead + tbody;
-    }
-
-    // Renderiza la tabla de "braces"
-    function renderBraces() {
-      if (!brTbl) return;
-      if (!state.braces.length) {
-        brTbl.innerHTML = '<tbody><tr><td>Sin filas aún.</td></tr></tbody>';
-        return;
-      }
-      const thead = `<thead><tr>
-        <th>Eje</th><th>Muro</th><th>Tipo</th><th>Cantidad</th>
-        <th>X (m)</th><th>θ (°)</th><th>NB ± (m)</th><th>Y (m)</th>
-      </tr></thead>`;
-      const tbody = '<tbody>' + state.braces.map(b => `
-        <tr><td>${b.eje||'—'}</td><td>${b.muro||'—'}</td><td>${b.tipo||'—'}</td>
-        <td>${b.cantidad||0}</td><td>${b.X??'—'}</td><td>${b.theta??'—'}</td>
-        <td>${b.NB??'—'}</td><td>${b.Y??'—'}</td></tr>`
-      ).join('') + '</tbody>';
-      brTbl.innerHTML = thead + tbody;
-    }
-
-    // Botones para agregar filas y exportar reporte
-    const addDeadBtn = document.getElementById('btn-add-deadman');
-    const addBrBtn   = document.getElementById('btn-add-brace');
-    const btnPdf     = document.getElementById('btn-rep-pdf');
-    const btnDocx    = document.getElementById('btn-rep-docx');
-
-    // Agrega una fila a la tabla de "muertos"
-    addDeadBtn?.addEventListener('click', () => {
-      // Obtiene valores del formulario y autocompleta si es posible
-      // ... (obtención de valores y autocompletado)
-      state.deadman.push({ /* ...valores... */ });
-      renderDeadman();
-    });
-
-    // Agrega una fila a la tabla de "braces"
-    addBrBtn?.addEventListener('click', () => {
-      // Obtiene valores del formulario y autocompleta si es posible
-      // ... (obtención de valores y autocompletado)
-      state.braces.push({ /* ...valores... */ });
-      renderBraces();
-    });
-
-    // Exporta el reporte en PDF o DOCX
-    async function exportar(format) {
-      try {
-        if (!state.deadman.length && !state.braces.length) {
-          alert('Agrega al menos una fila al reporte.');
+        console.log('[FRONTEND] JSON parseado:', json);
+        if (!resp.ok || !json.ok) {
+          console.log('[FRONTEND] Error en la respuesta:', json.error);
+          tablaPaneles.innerHTML = `<p class="error">${json.error || 'Error procesando el TXT.'}</p>`;
           return;
         }
-        showLoading();
-        const r = await fetch(`/api/reportes/pilares/${format}`, {
+        console.log('[FRONTEND] Archivo procesado exitosamente');
+        panelesActuales = json.paneles;
+        console.log('[FRONTEND] Paneles obtenidos:', panelesActuales.length);
+        // Mostrar tabla de paneles
+        let html = "<table><thead><tr><th>#</th><th>ID Muro</th><th>Grosor</th><th>Área</th><th>Peso</th><th>Volumen</th></tr></thead><tbody>";
+        panelesActuales.forEach((p, i) => {
+          html += `<tr>
+            <td>${i + 1}</td>
+            <td>${p.id_muro}</td>
+            <td>${p.grosor ?? ''}</td>
+            <td>${p.area ?? ''}</td>
+            <td>${p.peso ?? ''}</td>
+            <td>${p.volumen ?? ''}</td>
+          </tr>`;
+        });
+        html += "</tbody></table>";
+        tablaPaneles.innerHTML = html;
+        console.log('[FRONTEND] Tabla de paneles generada');
+        btnCalcular.style.display = panelesActuales.length ? '' : 'none';
+        btnInforme.style.display = 'none';
+        console.log('[FRONTEND] Botón calcular mostrado:', panelesActuales.length > 0);
+      } catch (err) {
+        console.log('[FRONTEND] Error de conexión:', err.message);
+        tablaPaneles.innerHTML = `<p class="error">Error procesando el TXT: ${err.message}</p>`;
+      }
+    });
+
+    // Botón cancelar selección
+    if (btnClearTxt) {
+      btnClearTxt.addEventListener('click', () => {
+        try {
+          fetch('http://localhost:4008/api/cancelar-import', { method: 'DELETE' });
+        
+        if (txtInput) txtInput.value = '';
+        tablaPaneles.innerHTML = '';
+        resultadosCalculo.innerHTML = '';
+        btnCalcular.style.display = 'none';
+        btnInforme.style.display = 'none';
+        btnClearTxt.style.display = 'none';
+        panelesActuales = [];
+        resultadosActuales = [];
+        } catch (err) {
+          tablaPaneles.innerHTML = `<p class="error">Error eliminando el TXT: ${err.message}</p>`;
+        }
+      });
+    }
+  }
+
+  // Calcular paneles
+  if (btnCalcular) {
+    btnCalcular.addEventListener('click', async () => {
+      console.log('[FRONTEND] Botón calcular clickeado');
+      if (!panelesActuales.length) {
+        console.log('[FRONTEND] No hay paneles para calcular');
+        return;
+      }
+      console.log('[FRONTEND] Iniciando cálculos para', panelesActuales.length, 'paneles');
+      resultadosCalculo.innerHTML = 'Calculando...';
+      try {
+        // Transformar datos para la nueva API
+        const rows = panelesActuales.map(p => ({
+          idMuro: p.id_muro,
+          grosor_mm: p.grosor * 1000, // convertir metros a milímetros
+          area_m2: p.area
+        }));
+        console.log('[FRONTEND] Datos transformados para API:', rows);
+        
+        console.log('[FRONTEND] Enviando petición POST a /api/paneles/calcular');
+        const resp = await fetch('http://localhost:4008/api/paneles/calcular', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ reporte: state, calculos: window.calculosData })
+          body: JSON.stringify({ rows })
         });
-        if (!r.ok) throw new Error('No se pudo generar el reporte');
-        const blob = await r.blob();
-        const url = URL.createObjectURL(blob);
+        console.log('[FRONTEND] Respuesta de cálculo recibida:', resp.status);
+        const json = await resp.json();
+        console.log('[FRONTEND] Resultados de cálculo:', json);
+        if (!resp.ok || !json.ok) {
+          console.log('[FRONTEND] Error en cálculo:', json.error);
+          resultadosCalculo.innerHTML = `<p class="error">${json.error || 'Error en cálculo.'}</p>`;
+          btnInforme.style.display = 'none';
+          return;
+        }
+        console.log('[FRONTEND] Cálculos completados exitosamente');
+        resultadosActuales = json.data;
+        console.log('[FRONTEND] Resultados obtenidos:', resultadosActuales.length);
+        let html = "<h3>Resultados de cálculo</h3>";
+        html += "<div class='kpis'>";
+        resultadosActuales.forEach((res, i) => {
+          html += `<div class='kpi'><div class='kpi__label'>Panel #${i + 1} (${res.idMuro})</div>
+            <div class='kpi__val'>Volumen: ${res.volumen_m3} m³</div>
+            <div class='kpi__val'>Peso: ${res.peso_kN} kN</div>
+            <div class='kpi__val'>Grúa mín: ${res.gruaMin_kN} kN</div>
+            <div class='kpi__val'>Viento: ${res.viento_kN} kN</div>
+            <div class='kpi__val'>Tracción puntal: ${res.traccionPuntal_kN} kN</div>
+          </div>`;
+        });
+        html += "</div>";
+        resultadosCalculo.innerHTML = html;
+        console.log('[FRONTEND] UI de resultados actualizada');
+        btnInforme.style.display = resultadosActuales.length ? '' : 'none';
+        console.log('[FRONTEND] Botón informe mostrado:', resultadosActuales.length > 0);
+      } catch (err) {
+        console.log('[FRONTEND] Error de conexión en cálculo:', err.message);
+        resultadosCalculo.innerHTML = `<p class="error">Error de conexión: ${err.message}</p>`;
+        btnInforme.style.display = 'none';
+      }
+    });
+  }
+
+  // Generar informe PDF
+  if (btnInforme) {
+    btnInforme.addEventListener('click', async () => {
+      console.log('[FRONTEND] Botón generar informe clickeado');
+      if (!panelesActuales.length) {
+        console.log('[FRONTEND] No hay paneles para generar informe');
+        return;
+      }
+      console.log('[FRONTEND] Generando PDF para', resultadosActuales.length, 'paneles');
+      btnInforme.disabled = true;
+      try {
+        console.log('[FRONTEND] Enviando petición POST a /api/paneles/pdf');
+        const resp = await fetch('http://localhost:4008/api/paneles/pdf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paneles: resultadosActuales })
+        });
+        console.log('[FRONTEND] Respuesta de PDF recibida:', resp.status);
+        if (!resp.ok) {
+          console.log('[FRONTEND] Error generando PDF');
+          alert('Error generando el informe.');
+          btnInforme.disabled = false;
+          return;
+        }
+        console.log('[FRONTEND] PDF generado exitosamente, iniciando descarga');
+        const blob = await resp.blob();
+        const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = `reporte-pilares.${format}`;
-        document.body.appendChild(a); a.click(); a.remove();
-      } catch (e) { alert(e.message); } finally { hideLoading(); }
-    }
-
-    // Eventos para exportar
-    btnPdf?.addEventListener('click', () => exportar('pdf'));
-    btnDocx?.addEventListener('click', () => exportar('docx'));
-
-    // Render inicial vacío
-    renderDeadman();
-    renderBraces();
-  })();
-
+        a.href = url;
+        a.download = 'informe_paneles.pdf';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        console.log('[FRONTEND] Descarga de PDF completada');
+      } catch (err) {
+        console.log('[FRONTEND] Error generando PDF:', err.message);
+        alert('Error generando el informe: ' + err.message);
+      } finally {
+        btnInforme.disabled = false;
+        console.log('[FRONTEND] Botón PDF rehabilitado');
+      }
+    });
+  }
 });
