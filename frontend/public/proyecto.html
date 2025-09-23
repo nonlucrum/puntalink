@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Nuevo Proyecto - PuntaLink</title>
+  <link rel="stylesheet" href="styles.css"/>
+  <style>
+    .form-group { margin-bottom: 1em; }
+    .checkbox-group { display: flex; gap: 1em; margin-bottom: 1em; }
+    .checkbox-label { display: flex; align-items: center; gap: 0.5em; }
+    .card { max-width: 450px; margin: 2em auto; padding: 2em; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="card">
+      <form id="formNuevoProyecto" autocomplete="off">
+        <div class="form-group">
+          <label for="nombreProyecto">Nombre del proyecto</label>
+          <input type="text" id="nombreProyecto" name="nombreProyecto" required />
+        </div>
+        <div class="form-group">
+          <label for="empresaConstructora">Empresa constructora</label>
+          <input type="text" id="empresaConstructora" name="empresaConstructora" required />
+        </div>
+        <div class="form-group">
+          <label>Tipo de muerto</label>
+          <div class="checkbox-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="cilindro" name="tipoMuerto" value="Cilindrico" checked />
+              Cilindrico
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="triangulo" name="tipoMuerto" value="Triangular" />
+              Triangular
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="corrido" name="tipoMuerto" value="Corrido" />
+              Corrido
+            </label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="velViento">Velocidad del viento (km/h)</label>
+          <input type="number" id="velViento" name="velViento" required />
+        </div>
+        <div class="form-group">
+          <label for="tempPromedio">Temperatura promedio (°C)</label>
+          <input type="number" id="tempPromedio" name="tempPromedio" required />
+        </div>
+        <div class="form-group">
+          <label for="presionAtm">Presión atmosférica (mmHg)</label>
+          <input type="number" id="presionAtm" name="presionAtm" required />
+        </div>
+        <div class="form-group" style="text-align:center;">
+          <button type="submit" class="btn">Crear Proyecto</button>
+        </div>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

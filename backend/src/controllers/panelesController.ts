@@ -6,6 +6,7 @@ import {
   PanelEntrada,
   PanelCalculado
 } from "../services/panelesService";
+import * as pdfService from "../services/pdfService";
 
 export class PanelesController {
   static calcular = (req: Request, res: Response) => {
@@ -29,37 +30,32 @@ export class PanelesController {
     }
   };
 
-  static pdf = (req: Request, res: Response) => {
+  static pdf = async (req: Request, res: Response) => {
     console.log('[controller - panelesController] pdf - Inicio');
     console.log('[controller - panelesController] Body recibido para PDF:', JSON.stringify(req.body, null, 2));
+    
     const paneles = (req.body?.paneles ?? []) as PanelCalculado[];
     console.log('[controller - panelesController] Paneles para PDF:', paneles.length);
+    
     if (!Array.isArray(paneles) || paneles.length === 0) {
       console.log('[controller - panelesController] Error: paneles vacío o inválido');
       return res.status(400).json({ ok: false, error: "paneles vacío o inválido" });
     }
 
-    console.log('[controller - panelesController] Configurando headers para PDF');
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", 'attachment; filename="informe_paneles.pdf"');
-
-    console.log('[controller - panelesController] Generando documento PDF');
-    const doc = new PDFDocument({ size: "A4", margin: 40 });
-    doc.fontSize(18).text("Informe de Paneles", { align: "center" }).moveDown();
-
-    paneles.forEach((p, i) => {
-      console.log(`[controller - panelesController] Agregando panel ${i + 1} al PDF: ${p.idMuro}`);
-      doc.fontSize(12)
-        .text(`Panel #${i + 1} (${p.idMuro})`)
-        .text(`Grosor: ${p.grosor_mm} mm   Área: ${p.area_m2} m²`)
-        .text(`Volumen: ${p.volumen_m3} m³`)
-        .text(`Peso: ${p.peso_kN} kN   Grúa mín.: ${p.gruaMin_kN} kN`)
-        .text(`Viento: ${p.viento_kN} kN  Tracción puntal: ${p.traccionPuntal_kN} kN`)
-        .moveDown(0.75);
-    });
-
-    console.log('[controller - panelesController] PDF generado, enviando respuesta');
-    doc.end();
-    (doc as unknown as Readable).pipe(res);
+    try {
+      console.log('[controller - panelesController] Llamando al servicio PDF');
+      const pdfBuffer = await pdfService.generarInformePaneles(paneles);
+      
+      console.log('[controller - panelesController] PDF generado, configurando headers');
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", 'attachment; filename="informe_paneles.pdf"');
+      res.setHeader("Content-Length", pdfBuffer.length);
+      
+      console.log('[controller - panelesController] Enviando PDF al cliente');
+      res.end(pdfBuffer);
+    } catch (error) {
+      console.error('[controller - panelesController] Error generando PDF:', error);
+      return res.status(500).json({ ok: false, error: "Error generando el informe PDF" });
+    }
   };
 }
