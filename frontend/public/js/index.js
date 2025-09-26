@@ -1,4 +1,7 @@
-const API_BASE = 'http://localhost:4008';
+const API_BASE =
+  window.location.hostname === "localhost"
+    ? "http://localhost:4008"   // dev backend
+    : "";                       // production (relative)
 
 export async function createProject(uiElements, callbacks, globalVars) {
     try {

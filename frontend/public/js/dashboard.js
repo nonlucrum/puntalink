@@ -1,6 +1,9 @@
 // ===== MÓDULO CONSOLIDADO DE BOTONES =====
 
-const API_BASE = 'http://localhost:4008';
+const API_BASE =
+  window.location.hostname === "localhost"
+    ? "http://localhost:4008"   // dev backend
+    : "";                       // production (relative)
 
 // ===== FUNCIONES DE VALIDACIÓN =====
 export function validateTxtFile(file) {

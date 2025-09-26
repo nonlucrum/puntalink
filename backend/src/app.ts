@@ -13,14 +13,6 @@ import projectRoutes from './routes/projectRoutes';
 
 const app = express();
 
-app.get('/api/index.js', (req, res) => {
-  res.type('application/javascript'); // <--- Esto es lo importante
-});
-
-app.get('/api/dashboard.js', (req, res) => {
-  res.type('application/javascript'); // <--- Esto es lo importante
-});
-
 // ===== Logger simple =====
 app.use((req: Request, _res: Response, next: NextFunction) => {
   console.log(`[${req.method}] ${req.url}`);
