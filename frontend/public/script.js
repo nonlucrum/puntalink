@@ -5,10 +5,16 @@ import {
   handleUploadTxt,
   handleCancelTxt,
   handleCalcularPaneles,
-  handleGenerarPDF
-} from './api/buttons.js';
+  handleGenerarPDF,
+  loadProjectInfo
+} from './api/dashboard.js';
+
+import { createProject } from './api/index.js';
 
 document.addEventListener('DOMContentLoaded', () => {
+  // ===== CARGAR INFORMACIÓN DEL PROYECTO =====
+  loadProjectInfo();
+  
   // ===== ELEMENTOS DEL DOM =====
   const txtInput = document.getElementById('txtInput');
   const btnUploadTxt = document.getElementById('btnUploadTxt');
@@ -18,9 +24,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnInforme = document.getElementById('btnInforme');
   const resultadosCalculo = document.getElementById('resultadosCalculo');
   const panelesInfo = document.getElementById('panelesInfo');
+  const btnEditProject = document.getElementById('btnEditProject');
+
+  const btnProjectSubmit = document.getElementById('btnProjectSubmit');
 
   // ===== VARIABLES GLOBALES =====
   const globalVars = {
+    projectData: [],
     panelesActuales: [],
     resultadosActuales: []
   };
@@ -102,6 +112,10 @@ document.addEventListener('DOMContentLoaded', () => {
     resultadosCalculo
   };
 
+  const indexUIElements = {
+    btnProjectSubmit
+  };
+
   const callbacks = {
     openSection,
     updatePanelesDisplay: () => updatePanelesDisplay(globalVars.panelesActuales, uiElements, { openSection })
@@ -153,7 +167,41 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Editar proyecto
+  if (btnEditProject) {
+    btnEditProject.addEventListener('click', () => {
+      window.location.href = 'index.html';
+    });
+  }
+  
+  if (btnProjectSubmit) {
+    console.log('[FRONTEND] Configurando listener para envío de formulario de proyecto');
+    const form = document.getElementById('formNuevoProyecto');
+
+    if (form) {
+        btnProjectSubmit.addEventListener('click', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData(form);
+            const projectData = {
+            nombreProyecto: formData.get('nombreProyecto'),
+            empresaConstructora: formData.get('empresaConstructora'),
+            tipoMuerto: formData.get('tipoMuerto'),
+            velViento: formData.get('velViento'),
+            tempPromedio: formData.get('tempPromedio'),
+            presionAtm: formData.get('presionAtm')
+            };
+
+            globalVars.projectData = projectData;
+            await createProject(indexUIElements, callbacks, globalVars);
+        });
+    } else {
+        console.error('[FRONTEND] No se encontró el formulario de nuevo proyecto');
+    }
+  }
+
   // ===== INICIALIZACIÓN =====
   initAccordion();
   console.log('[FRONTEND] Aplicación inicializada con módulo de botones consolidado');
 });
+

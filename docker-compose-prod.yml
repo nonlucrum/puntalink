@@ -9,9 +9,10 @@ services:
     volumes:
       - ./data/puntalink.sql:/docker-entrypoint-initdb.d/puntalink.sql
     ports:
-      - "5008:5432"
+      - "5008:5008"
     networks:
       - red_taller_software
+    command: postgres -p 5008
 
   backend:
     build: ./backend

@@ -34,27 +34,55 @@ export function parseTxtRobusto(txt: string) {
 
     let [numId, grosor, area, peso, volumen, extra] = cols;
     let num = null, id_muro = null;
-    const m = /^\((\d+)\)\s*([A-Za-z0-9]+)/.exec(numId || "");
-    if (!m) continue;
-    num = Number(m[1]);
-    id_muro = m[2];
+    
+    // Patrón mejorado para extraer número y nombre del panel
+    const panelMatch = /^\((\d+)\)\s*(.*)/.exec(numId || "");
+    if (!panelMatch) {
+      console.log(`[service - importService] Línea ${i + 1} omitida - no se pudo extraer número de panel`);
+      continue;
+    }
+    
+    num = Number(panelMatch[1]);
+    let panelName = panelMatch[2].trim();
+    
+    // Si no tiene nombre o está vacío, asignar "S/N" (Sin Nombre)
+    if (!panelName || panelName === '') {
+      id_muro = 'S/N';
+      console.log(`[service - importService] Panel ${num} sin nombre - asignado como: ${id_muro}`);
+    } else {
+      // Si tiene nombre, usarlo tal como está
+      id_muro = panelName;
+    }
+
+    // Validar que tenemos los datos mínimos necesarios
+    const grosorNum = grosor ? parseFloat(grosor.replace(',', '.')) : null;
+    const areaNum = area ? parseFloat(area.replace(',', '.')) : null;
+    const pesoNum = peso ? parseFloat(peso.replace(',', '.')) : null;
+    const volumenNum = volumen ? parseFloat(volumen.replace(',', '.')) : null;
+
+    if (!grosorNum || !areaNum || !pesoNum || !volumenNum) {
+      console.log(`[service - importService] Panel ${num} (${id_muro}) omitido - datos numéricos faltantes o inválidos`);
+      continue;
+    }
+
+    console.log(`[service - importService] Panel ${num} procesado exitosamente: ${id_muro}`);
 
     paneles.push({
       num,
       id_muro,
-      grosor: grosor ? parseFloat(grosor.replace(',', '.')) : null,
-      area: area ? parseFloat(area.replace(',', '.')) : null,
-      peso: peso ? parseFloat(peso.replace(',', '.')) : null,
-      volumen: volumen ? parseFloat(volumen.replace(',', '.')) : null,
+      grosor: grosorNum,
+      area: areaNum,
+      peso: pesoNum,
+      volumen: volumenNum,
     });
 
     const nuevoMuro = addMuro(
         1,          // pk_proyecto
         id_muro,
-        parseFloat(grosor),
-        parseFloat(area),
-        parseFloat(peso),
-        parseFloat(volumen)
+        grosorNum,
+        areaNum,
+        pesoNum,
+        volumenNum
     );
   }
 

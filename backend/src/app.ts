@@ -9,6 +9,8 @@ import importRouter from './routes/import';
 import calculosRoutes from './routes/calculosRoutes';
 import panelesRoutes from './routes/panelesRoutes';
 
+import projectRoutes from './routes/projectRoutes';
+
 const app = express();
 
 // ===== Logger simple =====
@@ -46,6 +48,9 @@ app.use('/api/calculos', calculosRoutes);
 
 // ===== Paneles =====
 app.use('/api/paneles', panelesRoutes);
+
+// ===== Creacion Proyecto =====
+app.use('/api/proyecto', projectRoutes);
 
 // ===== 404 para APIs =====
 app.use('/api', (req: Request, res: Response) => {

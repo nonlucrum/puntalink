@@ -16,6 +16,31 @@ export function validateTxtFile(file) {
   return { valid: true };
 }
 
+// ===== FUNCIÓN PARA CARGAR INFORMACIÓN DEL PROYECTO =====
+export function loadProjectInfo() {
+  try {
+    const projectConfig = localStorage.getItem('projectConfig');
+    
+    if (projectConfig) {
+      const project = JSON.parse(projectConfig);
+      
+      // Actualizar elementos del DOM con la información del proyecto
+      document.getElementById('proyectoNombre').textContent = project.nombreProyecto || '-';
+      document.getElementById('proyectoEmpresa').textContent = project.empresaConstructora || '-';
+      document.getElementById('proyectoTipoMuerto').textContent = project.tipoMuerto || '-';
+      document.getElementById('proyectoVelViento').textContent = project.velViento ? `${project.velViento} km/h` : '-';
+      document.getElementById('proyectoTempPromedio').textContent = project.tempPromedio ? `${project.tempPromedio}°C` : '-';
+      document.getElementById('proyectoPresionAtm').textContent = project.presionAtm ? `${project.presionAtm} mmHg` : '-';
+      
+      console.log('[FRONTEND] Información del proyecto cargada:', project);
+    } else {
+      console.log('[FRONTEND] No hay información de proyecto guardada');
+    }
+  } catch (error) {
+    console.error('[FRONTEND] Error al cargar información del proyecto:', error);
+  }
+}
+
 // ===== FUNCIONES DE UI =====
 export function updatePanelesDisplay(panelesActuales, elements, callbacks) {
   const { tablaPaneles, tablaAccordion, panelesInfo, btnCalcular } = elements;

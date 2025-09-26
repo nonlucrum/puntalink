@@ -1,106 +1,156 @@
-<section class="card"></section>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>PuntaLink - Sistema de Análisis</title>
+  <title>Nuevo Proyecto - PuntaLink</title>
   <link rel="stylesheet" href="styles.css"/>
+  <style>
+    .form-group { 
+      margin-bottom: 1.5em; 
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5em;
+      font-weight: 500;
+      color: #333;
+    }
+    
+    .form-group input[type="text"],
+    .form-group input[type="number"] {
+      width: 100%;
+      padding: 0.75em;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 1em;
+      transition: border-color 0.3s ease;
+    }
+    
+    .form-group input[type="text"]:focus,
+    .form-group input[type="number"]:focus {
+      outline: none;
+      border-color: #007bff;
+      box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+    }
+    
+    .radio-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75em;
+      margin-top: 0.5em;
+    }
+    
+    .radio-option {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+    }
+    
+    .radio-option input[type="radio"] {
+      margin: 0;
+    }
+    
+    .radio-option label {
+      margin: 0;
+      font-weight: normal;
+      cursor: pointer;
+    }
+    
+    .card { 
+      max-width: 500px; 
+      margin: 3em auto; 
+      padding: 2.5em; 
+      background: #fff; 
+      border-radius: 8px; 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+    }
+    
+    .card h1 {
+      text-align: center;
+      margin-bottom: 1.5em;
+      color: #2c3e50;
+      font-size: 1.8em;
+    }
+    
+    .btn-primary {
+      width: 100%;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 1em 1.5em;
+      font-size: 1.1em;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    
+    .btn-primary:hover {
+      background-color: #0056b3;
+    }
+    
+    body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+  </style>
 </head>
 <body>
-  <header class="header">
-    <div class="container header__inner">
-      <h1 class="brand">PuntaLink</h1>
-      <span class="muted">Sistema de análisis y cálculo</span>
-    </div>
-  </header>
-
-  <main class="container space-y">
-    <!-- ===== Acordeón de funcionalidades ===== -->
-    <div class="accordion">
-      
-      <!-- Sección 1: Importar archivo TXT -->
-      <div class="accordion-item">
-        <div class="accordion-header" data-target="import-section">
-          <h2 class="accordion-title">
-            <span class="accordion-icon"></span>
-            Importar Datos desde TXT
-          </h2>
-          <span class="accordion-toggle">▼</span>
+  <main>
+    <section class="card">
+      <h1>Configuración de Proyecto</h1>
+      <form id="formNuevoProyecto" autocomplete="off">
+        <div class="form-group">
+          <label for="nombreProyecto">Nombre del proyecto</label>
+          <input type="text" id="nombreProyecto" name="nombreProyecto" required />
         </div>
-        <div class="accordion-content" id="import-section">
-          <div class="field">
-            <label for="txtInput">Selecciona tu archivo .TXT exportado</label>
-            <input type="file" id="txtInput" accept=".txt" />
-          </div>
-          <div class="actions">
-            <button id="btnUploadTxt" class="btn">Subir y procesar TXT</button>
-            <button id="btnClearTxt" class="btn btn--ghost" style="display: none;">Cancelar selección</button>
-          </div>
-          
-          <!-- Sub-acordeón para mostrar tabla de paneles -->
-          <div class="sub-accordion-item" id="tablaAccordion" style="display: none;">
-            <div class="sub-accordion-header" data-target="tabla-section">
-              <h3 class="sub-accordion-title">
-                <span class="sub-accordion-icon">📋</span>
-                Ver Tabla de Paneles Importados
-              </h3>
-              <span class="sub-accordion-toggle">▼</span>
+        
+        <div class="form-group">
+          <label for="empresaConstructora">Empresa constructora</label>
+          <input type="text" id="empresaConstructora" name="empresaConstructora" required />
+        </div>
+        
+        <div class="form-group">
+          <label>Tipo de fundación (muerto)</label>
+          <div class="radio-group">
+            <div class="radio-option">
+              <input type="radio" id="cilindro" name="tipoMuerto" value="Cilindrico" checked />
+              <label for="cilindro">Cilíndrico</label>
             </div>
-            <div class="sub-accordion-content" id="tabla-section">
-              <div id="tablaPaneles"></div>
+            <div class="radio-option">
+              <input type="radio" id="triangulo" name="tipoMuerto" value="Triangular" />
+              <label for="triangulo">Triangular</label>
+            </div>
+            <div class="radio-option">
+              <input type="radio" id="corrido" name="tipoMuerto" value="Corrido" />
+              <label for="corrido">Corrido</label>
             </div>
           </div>
         </div>
-      </div>
-
-      <!-- Sección 2: Resultados de importación -->
-      <div class="accordion-item">
-        <div class="accordion-header" data-target="results-section">
-          <h2 class="accordion-title">
-            <span class="accordion-icon"></span>
-            Paneles Importados
-          </h2>
-          <span class="accordion-toggle">▼</span>
+        
+        <div class="form-group">
+          <label for="velViento">Velocidad del viento (km/h)</label>
+          <input type="number" id="velViento" name="velViento" required />
         </div>
-        <div class="accordion-content" id="results-section">
-          <div class="actions">
-            <button id="btnCalcular" class="btn btn--ghost" style="display:none;">Calcular paneles</button>
-          </div>
-          <div id="panelesInfo">
-            <p class="muted">Los paneles importados aparecerán aquí después de subir un archivo TXT.</p>
-          </div>
+        
+        <div class="form-group">
+          <label for="tempPromedio">Temperatura promedio (°C)</label>
+          <input type="number" id="tempPromedio" name="tempPromedio" required />
         </div>
-      </div>
-
-      <!-- Sección 3: Resultados de cálculos -->
-      <div class="accordion-item">
-        <div class="accordion-header" data-target="calculations-section">
-          <h2 class="accordion-title">
-            <span class="accordion-icon"></span>
-            Resultados de Cálculo
-          </h2>
-          <span class="accordion-toggle">▼</span>
+        
+        <div class="form-group">
+          <label for="presionAtm">Presión atmosférica (mmHg)</label>
+          <input type="number" id="presionAtm" name="presionAtm" required />
         </div>
-        <div class="accordion-content" id="calculations-section">
-          <div class="actions">
-            <button id="btnInforme" class="btn btn--ghost" style="display:none;">Generar informe PDF</button>
-          </div>
-          <div id="resultadosCalculo">
-            <p class="muted">Los resultados de cálculo aparecerán aquí después de procesar los paneles.</p>
-          </div>
+        
+        <div class="actions">
+          <button id="btnProjectSubmit" class="btn-primary">Crear Proyecto</button>
         </div>
-      </div>
-
-    </div>
+      </form>
+      <script type="module" src="script.js"></script>
+    </section>
   </main>
-  
-
-  <footer class="footer">
-    <div class="container"></div>
-      <p>© <span id="year"></span> PuntaLink — Todos los derechos reservados</p>
-    </div>
-  </footer>
-
-  <script type="module" src="script.js"></script>
 </body>
 </html>

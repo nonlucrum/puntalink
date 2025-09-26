@@ -35,7 +35,9 @@ export class PanelesController {
     console.log('[controller - panelesController] Body recibido para PDF:', JSON.stringify(req.body, null, 2));
     
     const paneles = (req.body?.paneles ?? []) as PanelCalculado[];
+    const projectInfo = req.body?.projectInfo ?? null;
     console.log('[controller - panelesController] Paneles para PDF:', paneles.length);
+    console.log('[controller - panelesController] Información del proyecto:', projectInfo);
     
     if (!Array.isArray(paneles) || paneles.length === 0) {
       console.log('[controller - panelesController] Error: paneles vacío o inválido');
@@ -44,7 +46,7 @@ export class PanelesController {
 
     try {
       console.log('[controller - panelesController] Llamando al servicio PDF');
-      const pdfBuffer = await pdfService.generarInformePaneles(paneles);
+      const pdfBuffer = await pdfService.generarInformePaneles(paneles, projectInfo);
       
       console.log('[controller - panelesController] PDF generado, configurando headers');
       res.setHeader("Content-Type", "application/pdf");

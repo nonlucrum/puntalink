@@ -11,8 +11,20 @@ interface PanelCalculado {
   traccionPuntal_kN: number;
 }
 
-export function generarInformePaneles(paneles: PanelCalculado[]): Promise<Buffer> {
+interface ProjectInfo {
+  nombreProyecto?: string;
+  empresaConstructora?: string;
+  tipoMuerto?: string;
+  velViento?: number;
+  tempPromedio?: number;
+  presionAtm?: number;
+}
+
+export function generarInformePaneles(paneles: PanelCalculado[], projectInfo?: ProjectInfo): Promise<Buffer> {
   console.log('[pdfService] Generando informe para', paneles.length, 'paneles');
+  if (projectInfo) {
+    console.log('[pdfService] Con información del proyecto:', projectInfo);
+  }
   
   return new Promise((resolve) => {
     const doc = new PDFDocument({ size: 'A4', margin: 40 });
@@ -29,6 +41,39 @@ export function generarInformePaneles(paneles: PanelCalculado[]): Promise<Buffer
     // Título principal
     doc.fontSize(18).text('Informe de Análisis de Paneles', { align: 'center' });
     doc.moveDown();
+
+    // ===== INFORMACIÓN DEL PROYECTO =====
+    if (projectInfo) {
+      doc.fontSize(14).text('Información del Proyecto', { underline: true })
+        .fontSize(12)
+        .moveDown(0.5);
+      
+      if (projectInfo.nombreProyecto) {
+        doc.text(`Nombre del Proyecto: ${projectInfo.nombreProyecto}`, { indent: 20 });
+      }
+      
+      if (projectInfo.empresaConstructora) {
+        doc.text(`Empresa Constructora: ${projectInfo.empresaConstructora}`, { indent: 20 });
+      }
+      
+      if (projectInfo.tipoMuerto) {
+        doc.text(`Tipo de Fundación: ${projectInfo.tipoMuerto}`, { indent: 20 });
+      }
+      
+      if (projectInfo.velViento) {
+        doc.text(`Velocidad del Viento: ${projectInfo.velViento} km/h`, { indent: 20 });
+      }
+      
+      if (projectInfo.tempPromedio) {
+        doc.text(`Temperatura Promedio: ${projectInfo.tempPromedio}°C`, { indent: 20 });
+      }
+      
+      if (projectInfo.presionAtm) {
+        doc.text(`Presión Atmosférica: ${projectInfo.presionAtm} mmHg`, { indent: 20 });
+      }
+      
+      doc.moveDown();
+    }
     
     // Información general
     doc.fontSize(12)
