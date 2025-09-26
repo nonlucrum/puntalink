@@ -1,3 +1,5 @@
+const API_BASE = 'http://localhost:4008';
+
 export async function createProject(uiElements, callbacks, globalVars) {
     try {
         console.log('[FRONTEND] Creando nuevo proyecto con datos:', globalVars.projectData);
@@ -5,7 +7,7 @@ export async function createProject(uiElements, callbacks, globalVars) {
         localStorage.setItem('projectConfig', JSON.stringify(globalVars.projectData));
 
         // Enviar datos al backend
-        const resp = await fetch('http://localhost:4008/api/proyecto/crear', {
+        const resp = await fetch(`${API_BASE}/api/proyecto/crear`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
