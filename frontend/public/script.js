@@ -7,9 +7,9 @@ import {
   handleCalcularPaneles,
   handleGenerarPDF,
   loadProjectInfo
-} from './api/dashboard.js';
+} from './js/dashboard.js';
 
-import { createProject } from './api/index.js';
+import { createProject } from './js/index.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   // ===== CARGAR INFORMACIÓN DEL PROYECTO =====
