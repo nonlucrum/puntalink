@@ -19,38 +19,56 @@
     <section class="project-info-section">
       <div class="project-info-header">
         <h2>Información del Proyecto</h2>
-        <button id="btnEditProject" class="btn btn--ghost"> Editar</button>
+        <div class="actions">
+            <button id="btnEditProject" class="btn btn--ghost"> Editar</button>
+            <button id="btnCancelUpdateProject" class="btn btn--ghost" style="display: none;">Cancelar</button>
+            <button id="btnUpdateProject" class="btn" style="display: none;">Guardar</button>
+        </div>
+        
       </div>
       
       <div class="project-info-grid">
         <div class="project-field">
           <label>NOMBRE DEL PROYECTO</label>
-          <div id="proyectoNombre" class="project-value">-</div>
+          <input type="text" id="proyectoNombre" class="project-value-dim" disabled>
         </div>
         
         <div class="project-field">
           <label>EMPRESA CONSTRUCTORA</label>
-          <div id="proyectoEmpresa" class="project-value">-</div>
+          <input type="text" id="proyectoEmpresa" class="project-value-dim" disabled>
         </div>
         
         <div class="project-field">
           <label>TIPO DE MUERTO</label>
-          <div id="proyectoTipoMuerto" class="project-value">-</div>
+          <select id="proyectoTipoMuerto" class="project-value-dim" disabled>
+              <option value="Cilindrico">Cilindrico</option>
+              <option value="Triangular">Triangular</option>
+              <option value="Corrido">Corrido</option>
+          </select>
         </div>
         
         <div class="project-field">
           <label>VELOCIDAD DEL VIENTO</label>
-          <div id="proyectoVelViento" class="project-value">-</div>
+          <div class="project-field-unit">
+            <input type="number" id="proyectoVelViento" class="project-value-dim" disabled>
+            <div class="project-value-unit">km/h</div>
+          </div>
         </div>
         
         <div class="project-field">
           <label>TEMPERATURA PROMEDIO</label>
-          <div id="proyectoTempPromedio" class="project-value">-</div>
+          <div class="project-field-unit">
+            <input type="number" id="proyectoTempPromedio" class="project-value-dim" disabled>
+            <div class="project-value-unit">°C</div>
+          </div>
         </div>
         
         <div class="project-field">
           <label>PRESIÓN ATMOSFÉRICA</label>
-          <div id="proyectoPresionAtm" class="project-value">-</div>
+          <div class="project-field-unit">
+            <input type="number" id="proyectoPresionAtm" class="project-value-dim" disabled>
+            <div class="project-value-unit">mmHg</div>
+          </div>
         </div>
       </div>
     </section>

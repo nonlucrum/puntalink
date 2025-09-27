@@ -6,14 +6,18 @@ import {
   handleCancelTxt,
   handleCalcularPaneles,
   handleGenerarPDF,
-  loadProjectInfo
+  loadProjectInfo,
+  editarProyecto,
+  guardarCambiosProyecto
 } from './js/dashboard.js';
 
 import { createProject } from './js/index.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   // ===== CARGAR INFORMACIÓN DEL PROYECTO =====
-  loadProjectInfo();
+  if (window.location.pathname === "/dashboard") {
+    loadProjectInfo();
+  }
   
   // ===== ELEMENTOS DEL DOM =====
   const txtInput = document.getElementById('txtInput');
@@ -25,6 +29,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const resultadosCalculo = document.getElementById('resultadosCalculo');
   const panelesInfo = document.getElementById('panelesInfo');
   const btnEditProject = document.getElementById('btnEditProject');
+  const btnUpdateProject = document.getElementById('btnUpdateProject');
+  const btnCancelUpdateProject = document.getElementById('btnCancelUpdateProject');
 
   const btnProjectSubmit = document.getElementById('btnProjectSubmit');
 
@@ -109,7 +115,10 @@ document.addEventListener('DOMContentLoaded', () => {
     btnInforme,
     btnClearTxt,
     btnUploadTxt,
-    resultadosCalculo
+    resultadosCalculo,
+    btnEditProject,
+    btnUpdateProject,
+    btnCancelUpdateProject
   };
 
   const indexUIElements = {
@@ -170,7 +179,21 @@ document.addEventListener('DOMContentLoaded', () => {
   // Editar proyecto
   if (btnEditProject) {
     btnEditProject.addEventListener('click', () => {
-      window.location.href = 'index.html';
+      editarProyecto(uiElements);
+    });
+  }
+
+  // Cancelar edicion proyecto
+  if (btnCancelUpdateProject) {
+    btnCancelUpdateProject.addEventListener('click', () => {
+      loadProjectInfo();
+    });
+  }
+
+    // Guardar edicion proyecto
+  if (btnUpdateProject) {
+    btnUpdateProject.addEventListener('click', () => {
+      guardarCambiosProyecto();
     });
   }
   

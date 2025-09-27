@@ -49,7 +49,7 @@ app.use('/api/calculos', calculosRoutes);
 // ===== Paneles =====
 app.use('/api/paneles', panelesRoutes);
 
-// ===== Creacion Proyecto =====
+// ===== Proyecto =====
 app.use('/api/proyecto', projectRoutes);
 
 // ===== 404 para APIs =====

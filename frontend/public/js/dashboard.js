@@ -1,5 +1,4 @@
 // ===== MÓDULO CONSOLIDADO DE BOTONES =====
-
 const API_BASE =
   window.location.hostname === "localhost"
     ? "http://localhost:4008"   // dev backend
@@ -23,6 +22,9 @@ export function validateTxtFile(file) {
 
 // ===== FUNCIÓN PARA CARGAR INFORMACIÓN DEL PROYECTO =====
 export function loadProjectInfo() {
+
+  endEditarProyecto();
+  
   try {
     const projectConfig = localStorage.getItem('projectConfig');
     
@@ -30,12 +32,12 @@ export function loadProjectInfo() {
       const project = JSON.parse(projectConfig);
       
       // Actualizar elementos del DOM con la información del proyecto
-      document.getElementById('proyectoNombre').textContent = project.nombreProyecto || '-';
-      document.getElementById('proyectoEmpresa').textContent = project.empresaConstructora || '-';
-      document.getElementById('proyectoTipoMuerto').textContent = project.tipoMuerto || '-';
-      document.getElementById('proyectoVelViento').textContent = project.velViento ? `${project.velViento} km/h` : '-';
-      document.getElementById('proyectoTempPromedio').textContent = project.tempPromedio ? `${project.tempPromedio}°C` : '-';
-      document.getElementById('proyectoPresionAtm').textContent = project.presionAtm ? `${project.presionAtm} mmHg` : '-';
+      document.getElementById('proyectoNombre').value = project.nombre || '-';
+      document.getElementById('proyectoEmpresa').value = project.empresa || '-';
+      document.getElementById('proyectoTipoMuerto').value = project.tipo_muerto || '-';
+      document.getElementById('proyectoVelViento').value = project.vel_viento || '-';
+      document.getElementById('proyectoTempPromedio').value = project.temp_promedio || '-';
+      document.getElementById('proyectoPresionAtm').value = project.presion_atmo || '-';
       
       console.log('[FRONTEND] Información del proyecto cargada:', project);
     } else {
@@ -44,6 +46,88 @@ export function loadProjectInfo() {
   } catch (error) {
     console.error('[FRONTEND] Error al cargar información del proyecto:', error);
   }
+}
+
+export function editarProyecto(elements) {
+  
+  const { btnEditProject, btnUpdateProject, btnCancelUpdateProject } = elements;
+
+  btnEditProject.style.display = 'none';
+  btnUpdateProject.style.display = '';
+  btnCancelUpdateProject.style.display = '';
+
+  document.getElementById('proyectoNombre').disabled = false;
+  document.getElementById('proyectoEmpresa').disabled = false;
+  document.getElementById('proyectoTipoMuerto').disabled = false;
+  document.getElementById('proyectoVelViento').disabled = false;
+  document.getElementById('proyectoTempPromedio').disabled = false;
+  document.getElementById('proyectoPresionAtm').disabled = false;
+
+  document.getElementById('proyectoNombre').classList.replace('project-value-dim', 'project-value');
+  document.getElementById('proyectoEmpresa').classList.replace('project-value-dim', 'project-value');
+  document.getElementById('proyectoTipoMuerto').classList.replace('project-value-dim', 'project-value');
+  document.getElementById('proyectoVelViento').classList.replace('project-value-dim', 'project-value');
+  document.getElementById('proyectoTempPromedio').classList.replace('project-value-dim', 'project-value');
+  document.getElementById('proyectoPresionAtm').classList.replace('project-value-dim', 'project-value');
+}
+
+export async function guardarCambiosProyecto() {
+
+    try {
+        const projectConfig = localStorage.getItem('projectConfig');
+        const updatedProject = {
+            pid: projectConfig ? JSON.parse(projectConfig).pid : null,
+            pk_usuario: projectConfig ? JSON.parse(projectConfig).pk_usuario : null,
+            nombre: document.getElementById('proyectoNombre').value,
+            empresa: document.getElementById('proyectoEmpresa').value,
+            tipo_muerto: document.getElementById('proyectoTipoMuerto').value,
+            vel_viento: parseFloat(document.getElementById('proyectoVelViento').value),
+            temp_promedio: parseFloat(document.getElementById('proyectoTempPromedio').value),
+            presion_atmo: parseFloat(document.getElementById('proyectoPresionAtm').value)
+        };
+
+        await fetch(`${API_BASE}/api/proyecto/actualizar`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(updatedProject)
+        })
+        .then(res => res.json())
+        .then(data => {
+            console.log("[FRONTEND] Full response:", data.newest_project);
+            // Guardar los datos en localStorage para uso posterior
+            localStorage.setItem('projectConfig', JSON.stringify(data.newest_project));
+        })
+
+    } catch (error) {
+        console.error('[FRONTEND] Error al guardar cambios del proyecto:', error);
+        alert('Error al guardar los cambios del proyecto. Por favor, inténtelo de nuevo.');
+        return;
+    }
+
+    endEditarProyecto();
+}
+
+function endEditarProyecto() {
+
+  btnEditProject.style.display = '';
+  btnUpdateProject.style.display = 'none';
+  btnCancelUpdateProject.style.display = 'none';
+
+  document.getElementById('proyectoNombre').disabled = true;
+  document.getElementById('proyectoEmpresa').disabled = true;
+  document.getElementById('proyectoTipoMuerto').disabled = true;
+  document.getElementById('proyectoVelViento').disabled = true;
+  document.getElementById('proyectoTempPromedio').disabled = true;
+  document.getElementById('proyectoPresionAtm').disabled = true;
+
+  document.getElementById('proyectoNombre').classList.replace('project-value', 'project-value-dim');
+  document.getElementById('proyectoEmpresa').classList.replace('project-value', 'project-value-dim');
+  document.getElementById('proyectoTipoMuerto').classList.replace('project-value', 'project-value-dim');
+  document.getElementById('proyectoVelViento').classList.replace('project-value', 'project-value-dim');
+  document.getElementById('proyectoTempPromedio').classList.replace('project-value', 'project-value-dim');
+  document.getElementById('proyectoPresionAtm').classList.replace('project-value', 'project-value-dim');
 }
 
 // ===== FUNCIONES DE UI =====
