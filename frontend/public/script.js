@@ -203,6 +203,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (form) {
         btnProjectSubmit.addEventListener('click', async (e) => {
+
+            if (!form.reportValidity()) {
+                console.log('[FRONTEND] Formulario inválido');
+                return;
+            }
+            
             e.preventDefault();
 
             const formData = new FormData(form);

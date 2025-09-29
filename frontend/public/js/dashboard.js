@@ -56,14 +56,12 @@ export function editarProyecto(elements) {
   btnUpdateProject.style.display = '';
   btnCancelUpdateProject.style.display = '';
 
-  document.getElementById('proyectoNombre').disabled = false;
   document.getElementById('proyectoEmpresa').disabled = false;
   document.getElementById('proyectoTipoMuerto').disabled = false;
   document.getElementById('proyectoVelViento').disabled = false;
   document.getElementById('proyectoTempPromedio').disabled = false;
   document.getElementById('proyectoPresionAtm').disabled = false;
 
-  document.getElementById('proyectoNombre').classList.replace('project-value-dim', 'project-value');
   document.getElementById('proyectoEmpresa').classList.replace('project-value-dim', 'project-value');
   document.getElementById('proyectoTipoMuerto').classList.replace('project-value-dim', 'project-value');
   document.getElementById('proyectoVelViento').classList.replace('project-value-dim', 'project-value');
@@ -73,40 +71,49 @@ export function editarProyecto(elements) {
 
 export async function guardarCambiosProyecto() {
 
-    try {
-        const projectConfig = localStorage.getItem('projectConfig');
-        const updatedProject = {
-            pid: projectConfig ? JSON.parse(projectConfig).pid : null,
-            pk_usuario: projectConfig ? JSON.parse(projectConfig).pk_usuario : null,
-            nombre: document.getElementById('proyectoNombre').value,
-            empresa: document.getElementById('proyectoEmpresa').value,
-            tipo_muerto: document.getElementById('proyectoTipoMuerto').value,
-            vel_viento: parseFloat(document.getElementById('proyectoVelViento').value),
-            temp_promedio: parseFloat(document.getElementById('proyectoTempPromedio').value),
-            presion_atmo: parseFloat(document.getElementById('proyectoPresionAtm').value)
-        };
+  const form = document.getElementById('formProyecto');
 
-        await fetch(`${API_BASE}/api/proyecto/actualizar`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(updatedProject)
-        })
-        .then(res => res.json())
-        .then(data => {
-            console.log("[FRONTEND] Full response:", data.newest_project);
-            // Guardar los datos en localStorage para uso posterior
-            localStorage.setItem('projectConfig', JSON.stringify(data.newest_project));
-        })
+  if (!form || !form.reportValidity()) {
+    console.log('[FRONTEND] Formulario inválido');
+    return;
+  }
 
-    } catch (error) {
-        console.error('[FRONTEND] Error al guardar cambios del proyecto:', error);
-        alert('Error al guardar los cambios del proyecto. Por favor, inténtelo de nuevo.');
-        return;
-    }
+  const formData = new FormData(form);
 
-    endEditarProyecto();
+  try {
+      const projectConfig = localStorage.getItem('projectConfig');
+      const updatedProject = {
+          pid: projectConfig ? JSON.parse(projectConfig).pid : null,
+          pk_usuario: projectConfig ? JSON.parse(projectConfig).pk_usuario : null,
+          nombre: document.getElementById('proyectoNombre').value,
+          empresa: document.getElementById('proyectoEmpresa').value,
+          tipo_muerto: document.getElementById('proyectoTipoMuerto').value,
+          vel_viento: parseFloat(document.getElementById('proyectoVelViento').value),
+          temp_promedio: parseFloat(document.getElementById('proyectoTempPromedio').value),
+          presion_atmo: parseFloat(document.getElementById('proyectoPresionAtm').value)
+      };
+
+      await fetch(`${API_BASE}/api/proyecto/actualizar`, {
+          method: 'PUT',
+          headers: {
+              'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(updatedProject)
+      })
+      .then(res => res.json())
+      .then(data => {
+          console.log("[FRONTEND] Full response:", data.newest_project);
+          // Guardar los datos en localStorage para uso posterior
+          localStorage.setItem('projectConfig', JSON.stringify(data.newest_project));
+      })
+
+  } catch (error) {
+      console.error('[FRONTEND] Error al guardar cambios del proyecto:', error);
+      alert('Error al guardar los cambios del proyecto. Por favor, inténtelo de nuevo.');
+      return;
+  }
+
+  endEditarProyecto();
 }
 
 function endEditarProyecto() {
@@ -115,14 +122,12 @@ function endEditarProyecto() {
   btnUpdateProject.style.display = 'none';
   btnCancelUpdateProject.style.display = 'none';
 
-  document.getElementById('proyectoNombre').disabled = true;
   document.getElementById('proyectoEmpresa').disabled = true;
   document.getElementById('proyectoTipoMuerto').disabled = true;
   document.getElementById('proyectoVelViento').disabled = true;
   document.getElementById('proyectoTempPromedio').disabled = true;
   document.getElementById('proyectoPresionAtm').disabled = true;
 
-  document.getElementById('proyectoNombre').classList.replace('project-value', 'project-value-dim');
   document.getElementById('proyectoEmpresa').classList.replace('project-value', 'project-value-dim');
   document.getElementById('proyectoTipoMuerto').classList.replace('project-value', 'project-value-dim');
   document.getElementById('proyectoVelViento').classList.replace('project-value', 'project-value-dim');

@@ -27,50 +27,52 @@
         
       </div>
       
-      <div class="project-info-grid">
-        <div class="project-field">
-          <label>NOMBRE DEL PROYECTO</label>
-          <input type="text" id="proyectoNombre" class="project-value-dim" disabled>
-        </div>
-        
-        <div class="project-field">
-          <label>EMPRESA CONSTRUCTORA</label>
-          <input type="text" id="proyectoEmpresa" class="project-value-dim" disabled>
-        </div>
-        
-        <div class="project-field">
-          <label>TIPO DE MUERTO</label>
-          <select id="proyectoTipoMuerto" class="project-value-dim" disabled>
-              <option value="Cilindrico">Cilindrico</option>
-              <option value="Triangular">Triangular</option>
-              <option value="Corrido">Corrido</option>
-          </select>
-        </div>
-        
-        <div class="project-field">
-          <label>VELOCIDAD DEL VIENTO</label>
-          <div class="project-field-unit">
-            <input type="number" id="proyectoVelViento" class="project-value-dim" disabled>
-            <div class="project-value-unit">km/h</div>
+      <form id="formProyecto" autocomplete="off">
+        <div class="project-info-grid">
+          <div class="project-field">
+            <label>NOMBRE DEL PROYECTO</label>
+            <input type="text" id="proyectoNombre" class="project-value-dim" disabled required>
+          </div>
+          
+          <div class="project-field">
+            <label>EMPRESA CONSTRUCTORA</label>
+            <input type="text" id="proyectoEmpresa" class="project-value-dim" disabled required>
+          </div>
+          
+          <div class="project-field">
+            <label>TIPO DE MUERTO</label>
+            <select id="proyectoTipoMuerto" class="project-value-dim" disabled>
+                <option value="Cilindrico">Cilindrico</option>
+                <option value="Triangular">Triangular</option>
+                <option value="Corrido">Corrido</option>
+            </select>
+          </div>
+          
+          <div class="project-field">
+            <label>VELOCIDAD DEL VIENTO</label>
+            <div class="project-field-unit">
+              <input type="number" id="proyectoVelViento" class="project-value-dim" step="0.1" disabled required>
+              <div class="project-value-unit">km/h</div>
+            </div>
+          </div>
+          
+          <div class="project-field">
+            <label>TEMPERATURA PROMEDIO</label>
+            <div class="project-field-unit">
+              <input type="number" id="proyectoTempPromedio" class="project-value-dim" step="0.1" disabled required>
+              <div class="project-value-unit">°C</div>
+            </div>
+          </div>
+          
+          <div class="project-field">
+            <label>PRESIÓN ATMOSFÉRICA</label>
+            <div class="project-field-unit">
+              <input type="number" id="proyectoPresionAtm" class="project-value-dim" step="0.1" disabled required>
+              <div class="project-value-unit">mmHg</div>
+            </div>
           </div>
         </div>
-        
-        <div class="project-field">
-          <label>TEMPERATURA PROMEDIO</label>
-          <div class="project-field-unit">
-            <input type="number" id="proyectoTempPromedio" class="project-value-dim" disabled>
-            <div class="project-value-unit">°C</div>
-          </div>
-        </div>
-        
-        <div class="project-field">
-          <label>PRESIÓN ATMOSFÉRICA</label>
-          <div class="project-field-unit">
-            <input type="number" id="proyectoPresionAtm" class="project-value-dim" disabled>
-            <div class="project-value-unit">mmHg</div>
-          </div>
-        </div>
-      </div>
+      </form>
     </section>
 
     <!-- ===== Acordeón de funcionalidades ===== -->
