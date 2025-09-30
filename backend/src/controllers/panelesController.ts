@@ -4,7 +4,8 @@ import { Readable } from "stream";
 import {
   calcularPaneles,
   PanelEntrada,
-  PanelCalculado
+  PanelCalculado,
+  ParametrosProyecto
 } from "../services/panelesService";
 import * as pdfService from "../services/pdfService";
 
@@ -12,15 +13,21 @@ export class PanelesController {
   static calcular = (req: Request, res: Response) => {
     console.log('[controller - panelesController] calcular - Inicio');
     console.log('[controller - panelesController] Body recibido:', JSON.stringify(req.body, null, 2));
+    
     const rows = (req.body?.rows ?? []) as PanelEntrada[];
+    const parametros = req.body?.parametros as ParametrosProyecto | undefined;
+    
     console.log('[controller - panelesController] Filas procesadas:', rows.length);
+    console.log('[controller - panelesController] Parámetros del proyecto:', parametros);
+    
     if (!Array.isArray(rows) || rows.length === 0) {
       console.log('[controller - panelesController] Error: rows vacío o inválido');
       return res.status(400).json({ ok: false, error: "rows vacío o inválido" });
     }
+    
     try {
       console.log('[controller - panelesController] Llamando a calcularPaneles service');
-      const data = calcularPaneles(rows);
+      const data = calcularPaneles(rows, parametros);
       console.log('[controller - panelesController] Paneles calculados:', data.length);
       console.log('[controller - panelesController] Respuesta exitosa enviada');
       return res.json({ ok: true, data });

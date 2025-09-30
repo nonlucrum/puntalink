@@ -323,11 +323,29 @@ export async function handleCalcularPaneles(elements, callbacks, globalVars) {
     }));
     console.log('[DASHBOARD] Datos transformados para API:', rows);
     
+    // Obtener parámetros del proyecto desde localStorage
+    let parametros = null;
+    const projectConfig = localStorage.getItem('projectConfig');
+    if (projectConfig) {
+      try {
+        const projectInfo = JSON.parse(projectConfig);
+        parametros = {
+          vel_viento: projectInfo.vel_viento,
+          temp_promedio: projectInfo.temp_promedio,
+          presion_atmo: projectInfo.presion_atmo,
+          tipo_muerto: projectInfo.tipo_muerto
+        };
+        console.log('[DASHBOARD] Parámetros del proyecto obtenidos:', parametros);
+      } catch (e) {
+        console.warn('[DASHBOARD] Error al parsear projectConfig:', e);
+      }
+    }
+    
     console.log('[DASHBOARD] Enviando petición POST a /api/paneles/calcular');
     const resp = await fetch(`${API_BASE}/api/paneles/calcular`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rows })
+      body: JSON.stringify({ rows, parametros })
     });
     console.log('[DASHBOARD] Respuesta de cálculo recibida:', resp.status);
     const json = await resp.json();
