@@ -171,6 +171,9 @@ export function updatePanelesDisplay(panelesActuales, elements, callbacks) {
     // Mostrar botón calcular y abrir sección de resultados
     btnCalcular.style.display = '';
     openSection('results-section');
+  } else if (tablaPaneles.innerHTML !== '') {
+    tablaAccordion.style.display = '';
+    tablaAccordion.classList.add('active');
   } else {
     // Ocultar sub-acordeón
     tablaAccordion.style.display = 'none';
@@ -242,6 +245,7 @@ export async function handleUploadTxt(file, elements, callbacks, globalVars) {
     if (!resp.ok || !json.ok) {
       console.log('[DASHBOARD] Error en la respuesta:', json.error);
       tablaPaneles.innerHTML = `<p class="error">${json.error || 'Error procesando el TXT.'}</p>`;
+      updatePanelesDisplay();
       return;
     }
     
