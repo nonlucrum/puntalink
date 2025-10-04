@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: puntalink
+    volumes:
+      - ./data/puntalink.sql:/docker-entrypoint-initdb.d/puntalink.sql
+    ports:
+      - "5008:5008"
+    networks:
+      - red_taller_software
+    command: postgres -p 5008
+
+  backend:
+    build: ./backend
+    restart: always
+    env_file:
+      - ./backend/.env
+    ports:
+      - "4008:4008"
+    depends_on:
+      - db
+    networks:
+      - red_taller_software
+
+  frontend:
+    build: ./frontend
+    restart: always
+    ports:
+      - "3008:3008"
+    networks:
+      - red_taller_software
+
+networks:
+  red_taller_software:
+    external: true

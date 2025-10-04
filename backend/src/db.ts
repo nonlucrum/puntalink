@@ -8,7 +8,7 @@ const pool = new Pool({
   password: process.env.PGPASSWORD,
   host: process.env.PGHOST,
   database: process.env.PGDATABASE,
-  port: Number(process.env.PGPORT) || 5432,
+  port: Number(process.env.PGPORT) || 5008,
 });
 
 export default pool;
@@ -22,7 +22,7 @@ export async function addMuro(
   volumen: number
 ) {
   const query = `
-    INSERT INTO puntalink.muro (pk_proyecto, id_muro, grosor, area, peso, volumen)
+    INSERT INTO muro (pk_proyecto, id_muro, grosor, area, peso, volumen)
     VALUES ($1, $2, $3, $4, $5, $6)
     RETURNING *;
   `;
@@ -39,5 +39,5 @@ export async function addMuro(
 }
 
 export async function overrideMuros(pk_proyecto: number) {
-  await pool.query('DELETE FROM puntalink.muro WHERE pk_proyecto = $1', [pk_proyecto]);
+  await pool.query('DELETE FROM muro WHERE pk_proyecto = $1', [pk_proyecto]);
 }

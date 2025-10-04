@@ -1,168 +1,94 @@
-# PuntaLink
+# PuntaLink v0.1b
 
-**PuntaLink** es un sistema web para el análisis y gestión de proyectos estructurales, permitiendo importar archivos `.TXT`, procesar y visualizar datos de muros, braces y pilares, y generar reportes.
+**PuntaLink** es un sistema web para el análisis y gestión de proyectos estructurales, permitiendo importar archivos `.TXT`, procesar y visualizar datos de muros, realizar cálculos para braces y deadman, y generar reportes.
 
 Desarrollado en Node.js + Express (backend), PostgreSQL (base de datos), y HTML/CSS/JS puro (frontend).
 
----
 
 ## Características principales
 
 - Importación de datos estructurales desde archivos `.TXT`.
 - Visualización de paneles y resultados en tabla.
-- Cálculo y manejo de muros, braces y pilares.
+- Cálculo y manejo de muros, braces y deadman.
 - Exportación de reportes.
-- Separación clara de backend y frontend.
-
----
 
 ## Requisitos
 
-- **Node.js** v18+ (LTS recomendado)  
-- **npm** (incluido con Node.js)
-- **PostgreSQL** v13+  
-- (Opcional) **pgAdmin 4** o similar para administrar la BD
-- **`serve`** o **`http-server`** para frontend (se instala con npm)
+- **Node.js** v18+ (LTS recomendado)
+- **Docker Desktop** v4.46+
 
----
 
 ## Estructura del proyecto
 
+```
 puntalink/
 │
 ├── backend/ # API REST, lógica servidor, conexión BD
 │ ├── src/
-│ ├── routes/
-│ └── ...
+│   ├── routes/
+│   ├── controllers/
+│   ├── services/
+│   └── models/
 │
 ├── frontend/
-│ └── public/ # Interfaz web (index.html, script.js, styles.css)
+│ └── public/ # Interfaz web (*.html, *.js, *.css)
 │
-├── docs/ # Manuales, diagramas, SQL (opcional)
-├── README.md
-├── .env.example # Ejemplo de configuración env
+├── data/ # Manuales, diagramas, SQL (opcional)
 └── ...
+```
 
+## Descarga y despliegue de la aplicación
 
-## ⚙ Instalación y ejecución
+### 1. Preparar directorio del proyecto
 
-### 1. Clonar el repositorio
+El proyecto se puede descargar como un .zip o clonarse por medio de git.
 
-git clone https://github.com/nonlucrum/puntalink.git
-cd puntalink
+### 2. Iniciar Docker Desktop
 
+Docker Desktop se puede iniciar con la interfaz gráfica del sistema operativo o por medio de la consola.
 
-## 2. Configurar la base de datos
-Instala PostgreSQL y crea una base de datos llamada puntalink.
+- Linux:
+    ```bat
+    sudo systemctl start docker
+    ```
+- Windows:
+    ```cmd
+    docker desktop start
+    ```
 
-Ejecuta el script SQL de creación de tablas (ver /docs/estructura.sql o ejemplo abajo):
+### 3. Levantar la aplicación
 
--- Ejemplo tabla usuario
-CREATE TABLE usuario (
-    pid SERIAL PRIMARY KEY,
-    nombre VARCHAR(240) NOT NULL,
-    correo VARCHAR(240) UNIQUE NOT NULL,
-    password VARCHAR(45) NOT NULL
-);
--- ... (agrega las otras tablas según corresponda)
-Crea un usuario con permisos y anota el usuario/clave.
+Estos comandos y los del paso 4 se realizan desde la carpeta raíz del proyecto.
 
-## 3. Configurar variables de entorno (.env)
-Copia el ejemplo y edítalo:
+- Para correr el proceso en foreground y ver los logs en la consola (pero dejar la consola anclada al proceso):
+    ```cmd
+    docker compose up --build
+    ```
+- Para correr el proceso en background (la consola queda liberada y puede ejecutar otros comandos):
+    ```cmd
+    docker compose up --build -d
+    ```
+    - Los logs se pueden ver en Docker Desktop o con el siguiente comando:
+        ```cmd
+        docker compose logs -f
+        ```
 
-cp backend/.env.example backend/.env
+### 4. Detener la aplicación
 
-Edita los valores:
-PGUSER=postgres
-PGPASSWORD=tu_contraseña
-PGDATABASE=puntalink
-PGHOST=localhost
-PGPORT=5432
+- Si está corriendo en foreground, usar la combinación de teclas <kbd>Ctrl</kbd> + <kbd>C</kbd>
+    - Puede requerirse presionar otra tecla antes de que la detención se lleve a cabo.
 
-4. Backend (API)
+- Si está corriendo en background:
+    ```cmd
+    docker compose down
+    ```
 
-cd backend
-npm install
-npm run dev         # desarrollo con tsx (hot-reload)
-# o para producción:
-npm run build && npm start
+## Manual de usuario
+[Enlace al manual en Google Docs](https://docs.google.com/document/d/1SFRIbO5Gz7Ox665AXFnp1Tl14Uji9rCN0jzmqgrzed4/edit?tab=t.0#heading=h.y92z64m5mpwl)
 
-Por defecto, corre en http://localhost:3000
-Verifica en: http://localhost:3000/health
+## Contacto
+Equipo Nonlucrum
 
-## 5. Frontend (Web)
-En otra terminal:
-
-cd frontend/public
-npx serve . -l 5173
-
-Abre: http://localhost:5173
-Alternativa: Usa Live Server de VSCode.
-
-## Notas de desarrollo y migración a TypeScript
-Cómo correr el backend
-
-npm install
-npm run dev         
-
-npm run build && npm start
-
-Dónde pegar tu lógica
-src/routes/* : reemplaza los handlers de ejemplo por tus rutas reales.
-src/controllers/* : copia/convierte tus controladores JS aquí y exporta funciones tipadas.
-src/services/* : igual que arriba para servicios y lógica reutilizable.
-Las vistas y la carpeta public se copiaron desde el proyecto original.
-
-## Notas de migración
-app.js → src/app.ts
-server.js → src/server.ts
-Cambia require(...) por import ... from '...' (activado esModuleInterop en TS).
-Si tus controladores JS usaban module.exports = { ... }, en TS usa export default { ... } o export const foo = ....
-
-Para tipar Express en controladores:
-
-import { Request, Response } from 'express';
-export const procesar = (req: Request, res: Response) => { ... }
-Dependencias con tipos ya incluidas: @types/express, @types/node, @types/morgan, @types/cors, @types/multer, @types/pdfkit.
-
-## Sugerencias
-Activa strict: true en tsconfig.json cuando termines de convertir todo el proyecto.
-
-Convierte archivo por archivo: rutas → controladores → servicios.
-
-## Uso básico
-Abre el frontend en tu navegador.
-Importa un archivo .TXT desde la sección correspondiente.
-Visualiza los paneles y resultados.
-Explora las funciones de cálculo y exportación.
-
-Endpoints API principales
-Ruta	Método	Descripción
-/api/importar-muros	POST	Importa archivo TXT y procesa datos
-/api/health	GET	Verifica si el backend está online
-...	...	(Agrega los endpoints relevantes)
-
-Casos de prueba recomendados
-Importar archivo TXT válido → muestra datos en tabla.
-Importar archivo TXT inválido → muestra error, no modifica datos previos.
-Visualizar datos después de actualización o edición.
-Intentar importar sin archivo → muestra mensaje de error.
-Chequear que el backend y frontend corran por separado y se comuniquen correctamente.
-
-Autores y contacto
-Equipo PuntaLink / nonlucrum
-
-Contacto: 
-Ninoska Toledo (Product Owner): ninoska.toledo@outlook.com
-
-GitHub: https://github.com/nonlucrum/puntalink
-
-Herramientas recomendadas
-Visual Studio Code + extensiones: ESLint, Prettier, Live Server.
-pgAdmin 4 para gestión de base de datos.
-Docker ( para despliegue en servidor).
-
-Notas
-No subas archivos .env reales ni claves sensibles al repo público.
-Si tienes problemas de CORS, revisa la configuración en backend (usa cors).
-Abre el frontend SIEMPRE usando un servidor local, no como archivo file:///.
+Product Owner:\
+Ninoska Toledo\
+ninoska.toledo@outlook.com

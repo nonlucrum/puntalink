@@ -1,0 +1,33 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.crearProyectoService = crearProyectoService;
+exports.actualizarProyectoService = actualizarProyectoService;
+const Project_1 = require("../models/Project");
+const Project_2 = require("../models/Project");
+async function crearProyectoService(projectData) {
+    console.log('[service - projectService] crearProyecto - Inicio');
+    try {
+        const nuevoProyecto = await (0, Project_1.addProject)(1, // pk_usuario temporal
+        projectData.body.nombreProyecto, projectData.body.empresaConstructora, projectData.body.tipoMuerto, projectData.body.velViento, projectData.body.tempPromedio, projectData.body.presionAtm);
+        console.log('[service - projectService] crearProyecto - Proyecto creado exitosamente');
+        return nuevoProyecto;
+    }
+    catch (err) {
+        console.error('[service - projectService] crearProyecto - Error al crear el proyecto:', err);
+        throw err;
+    }
+    console.log('[service - projectService] crearProyecto - Fin');
+}
+async function actualizarProyectoService(projectData) {
+    console.log('[service - projectService] actualizarProyecto - Inicio');
+    try {
+        const proyectoActualizado = await (0, Project_2.updateProject)(projectData.body.pid, projectData.body.pk_usuario, projectData.body.nombre, projectData.body.empresa, projectData.body.tipo_muerto, projectData.body.vel_viento, projectData.body.temp_promedio, projectData.body.presion_atmo);
+        console.log('[service - projectService] actualizarProyecto - Proyecto actualizado exitosamente');
+        return proyectoActualizado;
+    }
+    catch (err) {
+        console.error('[service - projectService] actualizarProyecto - Error al actualizar el proyecto:', err);
+        throw err;
+    }
+    console.log('[service - projectService] actualizarProyecto - Fin');
+}

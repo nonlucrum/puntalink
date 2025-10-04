@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: puntalink
+    ports:
+      - "5008:5008"
+    volumes:
+      - ./data/puntalink.sql:/docker-entrypoint-initdb.d/puntalink.sql
+    command: postgres -p 5008
+
+  backend:
+    build: ./backend
+    restart: always
+    env_file:
+      - ./backend/.env
+    ports:
+      - "4008:4008"
+    depends_on:
+      - db
+
+  frontend:
+    build: ./frontend
+    restart: always
+    ports:
+      - "3008:3008"
+
+volumes:
+  db_data:

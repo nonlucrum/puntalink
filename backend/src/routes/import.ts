@@ -1,32 +1,25 @@
-import { Router, Request, Response } from 'express';
+import { Router } from 'express';
 import multer from 'multer';
+import { importarMuros } from '../controllers/importController';
+import { cancelarImport } from '../controllers/importController';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-/**
- * Parser mínimo:
- * - Si el TXT es JSON válido → devuelve ese JSON.
- * - Si NO es JSON → devuelve { raw } para que no rompa el flujo.
- *   (Puedes adaptar después a tu formato real).
- */
-function parseTxt(txt: string): unknown {
-  const raw = txt.trim();
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return { raw }; // <- sin “panelplus”, solo el contenido crudo
-  }
-}
+// Middleware de logging para rutas de import
+router.use((req, res, next) => {
+  console.log(`[routes - import] ${req.method} ${req.originalUrl}`);
+  next();
+});
 
-// Acepta POST /  y POST /txt  dentro del mismo router
-router.post(['/', '/txt'], upload.single('file'), (req: Request, res: Response) => {
-  if (!req.file) {
-    return res.status(400).json({ ok: false, error: 'No se recibió archivo.' });
-  }
-  const txt = req.file.buffer.toString('utf-8');
-  const data = parseTxt(txt);
-  return res.json({ ok: true, data });
+router.post(['/', '/txt'], upload.single('file'), (req, res) => {
+  console.log('[routes - import] POST / - Llamando a importarMuros');
+  importarMuros(req, res);
+});
+
+router.delete(['/', '/cancelar-import'], (req, res) => {
+  console.log('[routes - import] DELETE / - Llamando a cancelarImport');
+  cancelarImport(req, res);
 });
 
 export default router;
