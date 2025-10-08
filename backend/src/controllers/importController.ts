@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { parseTxtRobusto } from '../services/importService';
 import { removeTXT } from '../services/importService';
+import { getMurosByProject } from '../models/Muro';
 
 export async function importarMuros(req: Request, res: Response) {
   console.log('[controller - importController] importarMuros - Inicio');
@@ -34,5 +35,21 @@ export async function cancelarImport(req: Request, res: Response) {
   } catch (err: any) {
     console.log('[controller - importController] Error en cancelarImport:', err.message);
     return res.status(400).json({ ok: false, error: "no se pudo :(" });
+  }
+}
+
+export async function getMuros(req: Request, res: Response) {
+  console.log('[controller - importController] getMuros - Inicio');
+  try {
+    const pk_proyecto = parseInt(req.query.pk_proyecto as string) || 1; // Default project ID
+    console.log('[controller - importController] Obteniendo muros para proyecto:', pk_proyecto);
+    
+    const muros = await getMurosByProject(pk_proyecto);
+    console.log('[controller - importController] Muros encontrados:', muros.length);
+    
+    return res.json({ ok: true, muros });
+  } catch (err: any) {
+    console.log('[controller - importController] Error en getMuros:', err.message);
+    return res.status(500).json({ ok: false, error: err.message });
   }
 }

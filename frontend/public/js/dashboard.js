@@ -141,8 +141,8 @@ export function updatePanelesDisplay(panelesActuales, elements, callbacks) {
   const { openSection } = callbacks;
   
   if (panelesActuales.length > 0) {
-    // Mostrar tabla en el sub-acordeón
-    let html = "<table><thead><tr><th>#</th><th>ID Muro</th><th>Grosor</th><th>Área</th><th>Peso</th><th>Volumen</th></tr></thead><tbody>";
+    // Mostrar tabla en el sub-acordeón con Overall Height
+    let html = "<table><thead><tr><th>#</th><th>ID Muro</th><th>Grosor</th><th>Área</th><th>Peso</th><th>Volumen</th><th>Overall Height</th></tr></thead><tbody>";
     panelesActuales.forEach((p, i) => {
       html += `<tr>
         <td>${i + 1}</td>
@@ -151,6 +151,7 @@ export function updatePanelesDisplay(panelesActuales, elements, callbacks) {
         <td>${p.area ?? ''}</td>
         <td>${p.peso ?? ''}</td>
         <td>${p.volumen ?? ''}</td>
+        <td>${p.overall_height || 'N/A'}</td>
       </tr>`;
     });
     html += "</tbody></table>";
@@ -218,6 +219,26 @@ export function handleFileValidation(file, elements) {
 }
 
 // ===== BOTÓN: SUBIR ARCHIVO TXT =====
+// Función para obtener muros desde la base de datos
+async function fetchMurosFromDatabase() {
+  try {
+    console.log('[DASHBOARD] Obteniendo muros desde la base de datos...');
+    const response = await fetch(`${API_BASE}/api/importar-muros/muros?pk_proyecto=1`);
+    const json = await response.json();
+    
+    if (json.ok && json.muros) {
+      console.log('[DASHBOARD] Muros obtenidos desde BD:', json.muros.length);
+      return json.muros;
+    } else {
+      console.log('[DASHBOARD] Error obteniendo muros:', json.error || 'Error desconocido');
+      return [];
+    }
+  } catch (error) {
+    console.error('[DASHBOARD] Error en fetchMurosFromDatabase:', error);
+    return [];
+  }
+}
+
 export async function handleUploadTxt(file, elements, callbacks, globalVars) {
   console.log('[DASHBOARD] Preparando subida de archivo:', file.name);
   const { tablaPaneles, resultadosCalculo, btnCalcular, btnInforme } = elements;
@@ -250,8 +271,20 @@ export async function handleUploadTxt(file, elements, callbacks, globalVars) {
     }
     
     console.log('[DASHBOARD] Archivo procesado exitosamente');
-    globalVars.panelesActuales = json.paneles;
-    console.log('[DASHBOARD] Paneles obtenidos:', globalVars.panelesActuales.length);
+    
+    // Obtener los muros completos desde la base de datos (incluyendo overall_height)
+    console.log('[DASHBOARD] Obteniendo muros completos desde la base de datos...');
+    const murosCompletos = await fetchMurosFromDatabase();
+    
+    if (murosCompletos.length > 0) {
+      globalVars.panelesActuales = murosCompletos;
+      console.log('[DASHBOARD] Muros completos obtenidos desde BD:', globalVars.panelesActuales.length);
+      console.log('[DASHBOARD] Primer muro con overall_height:', globalVars.panelesActuales[0]);
+    } else {
+      // Fallback: usar los paneles del response de importación
+      globalVars.panelesActuales = json.paneles;
+      console.log('[DASHBOARD] Usando paneles del import response:', globalVars.panelesActuales.length);
+    }
     
     updatePanelesDisplay();
     console.log('[DASHBOARD] Display de paneles actualizado');

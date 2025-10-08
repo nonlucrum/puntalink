@@ -39,6 +39,7 @@ CREATE TABLE muro (
     area FLOAT,
     peso FLOAT,
     volumen FLOAT,
+    overall_height FLOAT,
 
     CONSTRAINT fk_muro_proyecto FOREIGN KEY (pk_proyecto) 
         REFERENCES proyecto (pid) ON DELETE CASCADE

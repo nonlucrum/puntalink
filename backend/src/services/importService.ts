@@ -17,77 +17,124 @@ export function parseTxtRobusto(txt: string) {
   const lines = raw.split(/\r?\n/);
   console.log('[service - importService] Número de líneas encontradas:', lines.length);
   const paneles: any[] = [];
+  const panelNumbers: number[] = []; // Para contar los números de paneles procesados
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
-    console.log(`[service - importService] Procesando línea ${i + 1}:`, line.substring(0, 50) + (line.length > 50 ? '...' : ''));
+    console.log(`[service - importService] Procesando línea ${i + 1}:`, line.substring(0, 80) + (line.length > 80 ? '...' : ''));
     
     if (!line || !line.startsWith('(')) {
       console.log(`[service - importService] Línea ${i + 1} omitida (vacía o formato incorrecto)`);
       continue;
     }
 
-    const fixed = line.replace(/(\d),(\d)/g, "$1.$2");
-    let cols = fixed.split(',').map(x => x.trim());
-    while (cols.length < 6) cols.push(null);
-    cols = cols.slice(0, 6);
-
-    let [numId, grosor, area, peso, volumen, extra] = cols;
-    let num = null, id_muro = null;
+    // Dividir por comas para obtener todas las columnas
+    const parts = line.split(',').map(part => part.trim());
+    console.log(`[service - importService] Línea ${i + 1} tiene ${parts.length} columnas`);
     
+    if (parts.length < 12) {
+      console.log(`[service - importService] Línea ${i + 1} omitida - muy pocas columnas (${parts.length} < 12)`);
+      continue;
+    }
+
+    // Extraer datos según el formato real del reporte:
+    // (1) M01, 210, 17,0, 8,6, 3,6, 750, 5677, 4, , , , Yes, , 1500, 11354
+    // Pos:  0     1    2    3    4    5    6    7  8 9 10 11  12 13   14    15
+    const panelIdCol = parts[0];      // "(1) M01"
+    const grosorCol = parts[1];       // "210"
+    const areaCol = parts[2];         // "17,0"
+    const pesoCol = parts[3];         // "8,6" (Weight en toneladas)
+    const volumenCol = parts[4];      // "3,6" (Volume)
+    // CGx = parts[5], CGy = parts[6], luego más datos...
+    // Overall Width = parts[14], Overall Height = parts[15]
+    const overallHeightCol = parts.length >= 16 ? parts[15] : null; // Columna 16 (índice 15)
+
+    // Debug: mostrar los primeros valores para verificar
+    console.log(`[service - importService] Debug - grosor:"${grosorCol}", area:"${areaCol}", peso:"${pesoCol}", volumen:"${volumenCol}", height:"${overallHeightCol}"`);
+
     // Patrón mejorado para extraer número y nombre del panel
-    const panelMatch = /^\((\d+)\)\s*(.*)/.exec(numId || "");
+    const panelMatch = /^\((\d+)\)\s*(.*)/.exec(panelIdCol || "");
     if (!panelMatch) {
       console.log(`[service - importService] Línea ${i + 1} omitida - no se pudo extraer número de panel`);
       continue;
     }
     
-    num = Number(panelMatch[1]);
+    const num = Number(panelMatch[1]);
     let panelName = panelMatch[2].trim();
     
     // Si no tiene nombre o está vacío, asignar "S/N" (Sin Nombre)
     if (!panelName || panelName === '') {
-      id_muro = 'S/N';
-      console.log(`[service - importService] Panel ${num} sin nombre - asignado como: ${id_muro}`);
-    } else {
-      // Si tiene nombre, usarlo tal como está
-      id_muro = panelName;
+      panelName = 'S/N';
+      console.log(`[service - importService] Panel ${num} sin nombre - asignado como: ${panelName}`);
     }
 
-    // Validar que tenemos los datos mínimos necesarios
-    const grosorNum = grosor ? parseFloat(grosor.replace(',', '.')) : null;
-    const areaNum = area ? parseFloat(area.replace(',', '.')) : null;
-    const pesoNum = peso ? parseFloat(peso.replace(',', '.')) : null;
-    const volumenNum = volumen ? parseFloat(volumen.replace(',', '.')) : null;
+    // Convertir valores numéricos (reemplazar comas por puntos para decimales)
+    const grosorNum = grosorCol ? parseFloat(grosorCol.replace(',', '.')) : null;
+    const areaNum = areaCol ? parseFloat(areaCol.replace(',', '.')) : null;
+    const pesoNum = pesoCol ? parseFloat(pesoCol.replace(',', '.')) : null;
+    const volumenNum = volumenCol ? parseFloat(volumenCol.replace(',', '.')) : null;
+    
+    // Para Overall Height, guardar en bruto como texto
+    let overallHeightValue = overallHeightCol?.trim() || "S/N";
+    if (overallHeightValue === "") {
+      overallHeightValue = "S/N";
+    }
 
+    // Validar que tenemos los datos mínimos necesarios (solo las 4 columnas principales)
     if (!grosorNum || !areaNum || !pesoNum || !volumenNum) {
-      console.log(`[service - importService] Panel ${num} (${id_muro}) omitido - datos numéricos faltantes o inválidos`);
+      console.log(`[service - importService] Panel ${num} (${panelName}) omitido - datos numéricos faltantes o inválidos`);
+      console.log(`[service - importService] grosor:${grosorNum}, area:${areaNum}, peso:${pesoNum}, volumen:${volumenNum}`);
       continue;
     }
 
-    console.log(`[service - importService] Panel ${num} procesado exitosamente: ${id_muro}`);
+    console.log(`[service - importService] Panel ${num} procesado exitosamente: ${panelName}, Overall Height: ${overallHeightValue}`);
+
+    // Agregar número del panel al array de conteo
+    panelNumbers.push(num);
 
     paneles.push({
       num,
-      id_muro,
+      id_muro: panelName,
       grosor: grosorNum,
       area: areaNum,
       peso: pesoNum,
       volumen: volumenNum,
+      overall_height: overallHeightValue,
     });
 
     const nuevoMuro = addMuro(
         1,          // pk_proyecto
-        id_muro,
+        panelName,
         grosorNum,
         areaNum,
         pesoNum,
-        volumenNum
+        volumenNum,
+        overallHeightValue
     );
   }
 
   console.log('[service - importService] Procesamiento completado');
   console.log('[service - importService] Total de paneles procesados:', paneles.length);
+  
+  // Análisis de números de paneles
+  if (panelNumbers.length > 0) {
+    const minPanel = Math.min(...panelNumbers);
+    const maxPanel = Math.max(...panelNumbers);
+    console.log(`[service - importService] Rango de paneles: ${minPanel} a ${maxPanel}`);
+    console.log(`[service - importService] Se esperaban ${maxPanel} paneles, se procesaron ${panelNumbers.length}`);
+    
+    if (panelNumbers.length !== maxPanel) {
+      const missingPanels = [];
+      for (let i = minPanel; i <= maxPanel; i++) {
+        if (!panelNumbers.includes(i)) {
+          missingPanels.push(i);
+        }
+      }
+      console.log(`[service - importService] Paneles faltantes: ${missingPanels.slice(0, 10).join(', ')}${missingPanels.length > 10 ? ' y ' + (missingPanels.length - 10) + ' más...' : ''}`);
+    } else {
+      console.log(`[service - importService] ✅ Todos los paneles fueron procesados correctamente!`);
+    }
+  }
 
   if (paneles.length === 0) {
     console.log('[service - importService] Error: No se encontraron paneles válidos');

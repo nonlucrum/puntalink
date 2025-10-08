@@ -218,14 +218,18 @@ export function calcularVientoMuro(muro: Muro, parametros: WindParameters): Wind
   const area_m2 = muro.area || 0;
   const peso_ton = muro.peso || 0;
   
-  // Para altura, usar estimación basada en área o parámetro proporcionado
+  // Para altura, usar overall_height del TXT si existe, sino usar estimación
   let altura_z_m = parametros.altura_estimada_m;
-  if (!altura_z_m) {
-    // Estimación: asumir proporción típica de muro Tilt-Up (altura ≈ sqrt(area))
-    // Basado en Excel "Hoja1" donde muros de ~50m² tienen ~6m altura
+  
+  // Prioridad 1: Usar overall_height del muro importado (convertir de mm a metros)
+  if (muro.overall_height && muro.overall_height > 0) {
+    altura_z_m = muro.overall_height / 1000; // Convertir de mm a metros
+    console.log(`[CALCULOS] Usando Overall Height del TXT: ${muro.overall_height}mm = ${altura_z_m}m para muro ${muro.id_muro}`);
+  } else if (!altura_z_m) {
+    // Prioridad 2: Estimación basada en área (método anterior como respaldo)
     altura_z_m = Math.sqrt(area_m2 * 0.72); // Factor empírico Excel
     if (altura_z_m < 3) altura_z_m = 6; // Altura mínima típica Tilt-Up
-    advertencias.push(`Altura estimada como ${altura_z_m.toFixed(1)}m. Para mayor precisión, proporcione altura real.`);
+    advertencias.push(`Altura estimada como ${altura_z_m.toFixed(1)}m (no se encontró Overall Height en TXT). Para mayor precisión, verifique el archivo de importación.`);
   }
   
   // Paso b) Cálculos de Viento según Tomo III

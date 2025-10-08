@@ -171,19 +171,11 @@
                 <div class="form-row">
                   <label for="categoria_terreno">Categoría:</label>
                   <select id="categoria_terreno">
-                    <option value="A">A - Urbano (α=0.33, β=1)</option>
-                    <option value="B" selected>B - Suburbano (α=0.15, β=0.85)</option>
-                    <option value="C">C - Abierto (α=0.1, β=0.65)</option>
-                    <option value="D">D - Suave (α=0.08, β=0.5)</option>
+                    <option value="1">1 - Terreno plano o ligeramente ondulado</option>
+                    <option value="2" selected>2 - Terreno rugoso con obstáculos aislados</option>
+                    <option value="3">3 - Terreno cubierto con obstáculos numerosos</option>
+                    <option value="4">4 - Terreno muy rugoso con obstáculos grandes</option>
                   </select>
-                </div>
-                <div class="form-row">
-                  <label for="alpha">α (alpha):</label>
-                  <input type="number" id="alpha" step="0.01" min="0" value="0.15">
-                </div>
-                <div class="form-row">
-                  <label for="beta">β (beta):</label>
-                  <input type="number" id="beta" step="0.01" min="0" value="0.85">
                 </div>
               </div>
 
@@ -197,10 +189,6 @@
                 <div class="form-row">
                   <label for="FT">FT (topografía):</label>
                   <input type="number" id="FT" step="0.01" min="0" value="1.0">
-                </div>
-                <div class="form-row">
-                  <label for="FC">FC (categoría):</label>
-                  <input type="number" id="FC" step="0.01" min="0" value="1.0">
                 </div>
               </div>
 

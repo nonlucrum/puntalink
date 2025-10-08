@@ -19,15 +19,16 @@ export async function addMuro(
   grosor: number,
   area: number,
   peso: number,
-  volumen: number
+  volumen: number,
+  overall_height?: number
 ) {
   const query = `
-    INSERT INTO muro (pk_proyecto, id_muro, grosor, area, peso, volumen)
-    VALUES ($1, $2, $3, $4, $5, $6)
+    INSERT INTO muro (pk_proyecto, id_muro, grosor, area, peso, volumen, overall_height)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
     RETURNING *;
   `;
 
-  const values = [pk_proyecto, id_muro, grosor, area, peso, volumen];
+  const values = [pk_proyecto, id_muro, grosor, area, peso, volumen, overall_height || null];
 
   try {
     const result = await pool.query(query, values);

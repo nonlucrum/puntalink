@@ -234,39 +234,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ===== ELEMENTOS ADICIONALES PARA VIENTO =====
   const btnCalcularViento = document.getElementById('btnCalcularViento');
-  const categoriaTerreno = document.getElementById('categoria_terreno');
 
   // ===== CONFIGURAR EVENTOS PARA CÁLCULO DE VIENTO =====
   if (btnCalcularViento) {
     btnCalcularViento.addEventListener('click', calcularCargasViento);
-  }
-
-  // ===== AUTOCOMPLETAR PARÁMETROS SEGÚN CATEGORÍA =====
-  if (categoriaTerreno) {
-    categoriaTerreno.addEventListener('change', (e) => {
-      const categoria = e.target.value;
-      const alphaInput = document.getElementById('alpha');
-      const betaInput = document.getElementById('beta');
-      
-      switch (categoria) {
-        case 'A':
-          alphaInput.value = '0.33';
-          betaInput.value = '1';
-          break;
-        case 'B':
-          alphaInput.value = '0.15';
-          betaInput.value = '0.85';
-          break;
-        case 'C':
-          alphaInput.value = '0.1';
-          betaInput.value = '0.65';
-          break;
-        case 'D':
-          alphaInput.value = '0.08';
-          betaInput.value = '0.5';
-          break;
-      }
-    });
   }
 
   // ===== INICIALIZACIÓN =====
@@ -308,12 +279,9 @@ async function calcularCargasViento() {
     console.log('[WIND] Recopilando parámetros del formulario...');
     
     const parametros = {
-      categoria_terreno: document.getElementById('categoria_terreno').value,
-      alpha: parseFloat(document.getElementById('alpha').value),
-      beta: parseFloat(document.getElementById('beta').value),
+      categoria_terreno: parseInt(document.getElementById('categoria_terreno').value),
       VR_kmh: parseFloat(document.getElementById('VR_kmh').value),
       FT: parseFloat(document.getElementById('FT').value),
-      FC: parseFloat(document.getElementById('FC').value),
       temperatura_C: parseFloat(document.getElementById('temperatura_C').value),
       presion_barometrica_mmHg: parseFloat(document.getElementById('presion_barometrica_mmHg').value),
       Cp_int: parseFloat(document.getElementById('Cp_int').value),

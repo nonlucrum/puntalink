@@ -8,6 +8,7 @@ export interface Muro {
   area?: number;
   peso?: number;
   volumen?: number;
+  overall_height?: string;  // Cambiado a string para datos en bruto
 }
 
 export async function addMuro(
@@ -16,15 +17,16 @@ export async function addMuro(
   grosor: number,
   area: number,
   peso: number,
-  volumen: number
+  volumen: number,
+  overall_height?: string  // Cambiado a string
 ) {
   const query = `
-    INSERT INTO muro (pk_proyecto, id_muro, grosor, area, peso, volumen)
-    VALUES ($1, $2, $3, $4, $5, $6)
+    INSERT INTO muro (pk_proyecto, id_muro, grosor, area, peso, volumen, overall_height)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
     RETURNING *;
   `;
 
-  const values = [pk_proyecto, id_muro, grosor, area, peso, volumen];
+  const values = [pk_proyecto, id_muro, grosor, area, peso, volumen, overall_height || "S/N"];
 
   try {
     const result = await pool.query(query, values);
@@ -37,4 +39,21 @@ export async function addMuro(
 
 export async function overrideMuros(pk_proyecto: number) {
   await pool.query('DELETE FROM muro WHERE pk_proyecto = $1', [pk_proyecto]);
+}
+
+export async function getMurosByProject(pk_proyecto: number): Promise<Muro[]> {
+  const query = `
+    SELECT pid, pk_proyecto, id_muro, grosor, area, peso, volumen, overall_height
+    FROM muro 
+    WHERE pk_proyecto = $1
+    ORDER BY pid;
+  `;
+
+  try {
+    const result = await pool.query(query, [pk_proyecto]);
+    return result.rows;
+  } catch (error) {
+    console.error("Error getting muros:", error);
+    throw error;
+  }
 }
