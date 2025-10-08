@@ -44,7 +44,7 @@ function generarInformePaneles(paneles, projectInfo) {
             resolve(Buffer.concat(buffers));
         });
         // ===== PORTADA =====
-        crearPortada(doc);
+        crearPortada(doc, projectInfo);
         // ===== INFORMACIÓN DEL PROYECTO =====
         doc.addPage();
         crearPaginaProyecto(doc, projectInfo);
@@ -57,26 +57,46 @@ function generarInformePaneles(paneles, projectInfo) {
         doc.end();
     });
 }
-function crearPortada(doc) {
+function crearPortada(doc, projectInfo) {
     // Logo/Título principal centrado
     doc.fontSize(36)
         .fillColor('#2E86AB')
-        .text('PUNTALINK', 0, 200, { align: 'center' });
+        .text('PUNTALINK', 0, 150, { align: 'center' });
     // Subtítulo
     doc.fontSize(18)
         .fillColor('#666666')
-        .text('Sistema de Análisis y Cálculo Estructural', 0, 260, { align: 'center' });
+        .text('Sistema de Análisis y Cálculo Estructural', 0, 200, { align: 'center' });
     // Línea decorativa
     doc.strokeColor('#2E86AB')
         .lineWidth(3)
-        .moveTo(150, 320)
-        .lineTo(450, 320)
+        .moveTo(150, 240)
+        .lineTo(450, 240)
         .stroke();
     // Informe de
     doc.fontSize(20)
         .fillColor('#333333')
-        .text('INFORME DE ANÁLISIS', 0, 400, { align: 'center' })
-        .text('DE MUERTOS CORRIDOS', 0, 430, { align: 'center' });
+        .text('INFORME DE ANÁLISIS', 0, 280, { align: 'center' })
+        .text('DE MUERTOS CORRIDOS', 0, 310, { align: 'center' });
+    // Información del proyecto en la portada
+    let currentY = 380;
+    if (projectInfo?.nombreProyecto) {
+        doc.fontSize(18)
+            .fillColor('#2E86AB')
+            .text('PROYECTO:', 0, currentY, { align: 'center' });
+        doc.fontSize(16)
+            .fillColor('#333333')
+            .text(projectInfo.nombreProyecto, 0, currentY + 25, { align: 'center' });
+        currentY += 70;
+    }
+    if (projectInfo?.empresaConstructora) {
+        doc.fontSize(16)
+            .fillColor('#2E86AB')
+            .text('CONSTRUCTORA:', 0, currentY, { align: 'center' });
+        doc.fontSize(14)
+            .fillColor('#333333')
+            .text(projectInfo.empresaConstructora, 0, currentY + 20, { align: 'center' });
+        currentY += 60;
+    }
     // Fecha en la parte inferior
     doc.fontSize(12)
         .fillColor('#666666')

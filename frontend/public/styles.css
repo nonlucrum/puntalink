@@ -508,3 +508,248 @@ pre{
     align-items: flex-start;
   }
 }
+
+/* ====== Estilos para Sección de Cálculo de Viento ====== */
+.wind-parameters {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.wind-parameters h3 {
+  margin: 0 0 1rem 0;
+  color: var(--text);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.parameter-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.parameter-group {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+
+.parameter-group h4 {
+  margin: 0 0 1rem 0;
+  color: var(--primary);
+  font-size: 1rem;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
+}
+
+.form-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.form-row:last-child {
+  margin-bottom: 0;
+}
+
+.form-row label {
+  min-width: 120px;
+  font-weight: 500;
+  color: var(--text);
+  font-size: 0.875rem;
+}
+
+.form-row input, .form-row select {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 0.875rem;
+}
+
+.form-row input:focus, .form-row select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(31, 111, 235, 0.1);
+}
+
+.form-row span {
+  color: var(--muted);
+  font-size: 0.75rem;
+  min-width: 40px;
+}
+
+/* Resultados de Viento */
+.wind-results {
+  margin-top: 2rem;
+  border-top: 2px solid var(--border);
+  padding-top: 2rem;
+}
+
+.wind-results h3 {
+  margin: 0 0 1.5rem 0;
+  color: var(--text);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.table-container {
+  overflow-x: auto;
+  margin-bottom: 2rem;
+}
+
+.wind-results-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--card);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.wind-results-table th,
+.wind-results-table td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.875rem;
+}
+
+.wind-results-table th {
+  background: var(--bg);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.wind-results-table tr:hover {
+  background: var(--bg);
+}
+
+.wind-results-table td strong {
+  color: var(--primary);
+}
+
+/* Alertas y advertencias de viento */
+.wind-alert {
+  background: #fef3c7;
+  color: #92400e;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.wind-warning {
+  background: #dcfce7;
+  color: #166534;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Detalles de cálculos expandibles */
+.calculation-details h4 {
+  margin: 0 0 1rem 0;
+  color: var(--text);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.calculation-detail {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.calculation-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: var(--bg);
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid var(--border);
+}
+
+.calculation-detail-header:hover {
+  background: var(--border);
+}
+
+.calculation-detail-header span:first-child {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.calculation-detail-header span:last-child {
+  color: var(--muted);
+  transition: transform 0.2s ease;
+}
+
+.calculation-detail-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.calculation-detail-content.active {
+  max-height: 1000px;
+}
+
+.calculation-detail-content ol {
+  margin: 0;
+  padding: 1rem 1rem 1rem 2rem;
+  color: var(--text);
+}
+
+.calculation-detail-content li {
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.calculation-detail-content code {
+  background: var(--bg);
+  padding: 0.125rem 0.25rem;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+}
+
+@media (max-width: 768px) {
+  .parameter-groups {
+    grid-template-columns: 1fr;
+  }
+  
+  .form-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .form-row label {
+    min-width: auto;
+  }
+  
+  .form-row input, .form-row select {
+    width: 100%;
+  }
+  
+  .wind-results-table {
+    font-size: 0.75rem;
+  }
+  
+  .wind-results-table th,
+  .wind-results-table td {
+    padding: 0.5rem;
+  }
+}
