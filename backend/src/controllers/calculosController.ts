@@ -78,19 +78,28 @@ export const parametrosVientoDefecto = async (req: Request, res: Response) => {
  */
 export const calculoVientoMuros = async (req: Request, res: Response) => {
   try {
+    console.log('[CALCULOS] Iniciando cálculo de viento en muros');
+    console.log('[CALCULOS] Headers:', req.headers['content-type']);
+    console.log('[CALCULOS] Body keys:', Object.keys(req.body));
+    
     const { muros, parametros } = req.body as {
       muros: Muro[];
       parametros: WindParameters;
     };
 
+    console.log('[CALCULOS] Muros recibidos:', muros ? muros.length : 'undefined');
+    console.log('[CALCULOS] Parámetros recibidos:', parametros ? Object.keys(parametros) : 'undefined');
+
     // Validar entrada
     if (!muros || !Array.isArray(muros) || muros.length === 0) {
+      console.log('[CALCULOS] ERROR: Array de muros inválido o vacío');
       return res.status(400).json({ 
         error: 'Se requiere un array de muros no vacío' 
       });
     }
 
     if (!parametros) {
+      console.log('[CALCULOS] ERROR: Parámetros faltantes');
       return res.status(400).json({ 
         error: 'Se requieren parámetros de viento' 
       });
@@ -98,18 +107,28 @@ export const calculoVientoMuros = async (req: Request, res: Response) => {
 
     // Validar parámetros críticos
     const parametrosRequeridos = [
-      'VR_kmh', 'alpha', 'beta', 'FC', 'FT',
+      'categoria_terreno', 'VR_kmh', 'FT',
       'temperatura_C', 'presion_barometrica_mmHg',
-      'Cp_int', 'Cp_ext', 'factor_succion'
+      'Cp_int', 'Cp_ext', 'factor_succion', 'densidad_concreto_kg_m3'
     ];
 
+    console.log('[CALCULOS] Validando parámetros...');
+    console.log('[CALCULOS] Parámetros recibidos completos:', JSON.stringify(parametros, null, 2));
+
     for (const param of parametrosRequeridos) {
+      const valor = parametros[param as keyof WindParameters];
+      const tipoValor = typeof valor;
+      console.log(`[CALCULOS] Validando ${param}: valor=${valor}, tipo=${tipoValor}`);
+      
       if (!(param in parametros) || typeof parametros[param as keyof WindParameters] !== 'number') {
+        console.log(`[CALCULOS] ERROR: Parámetro ${param} faltante o inválido`);
         return res.status(400).json({ 
           error: `Parámetro requerido faltante o inválido: ${param}` 
         });
       }
     }
+
+    console.log('[CALCULOS] ✅ Todos los parámetros validados correctamente');
 
     // Calcular viento para todos los muros
     const resultados = calcularVientoMuros(muros, parametros);

@@ -268,7 +268,7 @@ function crearPaginasCalculos(doc: any, paneles: PanelCalculado[]) {
     const rowData = [
       panel.id_muro,
       panel.grosor_mm ? panel.grosor_mm.toString() : 'N/A',
-      panel.area_m2 ? panel.area_m2.toFixed(2) : 'N/A',
+      panel.area_m2 ? parseFloat(panel.area_m2.toString()).toFixed(2) : 'N/A',
       panel.volumen_m3.toFixed(2),
       panel.peso_kN.toFixed(2),
       panel.viento_kN.toFixed(2),
