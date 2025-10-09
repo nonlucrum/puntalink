@@ -1,7 +1,7 @@
 import { addMuro } from "../models/Muro";
 import { overrideMuros } from "../models/Muro";
 
-export function parseTxtRobusto(txt: string) {
+export async function parseTxtRobusto(txt: string) {
   console.log('[service - importService] parseTxtRobusto - Inicio');
   console.log('[service - importService] Tamaño del archivo:', txt.length, 'caracteres');
 
@@ -12,7 +12,7 @@ export function parseTxtRobusto(txt: string) {
   }
 
   console.log('[service - importService] Ejecutando overrideMuros(1)');
-  overrideMuros(1); // pk_proyecto fijo por ahora
+  await overrideMuros(1); // pk_proyecto fijo por ahora
 
   const lines = raw.split(/\r?\n/);
   console.log('[service - importService] Número de líneas encontradas:', lines.length);
@@ -127,7 +127,7 @@ export function parseTxtRobusto(txt: string) {
       overall_height: overallHeightValue,
     });
 
-    const nuevoMuro = addMuro(
+    const nuevoMuro = await addMuro(
         1,          // pk_proyecto
         num,        // número secuencial del panel
         panelName,  // id_muro
