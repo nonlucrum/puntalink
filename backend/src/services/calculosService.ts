@@ -112,6 +112,10 @@ export interface WindResult {
   clase_estructura: 'A' | 'B' | 'C';
   FC: number;
   
+  // Parámetros de terreno y estructura según Tomo III
+  alpha: number;      // Coeficiente α según terreno y clase de estructura
+  delta: number;      // Factor δ según categoría de terreno (Tabla 6.5)
+  
   // Paso b) Datos Requeridos para Definir Carga de Viento (Norma)
   Frz: number;        // Factor de rugosidad por altura
   Falpha: number;     // Factor de exposición
@@ -221,11 +225,11 @@ export function calcularVientoMuro(muro: Muro, parametros: WindParameters): Wind
   // Para altura, usar overall_height del TXT si existe, sino usar estimación
   let altura_z_m = parametros.altura_estimada_m;
   
-  // Prioridad 1: Usar overall_height del muro importado (convertir de mm a metros)
+  // Prioridad 1: Usar overall_height del muro importado (ya viene en metros desde el importService)
   const overallHeightNum = Number(muro.overall_height);
   if (muro.overall_height && !isNaN(overallHeightNum) && overallHeightNum > 0) {
-    altura_z_m = overallHeightNum / 1000; // Convertir de mm a metros
-    console.log(`[CALCULOS] Usando Overall Height del TXT: ${muro.overall_height}mm = ${altura_z_m}m para muro ${muro.id_muro}`);
+    altura_z_m = overallHeightNum; // Ya está en metros gracias a la conversión del importService
+    console.log(`[CALCULOS] Usando Overall Height del TXT: ${altura_z_m}m para muro ${muro.id_muro}`);
   } else if (!altura_z_m) {
     // Prioridad 2: Estimación basada en área (método anterior como respaldo)
     altura_z_m = Math.sqrt(area_m2 * 0.72); // Factor empírico Excel
@@ -235,19 +239,18 @@ export function calcularVientoMuro(muro: Muro, parametros: WindParameters): Wind
   
   // Paso b) Cálculos de Viento según Tomo III
   
-  // Obtener parámetros según categoría de terreno
+  // 1. Obtener parámetros según categoría de terreno
   const terrenoParams = getParametrosPorCategoria(parametros.categoria_terreno);
   
-  // Determinar clase de estructura y FC según altura
+  // 2. Determinar clase de estructura y FC según altura (ya en metros)
   const claseEstructura = determinarClaseEstructura(altura_z_m);
   
-  // Obtener α correcto según clase de estructura
+  // 3. Obtener α correcto regulado por la clasificación previa (terreno + estructura)
   const alpha = getAlphaPorClase(terrenoParams, claseEstructura.clase);
   
-  // Factor de rugosidad por altura: Frz = (z / 10)^α × (δ / 245)
-  // Nota: δ normalizado respecto a categoría 1 (δ=245)
-  const beta_normalizado = terrenoParams.delta / 245;
-  const Frz = calculateFrz(altura_z_m, alpha, beta_normalizado);
+  // Factor de rugosidad por altura según Tomo III: Frz = (z / 10)^α
+  // Nota: δ se usa en otras fórmulas pero no en Frz directamente
+  const Frz = calculateFrz(altura_z_m, alpha, 1.0); // β = 1.0 según Tomo III
   
   // Factor de exposición: Fα = FC × Frz × FT
   const Falpha = calculateFalpha(claseEstructura.FC, Frz, parametros.FT);
@@ -296,6 +299,10 @@ export function calcularVientoMuro(muro: Muro, parametros: WindParameters): Wind
     categoria_terreno: parametros.categoria_terreno,
     clase_estructura: claseEstructura.clase,
     FC: +claseEstructura.FC.toFixed(2),
+    
+    // Parámetros de terreno y estructura según Tomo III
+    alpha: +alpha.toFixed(4),
+    delta: terrenoParams.delta,
     
     Frz: +Frz.toFixed(4),
     Falpha: +Falpha.toFixed(4),

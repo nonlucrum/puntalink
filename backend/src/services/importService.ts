@@ -94,10 +94,16 @@ export async function parseTxtRobusto(txt: string) {
     const pesoNum = pesoCol ? Number(pesoCol) : null;
     const volumenNum = volumenCol ? Number(volumenCol) : null;
     
-    // Para Overall Height, mantener como texto exacto (sin conversión)
+    // Para Overall Height, convertir de mm a metros si es un valor numérico (sin aproximar)
     let overallHeightValue = overallHeightCol?.trim() || "S/N";
     if (overallHeightValue === "") {
       overallHeightValue = "S/N";
+    } else if (!isNaN(Number(overallHeightValue))) {
+      // Si es un número, convertir de mm a metros (dividir por 1000) sin aproximar
+      const heightInMm = Number(overallHeightValue);
+      const heightInMeters = heightInMm / 1000;
+      overallHeightValue = heightInMeters.toString(); // Mantener precisión exacta
+      console.log(`[service - importService] Conversión altura: ${heightInMm}mm → ${heightInMeters}m (exacto)`);
     }
 
     // Validar que tenemos los datos mínimos necesarios (permitir 0 como valor válido)

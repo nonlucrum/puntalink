@@ -435,8 +435,8 @@ function mostrarResultadosViento(data) {
     // Detalle paso a paso según las fórmulas del Excel
     htmlDetalle += `<ol>`;
     htmlDetalle += `<li><strong>Datos del Muro:</strong> Área = ${resultado.area_m2} m², Altura = ${resultado.altura_z_m} m</li>`;
-    htmlDetalle += `<li><strong>Factor de rugosidad:</strong> Frz = (z/10)^α × β = (${resultado.altura_z_m}/10)^${data.parametros_utilizados.alpha} × ${data.parametros_utilizados.beta} = ${resultado.Frz}</li>`;
-    htmlDetalle += `<li><strong>Factor de exposición:</strong> Fα = FC × Frz × FT = ${data.parametros_utilizados.FC} × ${resultado.Frz} × ${data.parametros_utilizados.FT} = ${resultado.Falpha}</li>`;
+    htmlDetalle += `<li><strong>Factor de rugosidad:</strong> Frz = (z/10)^α = (${resultado.altura_z_m}/10)^${resultado.alpha} = ${resultado.Frz}</li>`;
+    htmlDetalle += `<li><strong>Factor de exposición:</strong> Fα = FC × Frz × FT = ${resultado.FC} × ${resultado.Frz} × ${data.parametros_utilizados.FT} = ${resultado.Falpha}</li>`;
     htmlDetalle += `<li><strong>Velocidad de diseño:</strong> Vd = VR × Fα = ${data.parametros_utilizados.VR_kmh} × ${resultado.Falpha} = ${resultado.Vd_kmh} km/h</li>`;
     htmlDetalle += `<li><strong>Corrección atmosférica:</strong> Corrección = ${resultado.correccion}</li>`;
     htmlDetalle += `<li><strong>Presión dinámica:</strong> qz = 0.5 × ρ × Corrección × (Vd/3.6)² / 1000 = ${resultado.qz_kPa} kPa</li>`;
