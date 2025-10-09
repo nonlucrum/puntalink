@@ -175,6 +175,7 @@ export async function parseTxtRobusto(txt: string) {
   return paneles;
 }
 
+// Función para resetear muros de un proyecto - Funcionalidad útil para futuro
 export function removeTXT() {
     console.log('[service - importService] removeTXT - Inicio');
     console.log('[service - importService] Ejecutando overrideMuros(1)');

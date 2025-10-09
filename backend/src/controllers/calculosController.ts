@@ -4,36 +4,38 @@ import { generarInforme } from '../services/pdfService';
 import { calcularVientoMuros, getParametrosVientoDefecto, WindParameters, getParametrosTerreno } from '../services/calculosService';
 import { Muro } from '../models/Muro';
 
-export function estimacionPanel(req: Request, res: Response) {
-  try {
-    const paneles = req.body.paneles;
-    const opciones = req.body.opciones;
-    if (!Array.isArray(paneles) || paneles.length === 0) {
-      return res.status(400).json({ ok: false, error: "Faltan los paneles." });
-    }
-    const resultados = calcularPaneles(paneles, opciones);
-    res.json({ ok: true, resultados });
-  } catch (err: any) {
-    res.status(400).json({ ok: false, error: err.message });
-  }
-}
+// CÓDIGO BASURA - Funciones duplicadas, usar las del pdfController en su lugar
+// export function estimacionPanel(req: Request, res: Response) {
+//   try {
+//     const paneles = req.body.paneles;
+//     const opciones = req.body.opciones;
+//     if (!Array.isArray(paneles) || paneles.length === 0) {
+//       return res.status(400).json({ ok: false, error: "Faltan los paneles." });
+//     }
+//     const resultados = calcularPaneles(paneles, opciones);
+//     res.json({ ok: true, resultados });
+//   } catch (err: any) {
+//     res.status(400).json({ ok: false, error: err.message });
+//   }
+// }
 
-export async function informePaneles(req: Request, res: Response) {
-  try {
-    const paneles = req.body.paneles;
-    const opciones = req.body.opciones;
-    if (!Array.isArray(paneles) || paneles.length === 0) {
-      return res.status(400).json({ ok: false, error: "Faltan los paneles." });
-    }
-    const resultados = calcularPaneles(paneles, opciones);
-    const informeBuffer = await generarInforme(resultados);
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename="informe_paneles.pdf"');
-    res.send(informeBuffer);
-  } catch (err: any) {
-    res.status(500).json({ ok: false, error: err.message });
-  }
-}
+// CÓDIGO BASURA - Funciones duplicadas, usar las del pdfController en su lugar  
+// export async function informePaneles(req: Request, res: Response) {
+//   try {
+//     const paneles = req.body.paneles;
+//     const opciones = req.body.opciones;
+//     if (!Array.isArray(paneles) || paneles.length === 0) {
+//       return res.status(400).json({ ok: false, error: "Faltan los paneles." });
+//     }
+//     const resultados = calcularPaneles(paneles, opciones);
+//     const informeBuffer = await generarInforme(resultados);
+//     res.setHeader('Content-Type', 'application/pdf');
+//     res.setHeader('Content-Disposition', 'attachment; filename="informe_paneles.pdf"');
+//     res.send(informeBuffer);
+//   } catch (err: any) {
+//     res.status(500).json({ ok: false, error: err.message });
+//   }
+// }
 
 /**
  * Sección 1: Obtener parámetros por defecto para cálculo de viento

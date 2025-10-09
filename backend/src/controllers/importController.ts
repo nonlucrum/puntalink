@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { parseTxtRobusto } from '../services/importService';
-import { removeTXT } from '../services/importService';
+// CÓDIGO BASURA - Import comentado porque la función removeTXT está comentada
+// import { removeTXT } from '../services/importService';
 import { getMurosByProject } from '../models/Muro';
 
 export async function importarMuros(req: Request, res: Response) {
@@ -27,11 +28,12 @@ export async function importarMuros(req: Request, res: Response) {
 export async function cancelarImport(req: Request, res: Response) {
   console.log('[controller - importController] cancelarImport - Inicio');
   try {
-    console.log('[controller - importController] Ejecutando removeTXT');
-    const removed = removeTXT();
-    console.log('[controller - importController] removeTXT completado:', removed);
+    // CÓDIGO BASURA - Función removeTXT comentada, conservar para futuro
+    // console.log('[controller - importController] Ejecutando removeTXT');
+    // const removed = removeTXT();
+    // console.log('[controller - importController] removeTXT completado:', removed);
     console.log('[controller - importController] Respuesta de cancelación enviada');
-    return res.json({ ok: true, removed, message: "Importación cancelada." });
+    return res.json({ ok: true, message: "Importación cancelada." });
   } catch (err: any) {
     console.log('[controller - importController] Error en cancelarImport:', err.message);
     return res.status(400).json({ ok: false, error: "no se pudo :(" });
