@@ -34,12 +34,13 @@ VALUES (1, 'Proyecto Prueba', 'Mi Empresa', 'corrido', 50.0, 22.5, 1013.25);
 CREATE TABLE muro (
     pid SERIAL PRIMARY KEY,
     pk_proyecto INT NOT NULL,
+    num INT NOT NULL,
     id_muro VARCHAR(45) NOT NULL,
-    grosor INT,
-    area FLOAT,
-    peso FLOAT,
-    volumen FLOAT,
-    overall_height FLOAT,
+    grosor DECIMAL(10,2),
+    area DECIMAL(10,2),
+    peso DECIMAL(10,2),
+    volumen DECIMAL(10,2),
+    overall_height VARCHAR(50),
 
     CONSTRAINT fk_muro_proyecto FOREIGN KEY (pk_proyecto) 
         REFERENCES proyecto (pid) ON DELETE CASCADE

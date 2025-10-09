@@ -2,6 +2,7 @@ import pool from "../config/db";
 
 export interface Muro {
   pid?: number;           // Opcional, lo asigna la base de datos
+  num?: number;           // Número secuencial del panel
   pk_proyecto: number;
   id_muro: string;
   grosor?: number;
@@ -13,6 +14,7 @@ export interface Muro {
 
 export async function addMuro(
   pk_proyecto: number,
+  num: number,            // Agregar número secuencial
   id_muro: string,
   grosor: number,
   area: number,
@@ -21,12 +23,12 @@ export async function addMuro(
   overall_height?: string  // Cambiado a string
 ) {
   const query = `
-    INSERT INTO muro (pk_proyecto, id_muro, grosor, area, peso, volumen, overall_height)
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    INSERT INTO muro (pk_proyecto, num, id_muro, grosor, area, peso, volumen, overall_height)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     RETURNING *;
   `;
 
-  const values = [pk_proyecto, id_muro, grosor, area, peso, volumen, overall_height || "S/N"];
+  const values = [pk_proyecto, num, id_muro, grosor, area, peso, volumen, overall_height || "S/N"];
 
   try {
     const result = await pool.query(query, values);
@@ -43,10 +45,10 @@ export async function overrideMuros(pk_proyecto: number) {
 
 export async function getMurosByProject(pk_proyecto: number): Promise<Muro[]> {
   const query = `
-    SELECT pid, pk_proyecto, id_muro, grosor, area, peso, volumen, overall_height
+    SELECT pid, num, pk_proyecto, id_muro, grosor, area, peso, volumen, overall_height
     FROM muro 
     WHERE pk_proyecto = $1
-    ORDER BY pid;
+    ORDER BY num;
   `;
 
   try {

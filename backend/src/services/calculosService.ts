@@ -222,8 +222,9 @@ export function calcularVientoMuro(muro: Muro, parametros: WindParameters): Wind
   let altura_z_m = parametros.altura_estimada_m;
   
   // Prioridad 1: Usar overall_height del muro importado (convertir de mm a metros)
-  if (muro.overall_height && muro.overall_height > 0) {
-    altura_z_m = muro.overall_height / 1000; // Convertir de mm a metros
+  const overallHeightNum = Number(muro.overall_height);
+  if (muro.overall_height && !isNaN(overallHeightNum) && overallHeightNum > 0) {
+    altura_z_m = overallHeightNum / 1000; // Convertir de mm a metros
     console.log(`[CALCULOS] Usando Overall Height del TXT: ${muro.overall_height}mm = ${altura_z_m}m para muro ${muro.id_muro}`);
   } else if (!altura_z_m) {
     // Prioridad 2: Estimación basada en área (método anterior como respaldo)
