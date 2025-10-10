@@ -224,18 +224,19 @@ export function calculateForce(presion_kPa: number, area_m2: number): number {
  * Nuevas funciones según Tomo III - Factores faltantes
  */
 
-// Factor G: Corrección por temperatura y presión según especificación del TXT
-// Fórmula: G = (0.392 × presion_atmo) / (273 + temp_promedio)
+// Factor G: Corrección por temperatura y altura según Tomo III
+// ✅ FÓRMULA CORRECTA SEGÚN TOMO III: G = (0.392 × presión_atmo) / (273 + temp_promedio)
 export function calculateFactorG(temperatura_C: number, presion_mmHg: number): number {
-  // ✅ CORREGIDO: Usar los parámetros reales del usuario
+  // ✅ Fórmula oficial del Tomo III para Factor de Corrección por Temperatura y Altura
   const numerador = 0.392 * presion_mmHg;
   const denominador = 273 + temperatura_C;
   const G = numerador / denominador;
-  console.log(`[CALCULOS] 🧮 calculateFactorG DETALLE:`);
+
+  console.log(`[CALCULOS] 🧮 calculateFactorG - FÓRMULA TOMO III:`);
   console.log(`[CALCULOS] 📊 Entrada: temp=${temperatura_C}°C, presión=${presion_mmHg}mmHg`);
-  console.log(`[CALCULOS] 🔢 Cálculo: (0.392 × ${presion_mmHg}) / (273 + ${temperatura_C})`);
-  console.log(`[CALCULOS] 🔢 Cálculo: ${0.392 * presion_mmHg} / ${273 + temperatura_C}`);
-  console.log(`[CALCULOS] ✅ Resultado: ${G}`);
+  console.log(`[CALCULOS] 🔢 Fórmula: G = (0.392 × ${presion_mmHg}) / (273 + ${temperatura_C})`);
+  console.log(`[CALCULOS] 🔢 Cálculo: ${numerador.toFixed(2)} / ${denominador} = ${G.toFixed(4)}`);
+  console.log(`[CALCULOS] ✅ Factor G (Tomo III): ${G.toFixed(4)}`);
   return G;
 }
 
@@ -324,11 +325,14 @@ export function calcularVientoMuro(muro: Muro, parametros: WindParameters): Wind
   // Velocidad de diseño: Vd = Vregional × Fα
   const Vd_kmh = calculateVd(parametros.VR_kmh, Falpha);
   
-  // Corrección por temperatura y presión (original)
+  // Corrección por temperatura y presión (densidad del aire estándar)
   const correccion = calculateCorrection(parametros.temperatura_C, parametros.presion_barometrica_mmHg);
   
-  // Factor G según Tomo III - AHORA USA LOS PARÁMETROS REALES
+  // Factor G según Tomo III - FACTOR DE CORRECCIÓN POR TEMPERATURA Y ALTURA (fórmula específica)
   const G = calculateFactorG(parametros.temperatura_C, parametros.presion_barometrica_mmHg);
+
+  // ✅ VERIFICACIÓN: Mostrar ambos factores (son diferentes según Tomo III)
+  console.log(`[CALCULOS] 🔍 Corrección (densidad aire): ${correccion.toFixed(4)}, Factor G (Tomo III): ${G.toFixed(4)}`);
 
   // Presión dinámica según Tomo III: qz = 0.0048 × G × (VD)²
   const qz_kPa = calculateQz(G, Vd_kmh);
@@ -422,6 +426,7 @@ export function getParametrosVientoDefecto(): WindParameters {
     Cp_int: -0.5,           // Tomo III secc. 8.2.2
     Cp_ext: 0.8,            // Tomo III secc. 8.2.2
     factor_succion: 1.3,    // Factor de seguridad
-    densidad_concreto_kg_m3: 2400 // Estándar
+    densidad_concreto_kg_m3: 2400, // Estándar
+    
   };
 }
