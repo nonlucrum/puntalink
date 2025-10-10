@@ -224,15 +224,19 @@ export function calculateForce(presion_kPa: number, area_m2: number): number {
  * Nuevas funciones según Tomo III - Factores faltantes
  */
 
-// Factor G: Corrección por temperatura y altura según Tomo III
-// Combina efectos de temperatura, presión y altitud
-export function calculateFactorG(temperatura_C: number, presion_mmHg: number, altitud_m: number = 0): number {
-  // Factor de corrección por densidad del aire
-  const factor_temperatura = (273 + 15) / (273 + temperatura_C);
-  const factor_presion = presion_mmHg / 760;
-  const factor_altitud = Math.exp(-altitud_m / 8400); // Fórmula barométrica simplificada
-  
-  return factor_temperatura * factor_presion * factor_altitud;
+// Factor G: Corrección por temperatura y presión según especificación del TXT
+// Fórmula: G = (0.392 × presion_atmo) / (273 + temp_promedio)
+export function calculateFactorG(temperatura_C: number, presion_mmHg: number): number {
+  // ✅ CORREGIDO: Usar los parámetros reales del usuario
+  const numerador = 0.392 * presion_mmHg;
+  const denominador = 273 + temperatura_C;
+  const G = numerador / denominador;
+  console.log(`[CALCULOS] 🧮 calculateFactorG DETALLE:`);
+  console.log(`[CALCULOS] 📊 Entrada: temp=${temperatura_C}°C, presión=${presion_mmHg}mmHg`);
+  console.log(`[CALCULOS] 🔢 Cálculo: (0.392 × ${presion_mmHg}) / (273 + ${temperatura_C})`);
+  console.log(`[CALCULOS] 🔢 Cálculo: ${0.392 * presion_mmHg} / ${273 + temperatura_C}`);
+  console.log(`[CALCULOS] ✅ Resultado: ${G}`);
+  return G;
 }
 
 // YCG: Centro de gravedad en Y (altura desde la base)
@@ -323,12 +327,12 @@ export function calcularVientoMuro(muro: Muro, parametros: WindParameters): Wind
   // Corrección por temperatura y presión (original)
   const correccion = calculateCorrection(parametros.temperatura_C, parametros.presion_barometrica_mmHg);
   
-  // Factor G: Corrección por temperatura y altura según Tomo III
-  const G = calculateFactorG(parametros.temperatura_C, parametros.presion_barometrica_mmHg, parametros.altitud_m || 0);
-  
+  // Factor G según Tomo III - AHORA USA LOS PARÁMETROS REALES
+  const G = calculateFactorG(parametros.temperatura_C, parametros.presion_barometrica_mmHg);
+
   // Presión dinámica según Tomo III: qz = 0.0048 × G × (VD)²
   const qz_kPa = calculateQz(G, Vd_kmh);
-  
+
   // Presión neta con coeficientes: Presión = qz × (Cpint - Cpext) × Factor
   const presion_kPa = calculatePressure(qz_kPa, parametros.Cp_int, parametros.Cp_ext, parametros.factor_succion);
   
@@ -411,9 +415,9 @@ export function calcularVientoMuros(muros: Muro[], parametros: WindParameters): 
 export function getParametrosVientoDefecto(): WindParameters {
   return {
     categoria_terreno: 1,   // Categoría 1 - Terreno plano (default para Tilt-Up)
-    VR_kmh: 128,            // Excel "braces" row11 (Vregional)
+    VR_kmh: 120,            // ✅ Valor más genérico en lugar de 128 específico
     FT: 1.0,                // Topografía plana
-    temperatura_C: 30,      // Condiciones típicas
+    temperatura_C: 25,      // ✅ Temperatura más estándar en lugar de 30
     presion_barometrica_mmHg: 760, // Presión estándar
     Cp_int: -0.5,           // Tomo III secc. 8.2.2
     Cp_ext: 0.8,            // Tomo III secc. 8.2.2

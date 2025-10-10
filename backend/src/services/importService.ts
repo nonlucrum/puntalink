@@ -16,6 +16,7 @@ export async function parseTxtRobusto(txt: string) {
 
   const lines = raw.split(/\r?\n/);
   console.log('[service - importService] Número de líneas encontradas:', lines.length);
+  
   const paneles: any[] = [];
   const panelNumbers: number[] = []; // Para contar los números de paneles procesados
 
@@ -178,6 +179,7 @@ export async function parseTxtRobusto(txt: string) {
   }
 
   console.log('[service - importService] Resultado final:', JSON.stringify(paneles.slice(0, 3), null, 2), paneles.length > 3 ? '...' : '');
+  
   return paneles;
 }
 

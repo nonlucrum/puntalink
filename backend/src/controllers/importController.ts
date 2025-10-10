@@ -16,9 +16,15 @@ export async function importarMuros(req: Request, res: Response) {
     console.log('[controller - importController] Procesando archivo con parseTxtRobusto');
     const txt = req.file.buffer.toString('utf-8');
     const paneles = await parseTxtRobusto(txt);
+    
     console.log('[controller - importController] Paneles procesados:', paneles.length);
+    
     console.log('[controller - importController] Respuesta exitosa enviada');
-    return res.json({ ok: true, paneles, message: "Archivo procesado sin errores." });
+    return res.json({ 
+      ok: true, 
+      paneles: paneles,
+      message: "Archivo procesado sin errores." 
+    });
   } catch (err: any) {
     console.log('[controller - importController] Error en importarMuros:', err.message);
     return res.status(400).json({ ok: false, error: err.message });

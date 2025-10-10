@@ -310,7 +310,6 @@ async function calcularCargasViento() {
 
     console.log('[WIND] ✅ Todos los parámetros son válidos');
 
-    console.log('[WIND] ✅ Todos los parámetros son válidos');
     console.log('[WIND] 🚀 Enviando request a:', `${API_BASE}/api/calculos/viento/calcular-muros`);
     console.log('[WIND] 📦 Payload:', {
       muros: panelesData,
