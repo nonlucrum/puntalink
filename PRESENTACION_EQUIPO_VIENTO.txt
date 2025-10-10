@@ -39,7 +39,7 @@ Clase | Altura      | Factor Tamano (Fc) | α segun Categoria
 
 Paso 1: Factor de Rugosidad por Altura (Frz)
 ---------------------------------------------
-Frz = (z / 10)^α × (δ / 245)
+Frz = 156 * (alto/δ)^α 
 
 - z: Altura del muro (metros)
 - α: Segun tabla categoria + clase

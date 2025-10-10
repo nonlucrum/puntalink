@@ -138,13 +138,10 @@ function calculateVd(Vregional, Falpha) {
 function calculateCorrection(temperatura_C, presion_mmHg) {
     return ((273 + temperatura_C) / (273 + 15)) * (presion_mmHg / 760);
 }
-// Fórmula: qz = 0.5 × ρ_aire × Corrección × (Vd / 3.6)^2 / 1000
-// Excel: Sheet "braces" row11 (0.8229 kPa)
-// PDF: Tomo III secc. 7
-function calculateQz(correccion, Vd_kmh) {
-    const rho_aire = 1.225; // kg/m³ a nivel del mar
-    const Vd_ms = Vd_kmh / 3.6; // conversión a m/s
-    return (0.5 * rho_aire * correccion * Math.pow(Vd_ms, 2)) / 1000; // kPa
+// Fórmula correcta según Tomo III: qz = 0.0048 × G × (VD)²
+// PDF: Tomo III secc. 7 - Presión dinámica
+function calculateQz(G, Vd_kmh) {
+    return 0.0048 * G * Math.pow(Vd_kmh, 2); // kPa
 }
 // Fórmula: Presión = qz × (Cpint - Cpext) × Factor
 // Excel: Sheet "braces" row11 (6.711 kPa implícito)
@@ -162,13 +159,18 @@ function calculateForce(presion_kPa, area_m2) {
  * Nuevas funciones según Tomo III - Factores faltantes
  */
 // Factor G: Corrección por temperatura y altura según Tomo III
-// Combina efectos de temperatura, presión y altitud
-function calculateFactorG(temperatura_C, presion_mmHg, altitud_m = 0) {
-    // Factor de corrección por densidad del aire
-    const factor_temperatura = (273 + 15) / (273 + temperatura_C);
-    const factor_presion = presion_mmHg / 760;
-    const factor_altitud = Math.exp(-altitud_m / 8400); // Fórmula barométrica simplificada
-    return factor_temperatura * factor_presion * factor_altitud;
+// ✅ FÓRMULA CORRECTA SEGÚN TOMO III: G = (0.392 × presión_atmo) / (273 + temp_promedio)
+function calculateFactorG(temperatura_C, presion_mmHg) {
+    // ✅ Fórmula oficial del Tomo III para Factor de Corrección por Temperatura y Altura
+    const numerador = 0.392 * presion_mmHg;
+    const denominador = 273 + temperatura_C;
+    const G = numerador / denominador;
+    console.log(`[CALCULOS] 🧮 calculateFactorG - FÓRMULA TOMO III:`);
+    console.log(`[CALCULOS] 📊 Entrada: temp=${temperatura_C}°C, presión=${presion_mmHg}mmHg`);
+    console.log(`[CALCULOS] 🔢 Fórmula: G = (0.392 × ${presion_mmHg}) / (273 + ${temperatura_C})`);
+    console.log(`[CALCULOS] 🔢 Cálculo: ${numerador.toFixed(2)} / ${denominador} = ${G.toFixed(4)}`);
+    console.log(`[CALCULOS] ✅ Factor G (Tomo III): ${G.toFixed(4)}`);
+    return G;
 }
 // YCG: Centro de gravedad en Y (altura desde la base)
 // Para muros rectangulares: YCG = altura / 2
@@ -215,22 +217,34 @@ function determineTipoBrace(altura_m, configuracion = 'estandar') {
 function calcularVientoMuro(muro, parametros) {
     const advertencias = [];
     // Paso a) Datos del Muro (ya están en el objeto muro importado del TXT)
-    const area_m2 = muro.area || 0;
-    const peso_ton = muro.peso || 0;
+    // ✅ CORREGIDO: Asegurar que area_m2 sea un número válido
+    let area_m2 = Number(muro.area) || 0;
+    let peso_ton = Number(muro.peso) || 0;
+    console.log(`[CALCULOS] 🔍 DEBUG ÁREA: muro.area=${muro.area} (tipo: ${typeof muro.area}), area_m2=${area_m2} (tipo: ${typeof area_m2})`);
     // Para altura, usar overall_height del TXT si existe, sino usar estimación
-    let altura_z_m = parametros.altura_estimada_m;
+    let altura_z_m = Number(parametros.altura_estimada_m) || 0;
     // Prioridad 1: Usar overall_height del muro importado (ya viene en metros desde el importService)
     const overallHeightNum = Number(muro.overall_height);
     if (muro.overall_height && !isNaN(overallHeightNum) && overallHeightNum > 0) {
         altura_z_m = overallHeightNum; // Ya está en metros gracias a la conversión del importService
         console.log(`[CALCULOS] Usando Overall Height del TXT: ${altura_z_m}m para muro ${muro.id_muro}`);
     }
-    else if (!altura_z_m) {
+    else if (!altura_z_m || altura_z_m <= 0) {
         // Prioridad 2: Estimación basada en área (método anterior como respaldo)
         altura_z_m = Math.sqrt(area_m2 * 0.72); // Factor empírico Excel
         if (altura_z_m < 3)
             altura_z_m = 6; // Altura mínima típica Tilt-Up
         advertencias.push(`Altura estimada como ${altura_z_m.toFixed(1)}m (no se encontró Overall Height en TXT). Para mayor precisión, verifique el archivo de importación.`);
+    }
+    console.log(`[CALCULOS] 🔍 DEBUG ALTURA: altura_z_m=${altura_z_m} (tipo: ${typeof altura_z_m})`);
+    // ✅ VERIFICAR: Que tenemos valores numéricos válidos antes de continuar
+    if (!area_m2 || area_m2 <= 0) {
+        advertencias.push(`Área inválida: ${area_m2} m². Usando valor por defecto de 10 m².`);
+        area_m2 = 10;
+    }
+    if (!altura_z_m || altura_z_m <= 0) {
+        advertencias.push(`Altura inválida: ${altura_z_m} m. Usando valor por defecto de 6 m.`);
+        altura_z_m = 6;
     }
     // Paso b) Cálculos de Viento según Tomo III
     // 1. Obtener parámetros según categoría de terreno
@@ -245,16 +259,23 @@ function calcularVientoMuro(muro, parametros) {
     const Falpha = calculateFalpha(claseEstructura.FC, Frz, parametros.FT);
     // Velocidad de diseño: Vd = Vregional × Fα
     const Vd_kmh = calculateVd(parametros.VR_kmh, Falpha);
-    // Corrección por temperatura y presión (original)
+    // Corrección por temperatura y presión (densidad del aire estándar)
     const correccion = calculateCorrection(parametros.temperatura_C, parametros.presion_barometrica_mmHg);
-    // Factor G: Corrección por temperatura y altura según Tomo III
-    const G = calculateFactorG(parametros.temperatura_C, parametros.presion_barometrica_mmHg, parametros.altitud_m || 0);
-    // Presión dinámica: qz = 0.5 × ρ_aire × Corrección × (Vd / 3.6)^2 / 1000
-    const qz_kPa = calculateQz(correccion, Vd_kmh);
-    // Presión neta: Presión = qz × (Cpint - Cpext) × Factor
-    const presion_kPa = calculatePressure(qz_kPa, parametros.Cp_int, parametros.Cp_ext, parametros.factor_succion);
-    // Fuerza total: Fuerza = Presión × Área
-    const fuerza_kN = calculateForce(presion_kPa, area_m2);
+    // Factor G según Tomo III - FACTOR DE CORRECCIÓN POR TEMPERATURA Y ALTURA (fórmula específica)
+    const G = calculateFactorG(parametros.temperatura_C, parametros.presion_barometrica_mmHg);
+    // ✅ VERIFICACIÓN: Mostrar ambos factores (son diferentes según Tomo III)
+    console.log(`[CALCULOS] 🔍 Corrección (densidad aire): ${correccion.toFixed(4)}, Factor G (Tomo III): ${G.toFixed(4)}`);
+    // Presión dinámica según Tomo III: qz = 0.0048 × G × (VD)²
+    const qz_kPa = calculateQz(G, Vd_kmh);
+    // Fuerza de viento: Fuerza = qz × Área (según especificación)
+    const fuerza_kN = qz_kPa * area_m2;
+    // ✅ CORREGIDO: Presión = (Fuerza de viento / área) × (9.81/1000)
+    const presion_kPa = (fuerza_kN / area_m2) * (9.81 / 1000);
+    console.log(`[CALCULOS] 🔍 VERIFICACIÓN PRESIÓN:`);
+    console.log(`[CALCULOS] 📊 qz: ${qz_kPa.toFixed(4)} kPa`);
+    console.log(`[CALCULOS] 💨 Fuerza viento: ${fuerza_kN.toFixed(2)} kN`);
+    console.log(`[CALCULOS] � Área: ${area_m2.toFixed(2)} m²`);
+    console.log(`[CALCULOS] 🧮 Presión = (${fuerza_kN.toFixed(2)} / ${area_m2.toFixed(2)}) × (9.81/1000) = ${presion_kPa.toFixed(4)} kPa`);
     // Cálculos geométricos y estructurales adicionales
     const YCG = calculateYCG(altura_z_m); // Centro de gravedad
     const NPT = calculateNPT(parametros.altura_base_m || 0, parametros.ajuste_terreno_m || 0);
@@ -319,13 +340,13 @@ function calcularVientoMuros(muros, parametros) {
 function getParametrosVientoDefecto() {
     return {
         categoria_terreno: 1, // Categoría 1 - Terreno plano (default para Tilt-Up)
-        VR_kmh: 128, // Excel "braces" row11 (Vregional)
+        VR_kmh: 120, // ✅ Valor más genérico en lugar de 128 específico
         FT: 1.0, // Topografía plana
-        temperatura_C: 30, // Condiciones típicas
+        temperatura_C: 25, // ✅ Temperatura más estándar en lugar de 30
         presion_barometrica_mmHg: 760, // Presión estándar
         Cp_int: -0.5, // Tomo III secc. 8.2.2
         Cp_ext: 0.8, // Tomo III secc. 8.2.2
         factor_succion: 1.3, // Factor de seguridad
-        densidad_concreto_kg_m3: 2400 // Estándar
+        densidad_concreto_kg_m3: 2400, // Estándar
     };
 }

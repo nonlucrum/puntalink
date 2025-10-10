@@ -287,22 +287,38 @@ export function calcularVientoMuro(muro: Muro, parametros: WindParameters): Wind
   const advertencias: string[] = [];
   
   // Paso a) Datos del Muro (ya están en el objeto muro importado del TXT)
-  const area_m2 = muro.area || 0;
-  const peso_ton = muro.peso || 0;
+  // ✅ CORREGIDO: Asegurar que area_m2 sea un número válido
+  let area_m2 = Number(muro.area) || 0;
+  let peso_ton = Number(muro.peso) || 0;
+  
+  console.log(`[CALCULOS] 🔍 DEBUG ÁREA: muro.area=${muro.area} (tipo: ${typeof muro.area}), area_m2=${area_m2} (tipo: ${typeof area_m2})`);
   
   // Para altura, usar overall_height del TXT si existe, sino usar estimación
-  let altura_z_m = parametros.altura_estimada_m;
+  let altura_z_m = Number(parametros.altura_estimada_m) || 0;
   
   // Prioridad 1: Usar overall_height del muro importado (ya viene en metros desde el importService)
   const overallHeightNum = Number(muro.overall_height);
   if (muro.overall_height && !isNaN(overallHeightNum) && overallHeightNum > 0) {
     altura_z_m = overallHeightNum; // Ya está en metros gracias a la conversión del importService
     console.log(`[CALCULOS] Usando Overall Height del TXT: ${altura_z_m}m para muro ${muro.id_muro}`);
-  } else if (!altura_z_m) {
+  } else if (!altura_z_m || altura_z_m <= 0) {
     // Prioridad 2: Estimación basada en área (método anterior como respaldo)
     altura_z_m = Math.sqrt(area_m2 * 0.72); // Factor empírico Excel
     if (altura_z_m < 3) altura_z_m = 6; // Altura mínima típica Tilt-Up
     advertencias.push(`Altura estimada como ${altura_z_m.toFixed(1)}m (no se encontró Overall Height en TXT). Para mayor precisión, verifique el archivo de importación.`);
+  }
+  
+  console.log(`[CALCULOS] 🔍 DEBUG ALTURA: altura_z_m=${altura_z_m} (tipo: ${typeof altura_z_m})`);
+  
+  // ✅ VERIFICAR: Que tenemos valores numéricos válidos antes de continuar
+  if (!area_m2 || area_m2 <= 0) {
+    advertencias.push(`Área inválida: ${area_m2} m². Usando valor por defecto de 10 m².`);
+    area_m2 = 10;
+  }
+  
+  if (!altura_z_m || altura_z_m <= 0) {
+    advertencias.push(`Altura inválida: ${altura_z_m} m. Usando valor por defecto de 6 m.`);
+    altura_z_m = 6;
   }
   
   // Paso b) Cálculos de Viento según Tomo III
@@ -337,11 +353,17 @@ export function calcularVientoMuro(muro: Muro, parametros: WindParameters): Wind
   // Presión dinámica según Tomo III: qz = 0.0048 × G × (VD)²
   const qz_kPa = calculateQz(G, Vd_kmh);
 
-  // Presión neta con coeficientes: Presión = qz × (Cpint - Cpext) × Factor
-  const presion_kPa = calculatePressure(qz_kPa, parametros.Cp_int, parametros.Cp_ext, parametros.factor_succion);
-  
   // Fuerza de viento: Fuerza = qz × Área (según especificación)
   const fuerza_kN = qz_kPa * area_m2;
+  
+  // ✅ CORREGIDO: Presión = (Fuerza de viento / área) × (9.81/1000)
+  const presion_kPa = (fuerza_kN / area_m2) * (9.81 / 1000);
+
+  console.log(`[CALCULOS] 🔍 VERIFICACIÓN PRESIÓN:`);
+  console.log(`[CALCULOS] 📊 qz: ${qz_kPa.toFixed(4)} kPa`);
+  console.log(`[CALCULOS] 💨 Fuerza viento: ${fuerza_kN.toFixed(2)} kN`);
+  console.log(`[CALCULOS] � Área: ${area_m2.toFixed(2)} m²`);
+  console.log(`[CALCULOS] 🧮 Presión = (${fuerza_kN.toFixed(2)} / ${area_m2.toFixed(2)}) × (9.81/1000) = ${presion_kPa.toFixed(4)} kPa`);
   
   // Cálculos geométricos y estructurales adicionales
   const YCG = calculateYCG(altura_z_m); // Centro de gravedad

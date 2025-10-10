@@ -2,37 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.calculoVientoMuros = exports.parametrosVientoDefecto = void 0;
 const calculosService_1 = require("../services/calculosService");
-// CÓDIGO BASURA - Funciones duplicadas, usar las del pdfController en su lugar
-// export function estimacionPanel(req: Request, res: Response) {
-//   try {
-//     const paneles = req.body.paneles;
-//     const opciones = req.body.opciones;
-//     if (!Array.isArray(paneles) || paneles.length === 0) {
-//       return res.status(400).json({ ok: false, error: "Faltan los paneles." });
-//     }
-//     const resultados = calcularPaneles(paneles, opciones);
-//     res.json({ ok: true, resultados });
-//   } catch (err: any) {
-//     res.status(400).json({ ok: false, error: err.message });
-//   }
-// }
-// CÓDIGO BASURA - Funciones duplicadas, usar las del pdfController en su lugar  
-// export async function informePaneles(req: Request, res: Response) {
-//   try {
-//     const paneles = req.body.paneles;
-//     const opciones = req.body.opciones;
-//     if (!Array.isArray(paneles) || paneles.length === 0) {
-//       return res.status(400).json({ ok: false, error: "Faltan los paneles." });
-//     }
-//     const resultados = calcularPaneles(paneles, opciones);
-//     const informeBuffer = await generarInforme(resultados);
-//     res.setHeader('Content-Type', 'application/pdf');
-//     res.setHeader('Content-Disposition', 'attachment; filename="informe_paneles.pdf"');
-//     res.send(informeBuffer);
-//   } catch (err: any) {
-//     res.status(500).json({ ok: false, error: err.message });
-//   }
-// }
 /**
  * Sección 1: Obtener parámetros por defecto para cálculo de viento
  * GET /api/calculos/viento/parametros-defecto
@@ -114,10 +83,18 @@ const calculoVientoMuros = async (req, res) => {
             }
         }
         console.log('[CALCULOS] ✅ Todos los parámetros validados correctamente');
-        // Calcular viento para todos los muros
+        // ✅ VERIFICAR: Mostrar los valores exactos que se van a usar para Factor G
+        console.log('[CALCULOS] 🔍 VERIFICACIÓN FACTOR G:');
+        console.log(`[CALCULOS] 🌡️ Temperatura del usuario: ${parametros.temperatura_C}°C`);
+        console.log(`[CALCULOS] 📊 Presión del usuario: ${parametros.presion_barometrica_mmHg}mmHg`);
+        console.log(`[CALCULOS] 🧮 Cálculo manual Factor G: (0.392 × ${parametros.presion_barometrica_mmHg}) / (273 + ${parametros.temperatura_C})`);
+        console.log(`[CALCULOS] 🧮 = ${0.392 * parametros.presion_barometrica_mmHg} / ${273 + parametros.temperatura_C}`);
+        console.log(`[CALCULOS] 🧮 = ${(0.392 * parametros.presion_barometrica_mmHg) / (273 + parametros.temperatura_C)}`);
+        // Calcular viento para todos los muros - AHORA SIN EL PARÁMETRO NULL
         const resultados = (0, calculosService_1.calcularVientoMuros)(muros, parametros);
         // DEBUG: Verificar el primer resultado
         console.log('[CALCULOS DEBUG] Primer resultado completo:', resultados[0]);
+        console.log('[CALCULOS DEBUG] Factor G del primer resultado:', resultados[0]?.G);
         console.log('[CALCULOS DEBUG] Alpha del primer resultado:', resultados[0]?.alpha);
         console.log('[CALCULOS DEBUG] Delta del primer resultado:', resultados[0]?.delta);
         // Estadísticas del cálculo
