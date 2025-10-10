@@ -160,11 +160,10 @@ export function calculateWeight(volume: number, density: number = 2400): number 
  * Basado en Excel sheet "braces" row11 y PDFs Tomo III
  */
 
-// Fórmula: Frz = (z / 10)^α × β
-// Excel: Sheet "braces" row11 (1.0416 implícito en Vd calc)
-// PDF: Tomo III secc. 6.3.2
-export function calculateFrz(height: number, alpha: number, beta: number): number {
-  return Math.pow(height / 10, alpha) * beta;
+// Fórmula correcta según Tomo III: Frz = 1.56 × (Z/δ)^α
+// PDF: Tomo III secc. 6.3.2 - Factor de rugosidad y altura
+export function calculateFrz(height: number, alpha: number, delta: number): number {
+  return 1.56 * Math.pow(height / delta, alpha);
 }
 
 // Fórmula: Fα = FC × Frz × FT
@@ -248,9 +247,8 @@ export function calcularVientoMuro(muro: Muro, parametros: WindParameters): Wind
   // 3. Obtener α correcto regulado por la clasificación previa (terreno + estructura)
   const alpha = getAlphaPorClase(terrenoParams, claseEstructura.clase);
   
-  // Factor de rugosidad por altura según Tomo III: Frz = (z / 10)^α
-  // Nota: δ se usa en otras fórmulas pero no en Frz directamente
-  const Frz = calculateFrz(altura_z_m, alpha, 1.0); // β = 1.0 según Tomo III
+  // Factor de rugosidad por altura según Tomo III: Frz = 1.56 × (Z/δ)^α
+  const Frz = calculateFrz(altura_z_m, alpha, terrenoParams.delta);
   
   // Factor de exposición: Fα = FC × Frz × FT
   const Falpha = calculateFalpha(claseEstructura.FC, Frz, parametros.FT);

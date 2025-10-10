@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { informePaneles } from '../controllers/calculosController';
+import { informePaneles } from '../controllers/pdfController';
 
 const router = Router();
 

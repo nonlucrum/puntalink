@@ -134,6 +134,11 @@ export const calculoVientoMuros = async (req: Request, res: Response) => {
 
     // Calcular viento para todos los muros
     const resultados = calcularVientoMuros(muros, parametros);
+    
+    // DEBUG: Verificar el primer resultado
+    console.log('[CALCULOS DEBUG] Primer resultado completo:', resultados[0]);
+    console.log('[CALCULOS DEBUG] Alpha del primer resultado:', resultados[0]?.alpha);
+    console.log('[CALCULOS DEBUG] Delta del primer resultado:', resultados[0]?.delta);
 
     // Estadísticas del cálculo
     const totalMuros = resultados.length;

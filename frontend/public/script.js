@@ -338,6 +338,9 @@ async function calcularCargasViento() {
 
     const data = await response.json();
     console.log('[WIND] Respuesta de la API:', data);
+    console.log('[WIND] Primer resultado:', data.resultados ? data.resultados[0] : 'No hay resultados');
+    console.log('[WIND] Alpha del primer resultado:', data.resultados ? data.resultados[0]?.alpha : 'undefined');
+    console.log('[WIND] Delta del primer resultado:', data.resultados ? data.resultados[0]?.delta : 'undefined');
 
     if (data.success && data.resultados) {
       mostrarResultadosViento(data);
@@ -432,10 +435,19 @@ function mostrarResultadosViento(data) {
       });
     }
 
+    // Debug: Verificar qué valores están llegando
+    console.log('[DEBUG] Resultado completo:', resultado);
+    console.log('[DEBUG] Alpha:', resultado.alpha);
+    console.log('[DEBUG] Delta:', resultado.delta);
+    
+    // Usar valores por defecto si no llegan (temporal para debug)
+    const alphaValue = resultado.alpha || 'undefined';
+    const deltaValue = resultado.delta || 'undefined';
+    
     // Detalle paso a paso según las fórmulas del Excel
     htmlDetalle += `<ol>`;
     htmlDetalle += `<li><strong>Datos del Muro:</strong> Área = ${resultado.area_m2} m², Altura = ${resultado.altura_z_m} m</li>`;
-    htmlDetalle += `<li><strong>Factor de rugosidad:</strong> Frz = (z/10)^α = (${resultado.altura_z_m}/10)^${resultado.alpha} = ${resultado.Frz}</li>`;
+    htmlDetalle += `<li><strong>Factor de rugosidad:</strong> Frz = 1.56 × (Z/δ)^α = 1.56 × (${resultado.altura_z_m}/${deltaValue})^${alphaValue} = ${resultado.Frz}</li>`;
     htmlDetalle += `<li><strong>Factor de exposición:</strong> Fα = FC × Frz × FT = ${resultado.FC} × ${resultado.Frz} × ${data.parametros_utilizados.FT} = ${resultado.Falpha}</li>`;
     htmlDetalle += `<li><strong>Velocidad de diseño:</strong> Vd = VR × Fα = ${data.parametros_utilizados.VR_kmh} × ${resultado.Falpha} = ${resultado.Vd_kmh} km/h</li>`;
     htmlDetalle += `<li><strong>Corrección atmosférica:</strong> Corrección = ${resultado.correccion}</li>`;
