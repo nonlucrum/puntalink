@@ -378,9 +378,13 @@ function mostrarResultadosViento(data) {
           <th>Peso (ton)</th>
           <th>Altura (m)</th>
           <th>Vd (km/h)</th>
+          <th>G</th>
           <th>qz (kPa)</th>
           <th>Presión (kPa)</th>
           <th>Fuerza (kN)</th>
+          <th>YCG (m)</th>
+          <th>NPT (m)</th>
+          <th>Brace</th>
           <th>Análisis Dinámico</th>
         </tr>
       </thead>
@@ -399,9 +403,13 @@ function mostrarResultadosViento(data) {
         <td>${resultado.peso_ton}</td>
         <td>${resultado.altura_z_m}</td>
         <td>${resultado.Vd_kmh}</td>
+        <td>${resultado.G || 'N/A'}</td>
         <td>${resultado.qz_kPa}</td>
         <td>${resultado.presion_kPa}</td>
         <td><strong>${resultado.fuerza_kN}</strong></td>
+        <td>${resultado.YCG || 'N/A'}</td>
+        <td>${resultado.NPT || 'N/A'}</td>
+        <td>${resultado.tipo_brace || 'N/A'}</td>
         <td>${requiereAnalisis}</td>
       </tr>
     `;
@@ -444,16 +452,31 @@ function mostrarResultadosViento(data) {
     const alphaValue = resultado.alpha || 'undefined';
     const deltaValue = resultado.delta || 'undefined';
     
-    // Detalle paso a paso según las fórmulas del Excel
+    // Detalle paso a paso con fórmulas y valores calculados por el backend
     htmlDetalle += `<ol>`;
     htmlDetalle += `<li><strong>Datos del Muro:</strong> Área = ${resultado.area_m2} m², Altura = ${resultado.altura_z_m} m</li>`;
     htmlDetalle += `<li><strong>Factor de rugosidad:</strong> Frz = 1.56 × (Z/δ)^α = 1.56 × (${resultado.altura_z_m}/${deltaValue})^${alphaValue} = ${resultado.Frz}</li>`;
     htmlDetalle += `<li><strong>Factor de exposición:</strong> Fα = FC × Frz × FT = ${resultado.FC} × ${resultado.Frz} × ${data.parametros_utilizados.FT} = ${resultado.Falpha}</li>`;
     htmlDetalle += `<li><strong>Velocidad de diseño:</strong> Vd = VR × Fα = ${data.parametros_utilizados.VR_kmh} × ${resultado.Falpha} = ${resultado.Vd_kmh} km/h</li>`;
     htmlDetalle += `<li><strong>Corrección atmosférica:</strong> Corrección = ${resultado.correccion}</li>`;
-    htmlDetalle += `<li><strong>Presión dinámica:</strong> qz = 0.5 × ρ × Corrección × (Vd/3.6)² / 1000 = ${resultado.qz_kPa} kPa</li>`;
+    htmlDetalle += `<li><strong>Factor G:</strong> G = ${resultado.G} (corrección por temperatura y altura)</li>`;
+    htmlDetalle += `<li><strong>Presión dinámica:</strong> qz = 0.0048 × G × (VD)² = 0.0048 × ${resultado.G} × (${resultado.Vd_kmh})² = ${resultado.qz_kPa} kPa</li>`;
     htmlDetalle += `<li><strong>Presión neta:</strong> P = qz × (Cpi - Cpe) × Factor = ${resultado.qz_kPa} × (${data.parametros_utilizados.Cp_int} - ${data.parametros_utilizados.Cp_ext}) × ${data.parametros_utilizados.factor_succion} = ${resultado.presion_kPa} kPa</li>`;
-    htmlDetalle += `<li><strong>Fuerza total:</strong> F = P × Área = ${resultado.presion_kPa} × ${resultado.area_m2} = ${resultado.fuerza_kN} kN</li>`;
+    htmlDetalle += `<li><strong>Fuerza de viento:</strong> F = qz × Área = ${resultado.qz_kPa} × ${resultado.area_m2} = ${resultado.fuerza_kN} kN</li>`;
+    
+    // Nuevos parámetros calculados con fórmulas
+    if (resultado.YCG !== undefined) {
+      htmlDetalle += `<li><strong>Centro de gravedad (YCG):</strong> YCG = H/2 = ${resultado.altura_z_m}/2 = ${resultado.YCG} m</li>`;
+    }
+    if (resultado.NPT !== undefined) {
+      htmlDetalle += `<li><strong>Nivel piso terminado (NPT):</strong> NPT = ${resultado.NPT} m</li>`;
+    }
+    if (resultado.grados_inclinacion_brace !== undefined) {
+      htmlDetalle += `<li><strong>Inclinación brace:</strong> θ = arctan(H/D) = ${resultado.grados_inclinacion_brace}°</li>`;
+    }
+    if (resultado.tipo_brace !== undefined) {
+      htmlDetalle += `<li><strong>Tipo de brace:</strong> ${resultado.tipo_brace}</li>`;
+    }
     htmlDetalle += `</ol>`;
 
     htmlDetalle += `

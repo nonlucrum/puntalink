@@ -12,6 +12,12 @@ export interface WindParameters {
   factor_succion: number;
   densidad_concreto_kg_m3: number;
   altura_estimada_m?: number; // Si no se proporciona, se calcula como sqrt(area)
+  
+  // Nuevos parámetros para cálculos adicionales
+  altitud_m?: number; // Altitud del sitio sobre nivel del mar
+  altura_base_m?: number; // Altura de la base del muro
+  ajuste_terreno_m?: number; // Ajuste por desnivel del terreno
+  distancia_horizontal_brace?: number; // Distancia horizontal para cálculo de inclinación brace
 }
 
 // Tabla 6.5 - Valores de α y β según categoría de terreno
@@ -121,9 +127,16 @@ export interface WindResult {
   Falpha: number;     // Factor de exposición
   Vd_kmh: number;     // Velocidad de diseño
   correccion: number; // Corrección densidad aire
+  G: number;          // Factor de corrección por temperatura y altura (Tomo III)
   qz_kPa: number;     // Presión dinámica
   presion_kPa: number; // Presión neta sobre muro
   fuerza_kN: number;  // Fuerza total viento
+  
+  // Parámetros geométricos y estructurales
+  YCG: number;        // Centro de gravedad en Y (m)
+  NPT: number;        // Nivel de piso terminado (m)
+  grados_inclinacion_brace: number; // Ángulo de inclinación del brace (grados)
+  tipo_brace: string; // Tipo de arriostramiento
   
   requiere_analisis_dinamico: boolean;
   advertencias: string[];
@@ -187,13 +200,10 @@ export function calculateCorrection(temperatura_C: number, presion_mmHg: number)
   return ((273 + temperatura_C) / (273 + 15)) * (presion_mmHg / 760);
 }
 
-// Fórmula: qz = 0.5 × ρ_aire × Corrección × (Vd / 3.6)^2 / 1000
-// Excel: Sheet "braces" row11 (0.8229 kPa)
-// PDF: Tomo III secc. 7
-export function calculateQz(correccion: number, Vd_kmh: number): number {
-  const rho_aire = 1.225; // kg/m³ a nivel del mar
-  const Vd_ms = Vd_kmh / 3.6; // conversión a m/s
-  return (0.5 * rho_aire * correccion * Math.pow(Vd_ms, 2)) / 1000; // kPa
+// Fórmula correcta según Tomo III: qz = 0.0048 × G × (VD)²
+// PDF: Tomo III secc. 7 - Presión dinámica
+export function calculateQz(G: number, Vd_kmh: number): number {
+  return 0.0048 * G * Math.pow(Vd_kmh, 2); // kPa
 }
 
 // Fórmula: Presión = qz × (Cpint - Cpext) × Factor
@@ -208,6 +218,60 @@ export function calculatePressure(qz: number, Cpint: number, Cpext: number, fact
 // PDF: Tomo III secc. 8.2.1
 export function calculateForce(presion_kPa: number, area_m2: number): number {
   return presion_kPa * area_m2; // kN
+}
+
+/**
+ * Nuevas funciones según Tomo III - Factores faltantes
+ */
+
+// Factor G: Corrección por temperatura y altura según Tomo III
+// Combina efectos de temperatura, presión y altitud
+export function calculateFactorG(temperatura_C: number, presion_mmHg: number, altitud_m: number = 0): number {
+  // Factor de corrección por densidad del aire
+  const factor_temperatura = (273 + 15) / (273 + temperatura_C);
+  const factor_presion = presion_mmHg / 760;
+  const factor_altitud = Math.exp(-altitud_m / 8400); // Fórmula barométrica simplificada
+  
+  return factor_temperatura * factor_presion * factor_altitud;
+}
+
+// YCG: Centro de gravedad en Y (altura desde la base)
+// Para muros rectangulares: YCG = altura / 2
+export function calculateYCG(altura_m: number, forma: string = 'rectangular'): number {
+  switch (forma.toLowerCase()) {
+    case 'rectangular':
+      return altura_m / 2;
+    case 'triangular':
+      return altura_m / 3;
+    default:
+      return altura_m / 2; // Default rectangular
+  }
+}
+
+// NPT: Nivel de piso terminado (referencia de altura)
+// Típicamente se asume como 0 para el nivel base, pero puede ajustarse
+export function calculateNPT(altura_base_m: number = 0, ajuste_terreno_m: number = 0): number {
+  return altura_base_m + ajuste_terreno_m;
+}
+
+// Grados de inclinación del brace (típico para Tilt-Up)
+export function calculateGradosInclinacionBrace(altura_muro: number, distancia_horizontal: number): number {
+  // Ángulo = arctan(altura / distancia horizontal)
+  const angulo_rad = Math.atan(altura_muro / distancia_horizontal);
+  return (angulo_rad * 180) / Math.PI; // Convertir a grados
+}
+
+// Tipo de brace según altura y configuración
+export function determineTipoBrace(altura_m: number, configuracion: string = 'estandar'): string {
+  if (altura_m < 6) {
+    return 'Brace Corto';
+  } else if (altura_m < 12) {
+    return 'Brace Medio';
+  } else if (altura_m < 18) {
+    return 'Brace Largo';
+  } else {
+    return 'Brace Extra Largo';
+  }
 }
 
 /**
@@ -256,18 +320,27 @@ export function calcularVientoMuro(muro: Muro, parametros: WindParameters): Wind
   // Velocidad de diseño: Vd = Vregional × Fα
   const Vd_kmh = calculateVd(parametros.VR_kmh, Falpha);
   
-  // Corrección por temperatura y presión
+  // Corrección por temperatura y presión (original)
   const correccion = calculateCorrection(parametros.temperatura_C, parametros.presion_barometrica_mmHg);
   
-  // Presión dinámica: qz = 0.5 × ρ_aire × Corrección × (Vd / 3.6)^2 / 1000
-  const qz_kPa = calculateQz(correccion, Vd_kmh);
+  // Factor G: Corrección por temperatura y altura según Tomo III
+  const G = calculateFactorG(parametros.temperatura_C, parametros.presion_barometrica_mmHg, parametros.altitud_m || 0);
   
-  // Presión neta: Presión = qz × (Cpint - Cpext) × Factor
+  // Presión dinámica según Tomo III: qz = 0.0048 × G × (VD)²
+  const qz_kPa = calculateQz(G, Vd_kmh);
+  
+  // Presión neta con coeficientes: Presión = qz × (Cpint - Cpext) × Factor
   const presion_kPa = calculatePressure(qz_kPa, parametros.Cp_int, parametros.Cp_ext, parametros.factor_succion);
   
-  // Fuerza total: Fuerza = Presión × Área
-  const fuerza_kN = calculateForce(presion_kPa, area_m2);
+  // Fuerza de viento: Fuerza = qz × Área (según especificación)
+  const fuerza_kN = qz_kPa * area_m2;
   
+  // Cálculos geométricos y estructurales adicionales
+  const YCG = calculateYCG(altura_z_m); // Centro de gravedad
+  const NPT = calculateNPT(parametros.altura_base_m || 0, parametros.ajuste_terreno_m || 0);
+  const grados_inclinacion_brace = calculateGradosInclinacionBrace(altura_z_m, parametros.distancia_horizontal_brace || altura_z_m);
+  const tipo_brace = determineTipoBrace(altura_z_m);
+
   // Verificaciones según norma
   let requiere_analisis_dinamico = false;
   
@@ -302,13 +375,22 @@ export function calcularVientoMuro(muro: Muro, parametros: WindParameters): Wind
     alpha: +alpha.toFixed(4),
     delta: terrenoParams.delta,
     
+    // Paso b) Datos Requeridos para Definir Carga de Viento (Norma)
     Frz: +Frz.toFixed(4),
     Falpha: +Falpha.toFixed(4),
     Vd_kmh: +Vd_kmh.toFixed(2),
     correccion: +correccion.toFixed(4),
+    G: +G.toFixed(4),
     qz_kPa: +qz_kPa.toFixed(4),
     presion_kPa: +presion_kPa.toFixed(3),
     fuerza_kN: +fuerza_kN.toFixed(2),
+    
+    // Parámetros geométricos y estructurales
+    YCG: +YCG.toFixed(2),
+    NPT: +NPT.toFixed(2),
+    grados_inclinacion_brace: +grados_inclinacion_brace.toFixed(1),
+    tipo_brace: tipo_brace,
+    
     requiere_analisis_dinamico,
     advertencias
   };

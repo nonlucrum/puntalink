@@ -16,13 +16,13 @@ const pool = new pg_1.Pool({
     port: Number(process.env.PGPORT) || 5008,
 });
 exports.default = pool;
-async function addMuro(pk_proyecto, id_muro, grosor, area, peso, volumen) {
+async function addMuro(pk_proyecto, id_muro, grosor, area, peso, volumen, overall_height) {
     const query = `
-    INSERT INTO muro (pk_proyecto, id_muro, grosor, area, peso, volumen)
-    VALUES ($1, $2, $3, $4, $5, $6)
+    INSERT INTO muro (pk_proyecto, id_muro, grosor, area, peso, volumen, overall_height)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
     RETURNING *;
   `;
-    const values = [pk_proyecto, id_muro, grosor, area, peso, volumen];
+    const values = [pk_proyecto, id_muro, grosor, area, peso, volumen, overall_height || null];
     try {
         const result = await pool.query(query, values);
         return result.rows[0]; // devuelve la fila insertada

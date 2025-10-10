@@ -14,6 +14,11 @@ exports.calculateCorrection = calculateCorrection;
 exports.calculateQz = calculateQz;
 exports.calculatePressure = calculatePressure;
 exports.calculateForce = calculateForce;
+exports.calculateFactorG = calculateFactorG;
+exports.calculateYCG = calculateYCG;
+exports.calculateNPT = calculateNPT;
+exports.calculateGradosInclinacionBrace = calculateGradosInclinacionBrace;
+exports.determineTipoBrace = determineTipoBrace;
 exports.calcularVientoMuro = calcularVientoMuro;
 exports.calcularVientoMuros = calcularVientoMuros;
 exports.getParametrosVientoDefecto = getParametrosVientoDefecto;
@@ -110,11 +115,10 @@ function calculateWeight(volume, density = 2400) {
  * Sección 1 - Paso b) Datos Requeridos para Definir Carga de Viento (Norma)
  * Basado en Excel sheet "braces" row11 y PDFs Tomo III
  */
-// Fórmula: Frz = (z / 10)^α × β
-// Excel: Sheet "braces" row11 (1.0416 implícito en Vd calc)
-// PDF: Tomo III secc. 6.3.2
-function calculateFrz(height, alpha, beta) {
-    return Math.pow(height / 10, alpha) * beta;
+// Fórmula correcta según Tomo III: Frz = 1.56 × (Z/δ)^α
+// PDF: Tomo III secc. 6.3.2 - Factor de rugosidad y altura
+function calculateFrz(height, alpha, delta) {
+    return 1.56 * Math.pow(height / delta, alpha);
 }
 // Fórmula: Fα = FC × Frz × FT
 // Excel: Sheet "braces" row11 (1.0416 implícito)
@@ -155,6 +159,56 @@ function calculateForce(presion_kPa, area_m2) {
     return presion_kPa * area_m2; // kN
 }
 /**
+ * Nuevas funciones según Tomo III - Factores faltantes
+ */
+// Factor G: Corrección por temperatura y altura según Tomo III
+// Combina efectos de temperatura, presión y altitud
+function calculateFactorG(temperatura_C, presion_mmHg, altitud_m = 0) {
+    // Factor de corrección por densidad del aire
+    const factor_temperatura = (273 + 15) / (273 + temperatura_C);
+    const factor_presion = presion_mmHg / 760;
+    const factor_altitud = Math.exp(-altitud_m / 8400); // Fórmula barométrica simplificada
+    return factor_temperatura * factor_presion * factor_altitud;
+}
+// YCG: Centro de gravedad en Y (altura desde la base)
+// Para muros rectangulares: YCG = altura / 2
+function calculateYCG(altura_m, forma = 'rectangular') {
+    switch (forma.toLowerCase()) {
+        case 'rectangular':
+            return altura_m / 2;
+        case 'triangular':
+            return altura_m / 3;
+        default:
+            return altura_m / 2; // Default rectangular
+    }
+}
+// NPT: Nivel de piso terminado (referencia de altura)
+// Típicamente se asume como 0 para el nivel base, pero puede ajustarse
+function calculateNPT(altura_base_m = 0, ajuste_terreno_m = 0) {
+    return altura_base_m + ajuste_terreno_m;
+}
+// Grados de inclinación del brace (típico para Tilt-Up)
+function calculateGradosInclinacionBrace(altura_muro, distancia_horizontal) {
+    // Ángulo = arctan(altura / distancia horizontal)
+    const angulo_rad = Math.atan(altura_muro / distancia_horizontal);
+    return (angulo_rad * 180) / Math.PI; // Convertir a grados
+}
+// Tipo de brace según altura y configuración
+function determineTipoBrace(altura_m, configuracion = 'estandar') {
+    if (altura_m < 6) {
+        return 'Brace Corto';
+    }
+    else if (altura_m < 12) {
+        return 'Brace Medio';
+    }
+    else if (altura_m < 18) {
+        return 'Brace Largo';
+    }
+    else {
+        return 'Brace Extra Largo';
+    }
+}
+/**
  * Función principal para calcular viento en un muro
  * Implementa todas las fórmulas del diagrama Fase 1 y 2
  */
@@ -163,39 +217,49 @@ function calcularVientoMuro(muro, parametros) {
     // Paso a) Datos del Muro (ya están en el objeto muro importado del TXT)
     const area_m2 = muro.area || 0;
     const peso_ton = muro.peso || 0;
-    // Para altura, usar estimación basada en área o parámetro proporcionado
+    // Para altura, usar overall_height del TXT si existe, sino usar estimación
     let altura_z_m = parametros.altura_estimada_m;
-    if (!altura_z_m) {
-        // Estimación: asumir proporción típica de muro Tilt-Up (altura ≈ sqrt(area))
-        // Basado en Excel "Hoja1" donde muros de ~50m² tienen ~6m altura
+    // Prioridad 1: Usar overall_height del muro importado (ya viene en metros desde el importService)
+    const overallHeightNum = Number(muro.overall_height);
+    if (muro.overall_height && !isNaN(overallHeightNum) && overallHeightNum > 0) {
+        altura_z_m = overallHeightNum; // Ya está en metros gracias a la conversión del importService
+        console.log(`[CALCULOS] Usando Overall Height del TXT: ${altura_z_m}m para muro ${muro.id_muro}`);
+    }
+    else if (!altura_z_m) {
+        // Prioridad 2: Estimación basada en área (método anterior como respaldo)
         altura_z_m = Math.sqrt(area_m2 * 0.72); // Factor empírico Excel
         if (altura_z_m < 3)
             altura_z_m = 6; // Altura mínima típica Tilt-Up
-        advertencias.push(`Altura estimada como ${altura_z_m.toFixed(1)}m. Para mayor precisión, proporcione altura real.`);
+        advertencias.push(`Altura estimada como ${altura_z_m.toFixed(1)}m (no se encontró Overall Height en TXT). Para mayor precisión, verifique el archivo de importación.`);
     }
     // Paso b) Cálculos de Viento según Tomo III
-    // Obtener parámetros según categoría de terreno
+    // 1. Obtener parámetros según categoría de terreno
     const terrenoParams = getParametrosPorCategoria(parametros.categoria_terreno);
-    // Determinar clase de estructura y FC según altura
+    // 2. Determinar clase de estructura y FC según altura (ya en metros)
     const claseEstructura = determinarClaseEstructura(altura_z_m);
-    // Obtener α correcto según clase de estructura
+    // 3. Obtener α correcto regulado por la clasificación previa (terreno + estructura)
     const alpha = getAlphaPorClase(terrenoParams, claseEstructura.clase);
-    // Factor de rugosidad por altura: Frz = (z / 10)^α × (δ / 245)
-    // Nota: δ normalizado respecto a categoría 1 (δ=245)
-    const beta_normalizado = terrenoParams.delta / 245;
-    const Frz = calculateFrz(altura_z_m, alpha, beta_normalizado);
+    // Factor de rugosidad por altura según Tomo III: Frz = 1.56 × (Z/δ)^α
+    const Frz = calculateFrz(altura_z_m, alpha, terrenoParams.delta);
     // Factor de exposición: Fα = FC × Frz × FT
     const Falpha = calculateFalpha(claseEstructura.FC, Frz, parametros.FT);
     // Velocidad de diseño: Vd = Vregional × Fα
     const Vd_kmh = calculateVd(parametros.VR_kmh, Falpha);
-    // Corrección por temperatura y presión
+    // Corrección por temperatura y presión (original)
     const correccion = calculateCorrection(parametros.temperatura_C, parametros.presion_barometrica_mmHg);
+    // Factor G: Corrección por temperatura y altura según Tomo III
+    const G = calculateFactorG(parametros.temperatura_C, parametros.presion_barometrica_mmHg, parametros.altitud_m || 0);
     // Presión dinámica: qz = 0.5 × ρ_aire × Corrección × (Vd / 3.6)^2 / 1000
     const qz_kPa = calculateQz(correccion, Vd_kmh);
     // Presión neta: Presión = qz × (Cpint - Cpext) × Factor
     const presion_kPa = calculatePressure(qz_kPa, parametros.Cp_int, parametros.Cp_ext, parametros.factor_succion);
     // Fuerza total: Fuerza = Presión × Área
     const fuerza_kN = calculateForce(presion_kPa, area_m2);
+    // Cálculos geométricos y estructurales adicionales
+    const YCG = calculateYCG(altura_z_m); // Centro de gravedad
+    const NPT = calculateNPT(parametros.altura_base_m || 0, parametros.ajuste_terreno_m || 0);
+    const grados_inclinacion_brace = calculateGradosInclinacionBrace(altura_z_m, parametros.distancia_horizontal_brace || altura_z_m);
+    const tipo_brace = determineTipoBrace(altura_z_m);
     // Verificaciones según norma
     let requiere_analisis_dinamico = false;
     // Verificar si requiere análisis dinámico (altura > 60m o condiciones especiales)
@@ -213,20 +277,30 @@ function calcularVientoMuro(muro, parametros) {
     }
     return {
         id_muro: muro.id_muro || 'N/A',
-        area_m2: +area_m2.toFixed(2),
-        peso_ton: +peso_ton.toFixed(2),
-        altura_z_m: +altura_z_m.toFixed(2),
+        area_m2: +parseFloat(area_m2.toString()).toFixed(2),
+        peso_ton: +parseFloat(peso_ton.toString()).toFixed(2),
+        altura_z_m: +parseFloat(altura_z_m.toString()).toFixed(2),
         // Clasificación según normativa
         categoria_terreno: parametros.categoria_terreno,
         clase_estructura: claseEstructura.clase,
         FC: +claseEstructura.FC.toFixed(2),
+        // Parámetros de terreno y estructura según Tomo III
+        alpha: +alpha.toFixed(4),
+        delta: terrenoParams.delta,
+        // Paso b) Datos Requeridos para Definir Carga de Viento (Norma)
         Frz: +Frz.toFixed(4),
         Falpha: +Falpha.toFixed(4),
         Vd_kmh: +Vd_kmh.toFixed(2),
         correccion: +correccion.toFixed(4),
+        G: +G.toFixed(4),
         qz_kPa: +qz_kPa.toFixed(4),
         presion_kPa: +presion_kPa.toFixed(3),
         fuerza_kN: +fuerza_kN.toFixed(2),
+        // Parámetros geométricos y estructurales
+        YCG: +YCG.toFixed(2),
+        NPT: +NPT.toFixed(2),
+        grados_inclinacion_brace: +grados_inclinacion_brace.toFixed(1),
+        tipo_brace: tipo_brace,
         requiere_analisis_dinamico,
         advertencias
     };
