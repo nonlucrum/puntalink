@@ -382,8 +382,11 @@ function mostrarResultadosViento(data) {
           <th>Presión (kPa)</th>
           <th>Fuerza (kN)</th>
           <th>YCG (m)</th>
-          <th>NPT (m)</th>
-          <th>Brace</th>
+          <th>NFT (Nivel Piso)</th>
+          <th>Tipo Brace</th>
+          <th>Ángulo (°)</th>
+          <th>Altura Anclaje (m)</th>
+          <th>Distribución Braces</th>
           <th>Análisis Dinámico</th>
         </tr>
       </thead>
@@ -394,6 +397,38 @@ function mostrarResultadosViento(data) {
     const requiereAnalisis = resultado.requiere_analisis_dinamico ? 
       '<span class="wind-alert">Sí - Requerido</span>' : 
       '<span class="wind-warning">No</span>';
+    
+    // Separar información del brace en campos distintos
+    const tipoBrace = resultado.tipo_brace || 'N/A';
+    const anguloBrace = resultado.grados_inclinacion_brace || 'N/A';
+    const alturaAnclaje = resultado.altura_z_m ? ((resultado.altura_z_m * 2/3).toFixed(2)) : 'N/A';
+    
+    // Información de distribución de braces (solo B12 y B14 como en el Excel)
+    const distribucionBraces = `
+      <div class="brace-distribution">
+        <div class="brace-total">Total: ${resultado.total_braces || 0}</div>
+        <div class="brace-model">Modelo: ${resultado.modelo_principal_brace || 'N/A'}</div>
+        <div class="brace-summary">${resultado.resumen_distribucion_braces || 'N/A'}</div>
+        <div class="brace-detail">
+          B14:${resultado.distribucion_braces?.B14 || 0} | B12:${resultado.distribucion_braces?.B12 || 0}
+        </div>
+      </div>
+    `;
+    
+    // Información NFT (Nivel de Piso Terminado)
+    const infoNFT = `
+      <div class="nft-info">
+        <div class="nft-valor">${resultado.NFT?.toFixed(3) || 'N/A'}m</div>
+        <div class="nft-detalle">
+          ${resultado.componentes_nft ? 
+            `NNT: ${resultado.componentes_nft.nivel_natural}m<br>
+             Losa: ${resultado.componentes_nft.espesor_losa}m<br>
+             Acabado: ${resultado.componentes_nft.acabado}m` : 
+            'Datos no disponibles'
+          }
+        </div>
+      </div>
+    `;
     
     htmlTabla += `
       <tr>
@@ -407,8 +442,11 @@ function mostrarResultadosViento(data) {
         <td>${resultado.presion_kPa}</td>
         <td><strong>${resultado.fuerza_kN}</strong></td>
         <td>${resultado.YCG || 'N/A'}</td>
-        <td>${resultado.NPT || 'N/A'}</td>
-        <td>${resultado.tipo_brace || 'N/A'}</td>
+        <td>${infoNFT}</td>
+        <td>${tipoBrace}</td>
+        <td>${anguloBrace}</td>
+        <td>${alturaAnclaje}</td>
+        <td>${distribucionBraces}</td>
         <td>${requiereAnalisis}</td>
       </tr>
     `;
@@ -467,14 +505,71 @@ function mostrarResultadosViento(data) {
     if (resultado.YCG !== undefined) {
       htmlDetalle += `<li><strong>Centro de gravedad (YCG):</strong> YCG = H/2 = ${resultado.altura_z_m}/2 = ${resultado.YCG} m</li>`;
     }
-    if (resultado.NPT !== undefined) {
-      htmlDetalle += `<li><strong>Nivel piso terminado (NPT):</strong> NPT = ${resultado.NPT} m</li>`;
+    
+    // NFT: Nivel de Piso Terminado (elevación física)
+    if (resultado.NFT !== undefined) {
+      htmlDetalle += `<li><strong>📏 NFT - Nivel de Piso Terminado:</strong></li>`;
+      htmlDetalle += `<ul>`;
+      htmlDetalle += `<li><strong>Nivel final:</strong> ${resultado.NFT.toFixed(3)}m</li>`;
+      
+      if (resultado.componentes_nft) {
+        htmlDetalle += `<li><strong>Componentes del cálculo:</strong></li>`;
+        htmlDetalle += `<li style="margin-left: 20px;">• Nivel Natural Terreno: ${resultado.componentes_nft.nivel_natural}m</li>`;
+        htmlDetalle += `<li style="margin-left: 20px;">• Excavación: ${resultado.componentes_nft.excavacion}m</li>`;
+        htmlDetalle += `<li style="margin-left: 20px;">• Espesor losa: ${resultado.componentes_nft.espesor_losa}m (${(resultado.componentes_nft.espesor_losa * 39.37).toFixed(1)}")</li>`;
+        htmlDetalle += `<li style="margin-left: 20px;">• Acabado superficial: ${resultado.componentes_nft.acabado}m</li>`;
+        htmlDetalle += `<li><strong>Fórmula:</strong> NFT = NNT - Excavación + Espesor_Losa + Acabado</li>`;
+      }
+      htmlDetalle += `</ul>`;
     }
+    
     if (resultado.grados_inclinacion_brace !== undefined) {
-      htmlDetalle += `<li><strong>Inclinación brace:</strong> θ = arctan(H/D) = ${resultado.grados_inclinacion_brace}°</li>`;
+      htmlDetalle += `<li><strong>Inclinación brace:</strong> θ = arctan(altura_anclaje/distancia_horizontal) = ${resultado.grados_inclinacion_brace}°</li>`;
     }
     if (resultado.tipo_brace !== undefined) {
-      htmlDetalle += `<li><strong>Tipo de brace:</strong> ${resultado.tipo_brace}</li>`;
+      htmlDetalle += `<li><strong>Especificaciones del brace:</strong></li>`;
+      htmlDetalle += `<ul>`;
+      htmlDetalle += `<li><strong>Tipo:</strong> ${resultado.tipo_brace}</li>`;
+      if (resultado.longitud_brace_m !== undefined) {
+        htmlDetalle += `<li><strong>Longitud estimada:</strong> ${resultado.longitud_brace_m} m</li>`;
+      }
+      if (resultado.modelo_brace !== undefined) {
+        htmlDetalle += `<li><strong>Modelo sugerido:</strong> ${resultado.modelo_brace}</li>`;
+      }
+      
+      // Agregar información de distribución de braces
+      if (resultado.total_braces !== undefined) {
+        htmlDetalle += `<li><strong>Distribución de braces:</strong></li>`;
+        htmlDetalle += `<ul>`;
+        htmlDetalle += `<li><strong>Total braces necesarios:</strong> ${resultado.total_braces}</li>`;
+        if (resultado.modelo_principal_brace) {
+          htmlDetalle += `<li><strong>Modelo principal:</strong> ${resultado.modelo_principal_brace}</li>`;
+        }
+        if (resultado.resumen_distribucion_braces) {
+          htmlDetalle += `<li><strong>Resumen distribución:</strong> ${resultado.resumen_distribucion_braces}</li>`;
+        }
+        if (resultado.distribucion_braces) {
+          htmlDetalle += `<li><strong>Detalle por modelo:</strong></li>`;
+          htmlDetalle += `<ul>`;
+          Object.entries(resultado.distribucion_braces).forEach(([modelo, cantidad]) => {
+            if (cantidad > 0) {
+              htmlDetalle += `<li>${modelo}: ${cantidad} unidades</li>`;
+            }
+          });
+          htmlDetalle += `</ul>`;
+        }
+        htmlDetalle += `</ul>`;
+      }
+      
+      if (resultado.observaciones_brace && resultado.observaciones_brace.length > 0) {
+        htmlDetalle += `<li><strong>Observaciones:</strong></li>`;
+        htmlDetalle += `<ul>`;
+        resultado.observaciones_brace.forEach(obs => {
+          htmlDetalle += `<li>${obs}</li>`;
+        });
+        htmlDetalle += `</ul>`;
+      }
+      htmlDetalle += `</ul>`;
     }
     htmlDetalle += `</ol>`;
 

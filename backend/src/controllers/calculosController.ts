@@ -100,7 +100,7 @@ export const calculoVientoMuros = async (req: Request, res: Response) => {
     console.log('[CALCULOS] ✅ Todos los parámetros validados correctamente');
 
     // ✅ VERIFICAR: Mostrar los valores exactos que se van a usar para Factor G
-    console.log('[CALCULOS] 🔍 VERIFICACIÓN FACTOR G:');
+    console.log('[CALCULOS] VERIFICACION: VERIFICACIÓN FACTOR G:');
     console.log(`[CALCULOS] 🌡️ Temperatura del usuario: ${parametros.temperatura_C}°C`);
     console.log(`[CALCULOS] 📊 Presión del usuario: ${parametros.presion_barometrica_mmHg}mmHg`);
     console.log(`[CALCULOS] 🧮 Cálculo manual Factor G: (0.392 × ${parametros.presion_barometrica_mmHg}) / (273 + ${parametros.temperatura_C})`);

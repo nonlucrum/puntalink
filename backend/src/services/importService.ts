@@ -117,7 +117,7 @@ export async function parseTxtRobusto(txt: string) {
       continue;
     }
 
-    console.log(`[service - importService] ✅ Panel ${num} procesado: ${panelName}`);
+    console.log(`[service - importService] PROCESADO: Panel ${num} procesado: ${panelName}`);
     console.log(`[service - importService]    Valores exactos: grosor=${grosorNum}, area=${areaNum}, peso=${pesoNum}, volumen=${volumenNum}`);
     console.log(`[service - importService]    Overall Height: "${overallHeightValue}"`);
 
@@ -165,7 +165,7 @@ export async function parseTxtRobusto(txt: string) {
       }
       console.log(`[service - importService] Paneles faltantes: ${missingPanels.slice(0, 10).join(', ')}${missingPanels.length > 10 ? ' y ' + (missingPanels.length - 10) + ' más...' : ''}`);
     } else {
-      console.log(`[service - importService] ✅ Todos los paneles fueron procesados correctamente!`);
+      console.log(`[service - importService] COMPLETADO: Todos los paneles fueron procesados correctamente!`);
     }
   }
 

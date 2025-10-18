@@ -164,7 +164,7 @@ export function updatePanelesDisplay(panelesActuales, elements, callbacks) {
     // Actualizar info en la sección de resultados
     panelesInfo.innerHTML = `
       <div class="success-message">
-        <p><strong>✅ ${panelesActuales.length} paneles importados exitosamente</strong></p>
+        <p><strong>EXITO: ${panelesActuales.length} paneles importados exitosamente</strong></p>
         <p class="muted">Los paneles están listos para ser calculados.</p>
       </div>
     `;
