@@ -55,7 +55,7 @@ Fα = Fc × Frz × FT
 
 Paso 3: Velocidad de Diseno (Vd)
 ---------------------------------
-Vd = Vregional × Fα
+Vd = Vregional × Fα x Factor de topografia
 
 - Vregional: 128 km/h (velocidad regional de diseno)
 - Fα: Factor de exposicion calculado
@@ -69,14 +69,13 @@ Correccion = (273 + T) / (273 + 15) × (P / 760)
 
 Paso 5: Presion Dinamica (qz)
 ------------------------------
-qz = 0.5 × ρ_aire × Correccion × (Vd / 3.6)² / 1000
+qz = 0.0048 × G × Vd² 
 
-- ρ_aire: 1.225 kg/m³ (densidad aire nivel del mar)
 - Resultado: Presion en kPa
 
 Paso 6: Presion Neta sobre Muro
 --------------------------------
-Presion = qz × (Cp_int - Cp_ext) × Factor_succion
+Presion = fv/area x 9.81/1000
 
 - Cp_int: -0.5 (coeficiente interior, Tomo III)
 - Cp_ext: 0.8 (coeficiente exterior, Tomo III)
@@ -84,7 +83,7 @@ Presion = qz × (Cp_int - Cp_ext) × Factor_succion
 
 Paso 7: Fuerza Total de Viento
 -------------------------------
-Fuerza = Presion × Area
+Fuerza = qz × Area
 
 - Resultado final: Fuerza en kN
 
@@ -104,14 +103,7 @@ Determinacion Automatica:
 - Categoria 2 + Clase A → α = 0.128
 - δ = 315
 
-Secuencia de Calculos:
-1. Frz = (6/10)^0.128 × (315/245) = 0.901 × 1.286 = 1.159
-2. Fα = 1.00 × 1.159 × 1.0 = 1.159
-3. Vd = 128 × 1.159 = 148.4 km/h
-4. Correccion = (303/288) × (760/760) = 1.052
-5. qz = 0.5 × 1.225 × 1.052 × (41.22)² / 1000 = 1.094 kPa
-6. Presion = 1.094 × (-0.5-0.8) × 1.3 = 1.849 kPa
-7. Fuerza = 1.849 × 50 = 92.45 kN
+
 
 
 
