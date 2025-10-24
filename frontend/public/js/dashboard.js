@@ -222,8 +222,9 @@ export function handleFileValidation(file, elements) {
 // Función para obtener muros desde la base de datos
 async function fetchMurosFromDatabase() {
   try {
+    const pid_proyecto = JSON.parse(localStorage.getItem('projectConfig')).pid;
     console.log('[DASHBOARD] Obteniendo muros desde la base de datos...');
-    const response = await fetch(`${API_BASE}/api/importar-muros/muros?pk_proyecto=1`);
+    const response = await fetch(`${API_BASE}/api/importar-muros/muros?pk_proyecto=${pid_proyecto}`);
     const json = await response.json();
     
     if (json.ok && json.muros) {
@@ -243,8 +244,11 @@ export async function handleUploadTxt(file, elements, callbacks, globalVars) {
   console.log('[DASHBOARD] Preparando subida de archivo:', file.name);
   const { tablaPaneles, resultadosCalculo, btnCalcular, btnInforme } = elements;
   const { updatePanelesDisplay } = callbacks;
+
+  const pid_proyecto = JSON.parse(localStorage.getItem('projectConfig')).pid;
   
   const formData = new FormData();
+  formData.append('pk_proyecto', pid_proyecto);
   formData.append('file', file);
 
   tablaPaneles.innerHTML = 'Procesando...';

@@ -1,7 +1,7 @@
 import { addMuro } from "../models/Muro";
 import { overrideMuros } from "../models/Muro";
 
-export async function parseTxtRobusto(txt: string) {
+export async function parseTxtRobusto(pk_proyecto: number, txt: string) {
   console.log('[service - importService] parseTxtRobusto - Inicio');
   console.log('[service - importService] Tamaño del archivo:', txt.length, 'caracteres');
 
@@ -12,7 +12,7 @@ export async function parseTxtRobusto(txt: string) {
   }
 
   console.log('[service - importService] Ejecutando overrideMuros(1)');
-  await overrideMuros(1); // pk_proyecto fijo por ahora
+  await overrideMuros(pk_proyecto); // Limpiar muros del proyecto antes de importar nuevos
 
   const lines = raw.split(/\r?\n/);
   console.log('[service - importService] Número de líneas encontradas:', lines.length);
@@ -135,9 +135,9 @@ export async function parseTxtRobusto(txt: string) {
     });
 
     const nuevoMuro = await addMuro(
-        1,          // pk_proyecto
-        num,        // número secuencial del panel
-        panelName,  // id_muro
+        pk_proyecto,    // pk_proyecto
+        num,            // número secuencial del panel
+        panelName,      // id_muro
         grosorNum,
         areaNum,
         pesoNum,
@@ -184,10 +184,10 @@ export async function parseTxtRobusto(txt: string) {
 }
 
 // Función para resetear muros de un proyecto - Funcionalidad útil para futuro
-export function removeTXT() {
+export function removeTXT(pk_proyecto: number) {
     console.log('[service - importService] removeTXT - Inicio');
-    console.log('[service - importService] Ejecutando overrideMuros(1)');
-    const resultado = overrideMuros(1); // pk_proyecto fijo por ahora
+    console.log('[service - importService] Ejecutando overrideMuros()');
+    const resultado = overrideMuros(pk_proyecto);
     console.log('[service - importService] removeTXT completado');
     return resultado;
 }

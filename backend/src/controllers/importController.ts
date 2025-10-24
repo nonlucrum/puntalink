@@ -14,8 +14,9 @@ export async function importarMuros(req: Request, res: Response) {
     }
     
     console.log('[controller - importController] Procesando archivo con parseTxtRobusto');
+    const pk_proyecto = parseInt(req.body.pk_proyecto);
     const txt = req.file.buffer.toString('utf-8');
-    const paneles = await parseTxtRobusto(txt);
+    const paneles = await parseTxtRobusto(pk_proyecto, txt);
     
     console.log('[controller - importController] Paneles procesados:', paneles.length);
     
