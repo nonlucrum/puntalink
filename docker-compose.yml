@@ -9,8 +9,7 @@ services:
     ports:
       - "5008:5008"
     volumes:
-      - db_data:/var/lib/postgresql/data        # Persistent database storage
-      - ./data/puntalink.sql:/docker-entrypoint-initdb.d/puntalink.sql  # Initial database setup
+      - ./data/puntalink.sql:/docker-entrypoint-initdb.d/puntalink.sql
     command: postgres -p 5008
 
   backend:
