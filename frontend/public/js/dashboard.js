@@ -169,8 +169,10 @@ export function updatePanelesDisplay(panelesActuales, elements, callbacks) {
       </div>
     `;
     
-    // Mostrar botón calcular y abrir sección de resultados
-    btnCalcular.style.display = '';
+    // Mostrar botón calcular y abrir sección de resultados (si existe)
+    if (btnCalcular) {
+      btnCalcular.style.display = '';
+    }
     openSection('results-section');
   } else if (tablaPaneles.innerHTML !== '') {
     tablaAccordion.style.display = '';
@@ -181,7 +183,9 @@ export function updatePanelesDisplay(panelesActuales, elements, callbacks) {
     tablaAccordion.classList.remove('active');
     tablaPaneles.innerHTML = '';
     panelesInfo.innerHTML = '<p class="muted">Los paneles importados aparecerán aquí después de subir un archivo TXT.</p>';
-    btnCalcular.style.display = 'none';
+    if (btnCalcular) {
+      btnCalcular.style.display = 'none';
+    }
   }
 }
 
@@ -245,16 +249,33 @@ export async function handleUploadTxt(file, elements, callbacks, globalVars) {
   const { tablaPaneles, resultadosCalculo, btnCalcular, btnInforme } = elements;
   const { updatePanelesDisplay } = callbacks;
 
-  const pid_proyecto = JSON.parse(localStorage.getItem('projectConfig')).pid;
+  // Verificar que exista un proyecto
+  const projectConfig = localStorage.getItem('projectConfig');
+  if (!projectConfig) {
+    alert('❌ Error: No hay proyecto seleccionado.\n\n📋 Por favor, primero completa la información del proyecto en la parte superior.');
+    return;
+  }
+  
+  const pid_proyecto = JSON.parse(projectConfig).pid;
+  if (!pid_proyecto) {
+    alert('❌ Error: El proyecto no tiene un ID válido.\n\n📋 Por favor, recarga la página e intenta nuevamente.');
+    return;
+  }
   
   const formData = new FormData();
   formData.append('pk_proyecto', pid_proyecto);
   formData.append('file', file);
 
   tablaPaneles.innerHTML = 'Procesando...';
-  resultadosCalculo.innerHTML = '<p class="muted">Los resultados de cálculo aparecerán aquí después de procesar los paneles.</p>';
-  btnCalcular.style.display = 'none';
-  btnInforme.style.display = 'none';
+  if (resultadosCalculo) {
+    resultadosCalculo.innerHTML = '<p class="muted">Los resultados de cálculo aparecerán aquí después de procesar los paneles.</p>';
+  }
+  if (btnCalcular) {
+    btnCalcular.style.display = 'none';
+  }
+  if (btnInforme) {
+    btnInforme.style.display = 'none';
+  }
   console.log('[DASHBOARD] UI actualizada, enviando petición al servidor');
 
   try {
@@ -292,6 +313,12 @@ export async function handleUploadTxt(file, elements, callbacks, globalVars) {
     
     updatePanelesDisplay();
     console.log('[DASHBOARD] Display de paneles actualizado');
+    
+    // Cargar tabla de braces después de importar
+    console.log('[DASHBOARD] Cargando tabla de braces...');
+    if (typeof window.cargarTablaBraces === 'function') {
+      await window.cargarTablaBraces();
+    }
   } catch (err) {
     console.log('[DASHBOARD] Error de conexión:', err.message);
     tablaPaneles.innerHTML = `<p class="error">Error procesando el TXT: ${err.message}</p>`;
@@ -395,7 +422,9 @@ export async function handleCalcularPaneles(elements, callbacks, globalVars) {
     if (!resp.ok || !json.ok) {
       console.log('[DASHBOARD] Error en cálculo:', json.error);
       resultadosCalculo.innerHTML = `<p class="error">${json.error || 'Error en cálculo.'}</p>`;
-      btnInforme.style.display = 'none';
+      if (btnInforme) {
+        btnInforme.style.display = 'none';
+      }
       return;
     }
     
@@ -419,12 +448,16 @@ export async function handleCalcularPaneles(elements, callbacks, globalVars) {
     resultadosCalculo.innerHTML = html;
     console.log('[DASHBOARD] UI de resultados actualizada');
     
-    btnInforme.style.display = globalVars.resultadosActuales.length ? '' : 'none';
+    if (btnInforme) {
+      btnInforme.style.display = globalVars.resultadosActuales.length ? '' : 'none';
+    }
     console.log('[DASHBOARD] Botón informe mostrado:', globalVars.resultadosActuales.length > 0);
   } catch (err) {
     console.log('[DASHBOARD] Error de conexión en cálculo:', err.message);
     resultadosCalculo.innerHTML = `<p class="error">Error de conexión: ${err.message}</p>`;
-    btnInforme.style.display = 'none';
+    if (btnInforme) {
+      btnInforme.style.display = 'none';
+    }
   }
 }
 
@@ -433,10 +466,69 @@ export async function handleGenerarPDF(elements, globalVars) {
   console.log('[DASHBOARD] Botón generar informe clickeado');
   const { btnInforme } = elements;
   
-  if (!globalVars.panelesActuales.length) {
-    console.log('[DASHBOARD] No hay paneles para generar informe');
+  // Verificar si hay resultados de viento (ya no usamos paneles)
+  if (!globalVars.resultadosViento || globalVars.resultadosViento.length === 0) {
+    alert('No hay resultados de cálculos. Por favor calcula las cargas de viento primero.');
+    console.log('[DASHBOARD] No hay resultados de viento para generar informe');
     return;
   }
+  
+  // Recopilar datos actuales de la tabla unificada (con valores editados)
+  const murosConBraces = [];
+  const filas = document.querySelectorAll('tr[data-pid]');
+  
+  filas.forEach(row => {
+    const pid = row.dataset.pid;
+    
+    // Datos de viento (read-only)
+    const nombreMuro = row.querySelector('td:first-child').textContent.trim();
+    
+    // Datos editables de braces
+    const angulo = parseFloat(row.querySelector('[data-field="angulo_brace"]')?.value) || 55;
+    const npt = parseFloat(row.querySelector('[data-field="npt"]')?.value) || 0.350;
+    const tipoBrace = row.querySelector('[data-field="tipo_brace_seleccionado"]')?.value || 'B12';
+    const xBraces = parseInt(row.querySelector('[data-field="x_braces"]')?.value) || 2;
+    
+    // Valores calculados
+    const fbx = parseFloat(row.querySelector(`.valor-fbx[data-pid="${pid}"]`)?.textContent) || 0;
+    const fby = parseFloat(row.querySelector(`.valor-fby[data-pid="${pid}"]`)?.textContent) || 0;
+    const fb = parseFloat(row.querySelector(`.valor-fb[data-pid="${pid}"]`)?.textContent) || 0;
+    const xInserto = parseFloat(row.querySelector(`.valor-x-inserto[data-pid="${pid}"]`)?.textContent) || 0;
+    const yInserto = parseFloat(row.querySelector(`.valor-y-inserto[data-pid="${pid}"]`)?.textContent) || 0;
+    
+    // Cantidades de braces
+    const cantB14 = parseInt(row.querySelector(`.cant-b14[data-pid="${pid}"]`)?.textContent) || 0;
+    const cantB12 = parseInt(row.querySelector(`.cant-b12[data-pid="${pid}"]`)?.textContent) || 0;
+    const cantB04 = parseInt(row.querySelector(`.cant-b04[data-pid="${pid}"]`)?.textContent) || 0;
+    const cantB15 = parseInt(row.querySelector(`.cant-b15[data-pid="${pid}"]`)?.textContent) || 0;
+    
+    // Buscar el muro original en resultadosViento para obtener datos de viento
+    const muroOriginal = globalVars.resultadosViento.find(m => m.pid === parseInt(pid));
+    
+    if (muroOriginal) {
+      murosConBraces.push({
+        ...muroOriginal, // Mantiene: nombre_muro, area_muro, peso_panel, altura_muro, vd, qz, presion_viento, fuerza_viento, y_cg
+        // Datos de braces editables
+        angulo_brace: angulo,
+        npt: npt,
+        tipo_brace_seleccionado: tipoBrace,
+        x_braces: xBraces,
+        // Valores calculados
+        fbx: fbx,
+        fby: fby,
+        fb: fb,
+        x_inserto: xInserto,
+        y_inserto: yInserto,
+        // Cantidades de braces
+        cant_b14: cantB14,
+        cant_b12: cantB12,
+        cant_b04: cantB04,
+        cant_b15: cantB15
+      });
+    }
+  });
+  
+  console.log('[DASHBOARD] Datos recopilados de tabla unificada:', murosConBraces);
   
   // Obtener información del proyecto desde localStorage
   const projectConfig = localStorage.getItem('projectConfig');
@@ -451,7 +543,7 @@ export async function handleGenerarPDF(elements, globalVars) {
     }
   }
   
-  console.log('[DASHBOARD] Generando PDF para', globalVars.resultadosActuales.length, 'paneles');
+  console.log('[DASHBOARD] Generando PDF para', murosConBraces.length, 'muros con viento y braces');
   btnInforme.disabled = true;
   
   try {
@@ -460,7 +552,7 @@ export async function handleGenerarPDF(elements, globalVars) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
-        paneles: globalVars.resultadosActuales,
+        paneles: murosConBraces,  // Ahora enviamos datos completos de la tabla unificada
         projectInfo: projectInfo
       })
     });
@@ -477,7 +569,7 @@ export async function handleGenerarPDF(elements, globalVars) {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'informe_paneles.pdf';
+    a.download = 'informe_muros_viento_braces.pdf';
     document.body.appendChild(a);
     a.click();
     a.remove();

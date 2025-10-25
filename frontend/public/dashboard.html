@@ -112,7 +112,7 @@
         </div>
       </div>
 
-      <!-- Sección 2: Resultados de importación -->
+      <!-- Sección 2: Paneles Importados -->
       <div class="accordion-item">
         <div class="accordion-header" data-target="results-section">
           <h2 class="accordion-title">
@@ -122,40 +122,18 @@
           <span class="accordion-toggle">▼</span>
         </div>
         <div class="accordion-content" id="results-section">
-          <div class="actions">
-            <button id="btnCalcular" class="btn btn--ghost" style="display:none;">Calcular paneles</button>
-          </div>
           <div id="panelesInfo">
             <p class="muted">Los paneles importados aparecerán aquí después de subir un archivo TXT.</p>
           </div>
         </div>
       </div>
 
-      <!-- Sección 3: Resultados de cálculos -->
-      <div class="accordion-item">
-        <div class="accordion-header" data-target="calculations-section">
-          <h2 class="accordion-title">
-            <span class="accordion-icon"></span>
-            Resultados de Cálculo
-          </h2>
-          <span class="accordion-toggle">▼</span>
-        </div>
-        <div class="accordion-content" id="calculations-section">
-          <div class="actions">
-            <button id="btnInforme" class="btn btn--ghost" style="display:none;">Generar informe PDF</button>
-          </div>
-          <div id="resultadosCalculo">
-            <p class="muted">Los resultados de cálculo aparecerán aquí después de procesar los paneles.</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Sección 3: Cálculo de Cargas de Viento (Tomo III) -->
+      <!-- Sección 3: Cálculos Libro III -->
       <div class="accordion-item">
         <div class="accordion-header" data-target="wind-section">
           <h2 class="accordion-title">
             <span class="accordion-icon"></span>
-            Cálculo de Cargas de Viento (Tomo III)
+            Cálculos Libro III - Parámetros y Configuración
           </h2>
           <span class="accordion-toggle">▼</span>
         </div>
@@ -163,7 +141,7 @@
           
           <!-- Parámetros de Viento -->
           <div class="wind-parameters">
-            <h3>Parámetros de Viento</h3>
+            <h3>Parámetros de Viento (Tomo III)</h3>
             
             <div class="parameter-groups">
               <div class="parameter-group">
@@ -223,13 +201,49 @@
               </div>
 
             </div>
-            
-            <div class="actions">
-              <button id="btnCalcularViento" class="btn">Calcular Cargas de Viento por Muros</button>
-            </div>
-
           </div>
 
+          <!-- Configuración de Braces (Valores Globales por Defecto) -->
+          <div class="braces-global-config" style="margin-top: 2rem;">
+            <h3>Configuración de Braces (Valores por Defecto)</h3>
+            <p class="muted">Define los valores iniciales. Podrás editarlos por muro en los resultados.</p>
+            
+            <div class="parameter-groups">
+              <div class="parameter-group">
+                <h4>Ángulo y NPT</h4>
+                <div class="form-row">
+                  <label for="angulo_global">Ángulo de Brace:</label>
+                  <input type="number" id="angulo_global" step="0.1" min="0" max="90" value="55" placeholder="55">
+                  <span>grados</span>
+                </div>
+                <div class="form-row">
+                  <label for="npt_global">NPT (Nivel Piso Terminado):</label>
+                  <input type="number" id="npt_global" step="0.001" value="0.350" placeholder="0.350">
+                  <span>metros</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Botón Principal de Cálculo -->
+          <div class="actions" style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--border-color);">
+            <button id="btnCalcularViento" class="btn btn--primary">Calcular Cargas de Viento y Braces</button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Sección 4: Resultados de Cálculos -->
+      <div class="accordion-item">
+        <div class="accordion-header" data-target="calculations-section">
+          <h2 class="accordion-title">
+            <span class="accordion-icon"></span>
+            Resultados de Cálculos
+          </h2>
+          <span class="accordion-toggle">▼</span>
+        </div>
+        <div class="accordion-content" id="calculations-section">
+          
           <!-- Resultados del Cálculo de Viento -->
           <div class="wind-results" id="resultadosViento" style="display: none;">
             <h3>Resultados del Cálculo de Viento</h3>
@@ -244,6 +258,11 @@
               <h4>Detalle de Cálculos por Muro</h4>
               <div id="detalleCalculosViento"></div>
             </div>
+          </div>
+
+          <!-- Mensaje inicial -->
+          <div id="resultadosCalculo">
+            <p class="muted">Los resultados de cálculo aparecerán aquí después de hacer los cálculos.</p>
           </div>
 
         </div>

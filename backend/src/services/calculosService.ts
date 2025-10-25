@@ -48,6 +48,21 @@ export interface ClaseEstructura {
   altura_max: number;
 }
 
+// Interfaz para resultados de cálculo de braces
+export interface BraceCalculationResult {
+  x_braces: number;      // Cantidad de braces
+  fbx: number;           // Fuerza en X (kN)
+  fby: number;           // Fuerza en Y (kN)
+  fb: number;            // Fuerza total (kN)
+  cant_b14: number;      // Cantidad B14
+  cant_b12: number;      // Cantidad B12
+  cant_b04: number;      // Cantidad B04
+  cant_b15: number;      // Cantidad B15
+  x_inserto?: number;    // Coordenada X del inserto
+  y_inserto?: number;    // Coordenada Y del inserto
+  observaciones: string[];
+}
+
 /**
  * Tabla 6.5 - Valores de α según categoría de terreno y clase de estructura
  */
@@ -734,6 +749,171 @@ export function calcularDistribucionBraces(altura_m: number, ancho_estimado_m: n
     distribucion,
     modelo_principal,
     resumen_distribucion,
+    observaciones
+  };
+}
+
+/**
+ * Calcula las fuerzas de los braces (FBx, FBy, FB) y distribución por tipo
+ * Basado en la cantidad de braces (X), ángulo y fuerza de viento
+ * 
+ * @param fuerza_viento_kN - Fuerza de viento calculada (kN)
+ * @param x_braces - Cantidad de braces (manual)
+ * @param angulo_grados - Ángulo de inclinación del brace (manual)
+ * @returns BraceCalculationResult con fuerzas y cantidades por tipo
+ */
+/**
+ * Calcular coordenadas del inserto del brace según el tipo y ángulo
+ * Fórmulas de Excel:
+ * X = (longitud_brace) * cos(ángulo)
+ * Y = (longitud_brace) * sin(ángulo) + NPT
+ * 
+ * Longitudes de braces:
+ * - B04: 4.6 m
+ * - B12: 9.75 m
+ * - B14: 12.75 m
+ * - B15: 15.8 m
+ */
+export function calcularInsertoCoordinates(
+  tipo_brace_seleccionado: string,  // Usar el tipo seleccionado por el usuario
+  angulo_grados: number,
+  npt: number = 0
+): { x_inserto: number | null, y_inserto: number | null } {
+  // Longitudes según tipo de brace (metros)
+  const LONGITUDES: Record<string, number> = {
+    B04: 4.6,
+    B12: 9.75,
+    B14: 12.75,
+    B15: 15.8
+  };
+
+  // Obtener longitud del tipo seleccionado
+  const longitud_brace = LONGITUDES[tipo_brace_seleccionado] || 0;
+
+  // Si no hay tipo válido, retornar null
+  if (longitud_brace === 0) {
+    return { x_inserto: null, y_inserto: null };
+  }
+
+  // Convertir ángulo a radianes
+  const angulo_rad = (angulo_grados * Math.PI) / 180;
+
+  // Fórmulas de Excel
+  const x_inserto = longitud_brace * Math.cos(angulo_rad);
+  const y_inserto = longitud_brace * Math.sin(angulo_rad) + npt;
+
+  console.log(`[CALCULOS] INSERTO: Tipo=${tipo_brace_seleccionado}, Longitud=${longitud_brace}m, Ángulo=${angulo_grados}°, NPT=${npt}m`);
+  console.log(`[CALCULOS] - X inserto: ${x_inserto.toFixed(3)} m`);
+  console.log(`[CALCULOS] - Y inserto: ${y_inserto.toFixed(3)} m`);
+
+  return {
+    x_inserto: parseFloat(x_inserto.toFixed(3)),
+    y_inserto: parseFloat(y_inserto.toFixed(3))
+  };
+}
+
+export function calculateBraceForces(
+  fuerza_viento_kN: number,
+  x_braces: number,
+  angulo_grados: number,
+  npt: number = 0,
+  tipo_brace_seleccionado: string = 'B12'  // Tipo seleccionado por el usuario
+): BraceCalculationResult {
+  const observaciones: string[] = [];
+  
+  console.log('[CALCULOS] CALCULO DE BRACES:');
+  console.log(`[CALCULOS] - Fuerza viento: ${fuerza_viento_kN.toFixed(2)} kN`);
+  console.log(`[CALCULOS] - Cantidad braces (X): ${x_braces}`);
+  console.log(`[CALCULOS] - Ángulo: ${angulo_grados}°`);
+
+  // Validaciones
+  if (x_braces <= 0) {
+    console.log('[CALCULOS] ADVERTENCIA: X = 0, no hay braces');
+    return {
+      x_braces: 0,
+      fbx: 0,
+      fby: 0,
+      fb: 0,
+      cant_b14: 0,
+      cant_b12: 0,
+      cant_b04: 0,
+      cant_b15: 0,
+      observaciones: ['Sin braces configurados']
+    };
+  }
+
+  // Convertir ángulo a radianes
+  const angulo_rad = (angulo_grados * Math.PI) / 180;
+
+  // FB = Fuerza total por brace = Fuerza de viento / Cantidad de braces
+  const fb = fuerza_viento_kN / x_braces;
+  
+  // FBx = FB × cos(ángulo) × cantidad de braces
+  const fbx = fb * Math.cos(angulo_rad) * x_braces;
+  
+  // FBy = FB × sin(ángulo) × cantidad de braces
+  const fby = fb * Math.sin(angulo_rad) * x_braces;
+
+  console.log(`[CALCULOS] - FB (por brace): ${fb.toFixed(2)} kN`);
+  console.log(`[CALCULOS] - FBx (total X): ${fbx.toFixed(2)} kN`);
+  console.log(`[CALCULOS] - FBy (total Y): ${fby.toFixed(2)} kN`);
+
+  // Distribución de braces por tipo (B14, B12, B04, B15)
+  // Criterio: depende de la fuerza por brace
+  let cant_b14 = 0;
+  let cant_b12 = 0;
+  let cant_b04 = 0;
+  let cant_b15 = 0;
+
+  // Distribución basada en capacidad de carga (valores de referencia)
+  // B15: > 100 kN por brace (alta capacidad)
+  // B14: 75-100 kN por brace (capacidad media-alta)
+  // B12: 50-75 kN por brace (capacidad media)
+  // B04: < 50 kN por brace (capacidad baja)
+
+  if (fb >= 100) {
+    cant_b15 = x_braces;
+    observaciones.push(`B15: ${fb.toFixed(2)} kN/brace ≥ 100 kN - Alta capacidad`);
+  } else if (fb >= 75) {
+    cant_b14 = x_braces;
+    observaciones.push(`B14: ${fb.toFixed(2)} kN/brace entre 75-100 kN - Capacidad media-alta`);
+  } else if (fb >= 50) {
+    cant_b12 = x_braces;
+    observaciones.push(`B12: ${fb.toFixed(2)} kN/brace entre 50-75 kN - Capacidad media`);
+  } else {
+    cant_b04 = x_braces;
+    observaciones.push(`B04: ${fb.toFixed(2)} kN/brace < 50 kN - Capacidad estándar`);
+  }
+
+  // Verificaciones de ángulo
+  if (angulo_grados < 30) {
+    observaciones.push(`ADVERTENCIA: Ángulo ${angulo_grados}° < 30° - Componente horizontal muy alta`);
+  } else if (angulo_grados > 60) {
+    observaciones.push(`ADVERTENCIA: Ángulo ${angulo_grados}° > 60° - Componente vertical muy alta`);
+  } else {
+    observaciones.push(`Ángulo ${angulo_grados}° en rango óptimo (30°-60°)`);
+  }
+
+  console.log(`[CALCULOS] DISTRIBUCION: B14=${cant_b14}, B12=${cant_b12}, B04=${cant_b04}, B15=${cant_b15}`);
+
+  // Calcular coordenadas del inserto usando el tipo seleccionado por el usuario
+  const { x_inserto, y_inserto } = calcularInsertoCoordinates(
+    tipo_brace_seleccionado,
+    angulo_grados,
+    npt
+  );
+
+  return {
+    x_braces,
+    fbx,
+    fby,
+    fb,
+    cant_b14,
+    cant_b12,
+    cant_b04,
+    cant_b15,
+    x_inserto: x_inserto !== null ? x_inserto : undefined,
+    y_inserto: y_inserto !== null ? y_inserto : undefined,
     observaciones
   };
 }

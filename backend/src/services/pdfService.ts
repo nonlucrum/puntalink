@@ -212,9 +212,9 @@ function crearPaginasCalculos(doc: any, paneles: PanelCalculado[]) {
   
   // Resumen general
   let currentY = 140;
-  const totalVolumen = paneles.reduce((sum, p) => sum + p.volumen_m3, 0);
-  const totalPeso = paneles.reduce((sum, p) => sum + p.peso_kN, 0);
-  const gruaMaxima = Math.max(...paneles.map(p => p.grua_min_kN_aprox));
+  const totalVolumen = paneles.reduce((sum, p) => sum + (p.volumen_m3 || 0), 0);
+  const totalPeso = paneles.reduce((sum, p) => sum + (p.peso_kN || 0), 0);
+  const gruaMaxima = Math.max(...paneles.map(p => p.grua_min_kN_aprox || 0));
   
   doc.fontSize(14)
     .fillColor('#333333')
@@ -225,7 +225,7 @@ function crearPaginasCalculos(doc: any, paneles: PanelCalculado[]) {
     .text(`• Total de paneles analizados: ${paneles.length}`, 70, currentY)
     .text(`• Volumen total de concreto: ${totalVolumen.toFixed(2)} m³`, 70, currentY + 15)
     .text(`• Peso total: ${totalPeso.toFixed(2)} kN`, 70, currentY + 30)
-    .text(`• Capacidad máxima de grúa requerida: ${gruaMaxima.toFixed(2)} kN`, 70, currentY + 45);
+    .text(`• Capacidad máxima de grúa requerida: ${isFinite(gruaMaxima) ? gruaMaxima.toFixed(2) : '0.00'} kN`, 70, currentY + 45);
   
   currentY += 80;
   
@@ -266,13 +266,13 @@ function crearPaginasCalculos(doc: any, paneles: PanelCalculado[]) {
     
     xPos = 50;
     const rowData = [
-      panel.id_muro,
+      panel.id_muro || 'N/A',
       panel.grosor_mm ? panel.grosor_mm.toString() : 'N/A',
       panel.area_m2 ? parseFloat(panel.area_m2.toString()).toFixed(2) : 'N/A',
-      panel.volumen_m3.toFixed(2),
-      panel.peso_kN.toFixed(2),
-      panel.viento_kN.toFixed(2),
-      panel.grua_min_kN_aprox.toFixed(2)
+      (panel.volumen_m3 || 0).toFixed(2),
+      (panel.peso_kN || 0).toFixed(2),
+      (panel.viento_kN || 0).toFixed(2),
+      (panel.grua_min_kN_aprox || 0).toFixed(2)
     ];
     
     rowData.forEach((data, j) => {

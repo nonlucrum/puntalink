@@ -22,8 +22,8 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 // ===== Middlewares =====
 app.use(cors());
 app.use(morgan('dev'));
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json({ limit: '10mb' })); // Aumentado para PDFs con muchos muros
+app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 
 // ===== Static & views =====
 app.set('views', path.join(__dirname, '..', 'views'));

@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
 import { calcularPaneles } from '../services/panelesService';
 import { generarInforme } from '../services/pdfService';
-import { calcularVientoMuros, getParametrosVientoDefecto, WindParameters, getParametrosTerreno } from '../services/calculosService';
-import { Muro } from '../models/Muro';
+import { calcularVientoMuros, getParametrosVientoDefecto, WindParameters, getParametrosTerreno, calculateBraceForces } from '../services/calculosService';
+import { Muro, updateMuroEditableFields, updateMuroBraceCalculations, getMurosByProject } from '../models/Muro';
+import pool from '../config/db';
 
 /**
  * Sección 1: Obtener parámetros por defecto para cálculo de viento
@@ -138,6 +139,219 @@ export const calculoVientoMuros = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error en cálculo de viento de muros:', error);
     res.status(500).json({ 
+      error: 'Error interno del servidor',
+      details: error instanceof Error ? error.message : 'Error desconocido'
+    });
+  }
+};
+
+/**
+ * Actualizar campos editables de un muro (ángulo, NPT, X braces, tipo construcción)
+ * PUT /api/calculos/muros/:pid/editable
+ */
+export const actualizarCamposEditables = async (req: Request, res: Response) => {
+  try {
+    const { pid } = req.params;
+    const { angulo_brace, npt, x_braces, tipo_construccion, tipo_brace_seleccionado } = req.body;
+
+    console.log(`[CALCULOS] Actualizando campos editables del muro PID: ${pid}`);
+    console.log('[CALCULOS] Valores:', { angulo_brace, npt, x_braces, tipo_construccion, tipo_brace_seleccionado });
+
+    // Validaciones
+    if (!pid || isNaN(parseInt(pid))) {
+      return res.status(400).json({ error: 'PID de muro inválido' });
+    }
+
+    // Actualizar en base de datos
+    const muroActualizado = await updateMuroEditableFields(
+      parseInt(pid),
+      angulo_brace,
+      npt,
+      x_braces,
+      tipo_construccion,
+      tipo_brace_seleccionado
+    );
+
+    if (!muroActualizado) {
+      return res.status(404).json({ error: 'Muro no encontrado' });
+    }
+
+    console.log('[CALCULOS] Muro actualizado exitosamente:', muroActualizado.id_muro);
+
+    res.json({
+      success: true,
+      muro: muroActualizado,
+      message: 'Campos editables actualizados correctamente'
+    });
+
+  } catch (error) {
+    console.error('Error actualizando campos editables:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      details: error instanceof Error ? error.message : 'Error desconocido'
+    });
+  }
+};
+
+/**
+ * Calcular fuerzas de braces y actualizar muro
+ * POST /api/calculos/muros/:pid/calcular-braces
+ * Recibe: angulo_brace, x_braces (opcional, puede leerlos de la BD)
+ * Calcula automáticamente la fuerza de viento basándose en el área y altura del muro
+ * Calcula: FBx, FBy, FB y distribución por tipo
+ */
+export const calcularBraces = async (req: Request, res: Response) => {
+  try {
+    const { pid } = req.params;
+    let { angulo_brace, x_braces, tipo_brace_seleccionado, npt } = req.body;
+
+    console.log(`[CALCULOS] Calculando braces para muro PID: ${pid}`);
+
+    // Validaciones
+    if (!pid || isNaN(parseInt(pid))) {
+      return res.status(400).json({ error: 'PID de muro inválido' });
+    }
+
+    // Obtener el muro desde la base de datos
+    const resultMuro = await pool.query('SELECT * FROM muro WHERE pid = $1', [parseInt(pid)]);
+    
+    if (resultMuro.rows.length === 0) {
+      return res.status(404).json({ error: 'Muro no encontrado' });
+    }
+
+    const muro = resultMuro.rows[0];
+
+    // Usar valores del body o los existentes en el muro
+    angulo_brace = angulo_brace || muro.angulo_brace;
+    x_braces = x_braces || muro.x_braces;
+    tipo_brace_seleccionado = tipo_brace_seleccionado || muro.tipo_brace_seleccionado || 'B12';
+    npt = npt !== undefined ? npt : (muro.npt || 0); // NPT del body o del muro
+
+    // Validar que tengamos los datos necesarios
+    if (!angulo_brace || !x_braces) {
+      return res.status(400).json({ 
+        error: 'El muro debe tener ángulo_brace y x_braces configurados',
+        muro: { angulo_brace: muro.angulo_brace, x_braces: muro.x_braces }
+      });
+    }
+
+    // Calcular fuerza de viento automáticamente
+    // Usamos el área y altura del muro para calcularla
+    const area_m2 = parseFloat(muro.area?.toString() || '0');
+    const altura_m = parseFloat(muro.overall_height?.toString() || '0');
+
+    if (area_m2 <= 0 || altura_m <= 0) {
+      return res.status(400).json({ 
+        error: 'El muro debe tener área y altura válidas',
+        muro: { area: muro.area, altura: muro.overall_height }
+      });
+    }
+
+    // Calcular presión de viento (simplificado - usar valores típicos)
+    // qz típico para construcción en México: ~80-85 kPa
+    const qz_kPa = 82; // Valor típico
+    const fuerza_viento_kN = qz_kPa * area_m2;
+
+    console.log(`[CALCULOS] Fuerza de viento calculada: ${fuerza_viento_kN.toFixed(2)} kN (qz=${qz_kPa} kPa, área=${area_m2} m²)`);
+
+    // Calcular fuerzas de braces incluyendo coordenadas de inserto
+    const resultado = calculateBraceForces(
+      fuerza_viento_kN,
+      x_braces,
+      angulo_brace,
+      npt, // Pasar NPT para calcular Y inserto
+      tipo_brace_seleccionado // Pasar tipo seleccionado para calcular X e Y
+    );
+
+    console.log('[CALCULOS] Resultado cálculo braces:', resultado);
+
+    // Actualizar muro con los resultados (incluyendo x_inserto y y_inserto)
+    const muroActualizado = await updateMuroBraceCalculations(
+      parseInt(pid),
+      resultado.fbx,
+      resultado.fby,
+      resultado.fb,
+      resultado.cant_b14,
+      resultado.cant_b12,
+      resultado.cant_b04,
+      resultado.cant_b15,
+      resultado.x_inserto,
+      resultado.y_inserto
+    );
+
+    console.log('[CALCULOS] Muro actualizado con cálculos de braces');
+
+    res.json({
+      success: true,
+      muro: muroActualizado,
+      calculo: resultado,
+      message: 'Braces calculados y actualizados correctamente'
+    });
+
+  } catch (error) {
+    console.error('Error calculando braces:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      details: error instanceof Error ? error.message : 'Error desconocido'
+    });
+  }
+};
+
+/**
+ * Aplicar valores de ángulo y NPT a todos los muros de un proyecto
+ * POST /api/calculos/proyectos/:pk_proyecto/aplicar-globales
+ */
+export const aplicarValoresGlobales = async (req: Request, res: Response) => {
+  try {
+    const { pk_proyecto } = req.params;
+    const { angulo_brace, npt } = req.body;
+
+    console.log(`[CALCULOS] Aplicando valores globales al proyecto ${pk_proyecto}`);
+    console.log('[CALCULOS] Valores:', { angulo_brace, npt });
+
+    // Validaciones
+    if (!pk_proyecto || isNaN(parseInt(pk_proyecto))) {
+      return res.status(400).json({ error: 'PK de proyecto inválido' });
+    }
+
+    if (!angulo_brace && !npt) {
+      return res.status(400).json({ error: 'Se requiere al menos angulo_brace o npt' });
+    }
+
+    // Obtener todos los muros del proyecto
+    const muros = await getMurosByProject(parseInt(pk_proyecto));
+
+    if (muros.length === 0) {
+      return res.status(404).json({ error: 'No hay muros en este proyecto' });
+    }
+
+    console.log(`[CALCULOS] Aplicando a ${muros.length} muros`);
+
+    // Actualizar cada muro
+    const actualizaciones = await Promise.all(
+      muros.map(muro => 
+        updateMuroEditableFields(
+          muro.pid!,
+          angulo_brace !== undefined ? angulo_brace : muro.angulo_brace,
+          npt !== undefined ? npt : muro.npt,
+          muro.x_braces,
+          muro.tipo_construccion
+        )
+      )
+    );
+
+    console.log('[CALCULOS] Todos los muros actualizados');
+
+    res.json({
+      success: true,
+      muros_actualizados: actualizaciones.length,
+      valores_aplicados: { angulo_brace, npt },
+      message: `Valores aplicados a ${actualizaciones.length} muros`
+    });
+
+  } catch (error) {
+    console.error('Error aplicando valores globales:', error);
+    res.status(500).json({
       error: 'Error interno del servidor',
       details: error instanceof Error ? error.message : 'Error desconocido'
     });
