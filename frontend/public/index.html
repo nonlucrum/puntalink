@@ -5,107 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Nuevo Proyecto - PuntaLink</title>
   <link rel="stylesheet" href="styles.css"/>
-  <style>
-    .form-group { 
-      margin-bottom: 1.5em; 
-    }
-    
-    .form-group label {
-      display: block;
-      margin-bottom: 0.5em;
-      font-weight: 500;
-      color: #333;
-    }
-    
-    .form-group input[type="text"],
-    .form-group input[type="number"] {
-      width: 100%;
-      padding: 0.75em;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 1em;
-      transition: border-color 0.3s ease;
-    }
-    
-    .form-group input[type="text"]:focus,
-    .form-group input[type="number"]:focus {
-      outline: none;
-      border-color: #007bff;
-      box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
-    }
-    
-    .radio-group {
-      display: flex;
-      flex-direction: column;
-      gap: 0.75em;
-      margin-top: 0.5em;
-    }
-    
-    .radio-option {
-      display: flex;
-      align-items: center;
-      gap: 0.5em;
-    }
-    
-    .radio-option input[type="radio"] {
-      margin: 0;
-    }
-    
-    .radio-option label {
-      margin: 0;
-      font-weight: normal;
-      cursor: pointer;
-    }
-    
-    .card { 
-      max-width: 500px; 
-      margin: 3em auto; 
-      padding: 2.5em; 
-      background: #fff; 
-      border-radius: 8px; 
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
-    }
-    
-    .card h1 {
-      text-align: center;
-      margin-bottom: 1.5em;
-      color: #2c3e50;
-      font-size: 1.8em;
-    }
-    
-    .btn-primary {
-      width: 100%;
-      background-color: #007bff;
-      color: white;
-      border: none;
-      padding: 1em 1.5em;
-      font-size: 1.1em;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: background-color 0.3s ease;
-    }
-    
-    .btn-primary:hover {
-      background-color: #0056b3;
-    }
-    
-    body {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      margin: 0;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
-  </style>
 </head>
 <body>
   <main>
     <section class="card">
       <h1>Configuración de Proyecto</h1>
-      <div class="actions">
-        <button id="btnCreateNewProject" class="btn"> Crear Proyecto</button>
-        <button id="btnLoadOldProject" class="btn btn--ghost"> Cargar Proyecto</button>
-      </div>
-      <div class="separator"></div>
+        <div class="togglebar">
+          <button id="toggleBackG" class="togglebg"></button>
+          <button id="btnCreateNewProject" class="togglebtn">Crear Proyecto</button>
+          <button id="btnLoadOldProject" class="togglebtn--ghost"> Cargar Proyecto</button>
+        </div>
       <form id="formNuevoProyecto" autocomplete="off">
         <div class="form-group">
           <label for="nombreProyecto">Nombre del proyecto</label>
@@ -154,6 +63,15 @@
           <button id="btnProjectSubmit" class="btn-primary">Crear Proyecto</button>
         </div>
       </form>
+      <div id="projectList" class="project-list" style="display:none">
+        <button class="project-card">
+            <div class="project-card-title">
+                <h3>Proyecto Génesis</h3>
+                <h4>Puntalink</h4>
+            </div>
+            <span class="project-card-info"></span>
+        </button>
+      </div>
       <script type="module" src="script.js"></script>
     </section>
   </main>

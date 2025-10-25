@@ -76,3 +76,18 @@ export async function getProjectById(pid: number, pk_usuario: number) {
         throw error;
     }
 }
+
+export async function getProjectsByUser(pk_usuario: number) {
+    const query = `
+      SELECT row_to_json(proyecto.*) FROM proyecto
+      WHERE pk_usuario = $1;
+    `;
+    const values = [pk_usuario];
+    try {
+        const result = await pool.query(query, values);
+        return result.rows.map(row => row.row_to_json); // devuelve las filas encontradas
+    } catch (error) {
+        console.error("Error fetching projects by user:", error);
+        throw error;
+    }
+}

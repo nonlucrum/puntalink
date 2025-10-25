@@ -999,3 +999,203 @@ pre{
   margin-top: 0;
 }
 
+/* ====== Toggle para crear o cargar proyecto ====== */
+
+.togglebar {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  border: 1px solid;
+  border-radius: 6px;
+  border-color: var(--primary);
+  margin-bottom: 1.5em;
+}
+
+.togglebg {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 600;
+  align-items: center;
+  margin: 0 -50% 0 0;
+  border: 0px;
+  border-radius: 4px;
+  width: 50%;
+  transition: transform 0.2s ease-out;
+  z-index: 1;
+}
+
+
+.togglebtn {
+  background: transparent;
+  color: #fff;
+  font-weight: 600;
+  padding: 0.75rem;
+  border: 0px;
+  border-radius: 6px;
+  min-height: 2.5rem;
+  align-items: center;
+  flex: 1;
+  z-index: 1;
+  transition: color 0.2s ease-out;
+}
+
+.togglebtn--ghost {
+  background: transparent;
+  color: var(--primary);
+  font-weight: 600;
+  padding: 0.75rem;
+  border: 0px;
+  border-radius: 6px;
+  min-height: 2.5rem;
+  align-items: center;
+  flex: 1;
+  z-index: 1;
+  transition: color 0.2s ease-out;
+}
+.togglebtn--ghost:hover {
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+
+/* ====== Lista de proyectos para cargar ====== */
+
+.project-list{
+    background: #eeeeee;
+    display: flex;
+    flex-direction: column;
+    padding: 1em;
+    gap: 1em;
+    border-radius: 6px;
+}
+
+.project-card{
+    display: flex;
+    padding: 1em;
+    background: #fff;
+    border-radius: 6px;
+    border: 0px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.2s ease;
+}
+
+.project-card:hover{
+    box-shadow: 0 10px 12px rgba(0, 0, 0, 0.15);
+}
+
+.project-card-title{
+    border: 1px;
+    border-color: #2c3e50;
+}
+
+.project-card-info{
+    display: flex;
+    flex-direction: column;
+    border: 0px 1px 0px 0px;
+    border-color: #2c3e50;
+    color: #425263;
+    font-size: 0.8em;
+}
+
+.project-card h3 {
+  text-align: left;
+  margin-bottom: -0.3em;
+  color: #2c3e50;
+  font-size: 1.5em;
+}
+
+.project-card h4 {
+  text-align: left;
+  color: #6b7f94;
+  font-size: 1em;
+}
+
+/* ====== Formulario de creación de proyecto ====== */
+
+.form-group { 
+    margin-bottom: 1.5em; 
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5em;
+    font-weight: 500;
+    color: #333;
+}
+
+.form-group input[type="text"],
+.form-group input[type="number"] {
+    width: 100%;
+    padding: 0.75em;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1em;
+    transition: border-color 0.3s ease;
+}
+
+.form-group input[type="text"]:focus,
+.form-group input[type="number"]:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+}
+
+.radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75em;
+    margin-top: 0.5em;
+}
+
+.radio-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+}
+
+.radio-option input[type="radio"] {
+    margin: 0;
+}
+
+.radio-option label {
+    margin: 0;
+    font-weight: normal;
+    cursor: pointer;
+}
+
+.card { 
+    max-width: 500px; 
+    margin: 3em auto; 
+    padding: 2.5em; 
+    background: #fff; 
+    border-radius: 8px; 
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+}
+
+.card h1 {
+    text-align: center;
+    margin-bottom: 1.2em;
+    color: #2c3e50;
+    font-size: 1.8em;
+}
+
+.btn-primary {
+    width: 100%;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 1em 1.5em;
+    font-size: 1.1em;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+}
+
+body {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}

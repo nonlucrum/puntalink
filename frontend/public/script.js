@@ -232,6 +232,33 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+// ===== TOGGLE PARA CREAR O CARGAR PROYECTO =====
+const btnCreateNewProject = document.getElementById('btnCreateNewProject');
+const toggleBackG = document.getElementById('toggleBackG');
+const btnLoadOldProject = document.getElementById('btnLoadOldProject');
+const formNuevoProyecto = document.getElementById('formNuevoProyecto');
+const projectList = document.getElementById('projectList');
+
+if (btnLoadOldProject) {
+    btnLoadOldProject.addEventListener('click', () => {
+      btnCreateNewProject.className = "togglebtn--ghost";
+      btnLoadOldProject.className = "togglebtn";
+      toggleBackG.style.transform = "translate(100%)"
+      formNuevoProyecto.style.display = 'none';
+      projectList.style.display = '';
+    });
+}
+
+if (btnCreateNewProject) {
+    btnCreateNewProject.addEventListener('click', () => {
+      btnCreateNewProject.className = "togglebtn";
+      btnLoadOldProject.className = "togglebtn--ghost";
+      toggleBackG.style.transform = "translate(0%)"
+      formNuevoProyecto.style.display = '';
+      projectList.style.display = 'none';
+    });
+}
+
   // ===== ELEMENTOS ADICIONALES PARA VIENTO =====
   const btnCalcularViento = document.getElementById('btnCalcularViento');
 
