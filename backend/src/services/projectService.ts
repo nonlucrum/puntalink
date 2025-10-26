@@ -1,5 +1,6 @@
 import { addProject } from '../models/Project';
 import { updateProject } from '../models/Project';
+import { getProjectsByUser } from '../models/Project';
 
 export async function crearProyectoService(projectData: any) {
     console.log('[service - projectService] crearProyecto - Inicio');
@@ -42,4 +43,19 @@ export async function actualizarProyectoService(projectData: any) {
         throw err;
     }
     console.log('[service - projectService] actualizarProyecto - Fin');
+}
+
+export async function listarProyectosService(userData: any) {
+    console.log('[service - projectService] listarProyectos - Inicio');
+    try {
+        const proyectos = await getProjectsByUser(
+            userData.headers['x-user-id'] || 1 // pk_usuario temporal
+        );
+        console.log('[service - projectService] listarProyectos - Proyectos obtenidos exitosamente');
+        return proyectos;
+    } catch (err) {
+        console.error('[service - projectService] listarProyectos - Error al obtener los proyectos:', err);
+        throw err;
+    }
+    console.log('[service - projectService] listarProyectos - Fin');
 }

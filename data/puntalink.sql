@@ -29,7 +29,7 @@ CREATE TABLE proyecto (
 );
 
 INSERT INTO proyecto (pk_usuario, nombre, empresa, tipo_muerto, vel_viento, temp_promedio, presion_atmo)
-VALUES (1, 'Proyecto Prueba', 'Mi Empresa', 'corrido', 50.0, 22.5, 1013.25);
+VALUES (1, 'Proyecto Prueba', 'Mi Empresa', 'Corrido', 50.0, 22.5, 1013.25);
 
 CREATE TABLE muro (
     pid SERIAL PRIMARY KEY,

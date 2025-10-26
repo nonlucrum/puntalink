@@ -65,11 +65,25 @@
       </form>
       <div id="projectList" class="project-list" style="display:none">
         <button class="project-card">
-            <div class="project-card-title">
-                <h3>Proyecto Génesis</h3>
-                <h4>Puntalink</h4>
+        	<div style="display: flex; flex-direction: row">
+              <svg width="40" height="77">
+                  <circle cx="0" cy="38.5" r="30" stroke="#ccc" stroke-width="3" fill="transparent" />
+                  <rect x="-30" y="8.5" width="60" height="60" stroke="#ccc" stroke-width="3" fill="transparent" style="display:none" />
+                  <polygon points="-30,12 30,12 0,64" style="fill:transparent;stroke:#ccc;stroke-width:3;display:none" />
+              </svg>
+              <div class="project-card-title">
+                  <h3>Frontier 04</h3>
+                  <h4>Magnorth</h4>
+                  <text class="project-card-var">Muerto Cilíndrico</text>
+                  <text class="project-card-var">28/10/2025 18:30</text>
+              </div>
             </div>
-            <span class="project-card-info"></span>
+            <div class="project-card-info">
+              <text class="project-card-var">Hidalgo, México</text>
+              <text class="project-card-var">128 km/h</text>
+              <text class="project-card-var">30 °C</text>
+              <text class="project-card-var">760 mmHg</text>
+            </div>
         </button>
       </div>
       <script type="module" src="script.js"></script>

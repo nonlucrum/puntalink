@@ -1069,7 +1069,8 @@ pre{
 
 .project-card{
     display: flex;
-    padding: 1em;
+    justify-content: space-between;
+    padding: 1.3em 1em 1.3em 0em;
     background: #fff;
     border-radius: 6px;
     border: 0px;
@@ -1082,30 +1083,39 @@ pre{
 }
 
 .project-card-title{
-    border: 1px;
-    border-color: #2c3e50;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3em;
+    text-align: left;
 }
 
 .project-card-info{
     display: flex;
     flex-direction: column;
-    border: 0px 1px 0px 0px;
-    border-color: #2c3e50;
+    justify-content: center;
+    padding: 0.3em;
+    gap: 0.4em;
     color: #425263;
-    font-size: 0.8em;
+    text-align: right;
 }
 
 .project-card h3 {
   text-align: left;
-  margin-bottom: -0.3em;
+  margin: 0em;
   color: #2c3e50;
-  font-size: 1.5em;
+  font-size: 1.4em;
 }
 
 .project-card h4 {
   text-align: left;
+  margin: 0em;
   color: #6b7f94;
   font-size: 1em;
+}
+
+.project-card-var{
+    font-size: 0.8em;
+    color: #425263;
 }
 
 /* ====== Formulario de creación de proyecto ====== */

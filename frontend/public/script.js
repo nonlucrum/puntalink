@@ -11,12 +11,19 @@ import {
   guardarCambiosProyecto
 } from './js/dashboard.js';
 
-import { createProject } from './js/index.js';
+import { 
+    createProject,
+    loadPreviousProjects
+} from './js/index.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   // ===== CARGAR INFORMACIÓN DEL PROYECTO =====
   if (window.location.pathname === "/dashboard") {
     loadProjectInfo();
+  }
+  if (window.location.pathname === "/") {
+    // Cargar proyectos anteriores en index
+    loadPreviousProjects();
   }
   
   // ===== ELEMENTOS DEL DOM =====
@@ -33,6 +40,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnCancelUpdateProject = document.getElementById('btnCancelUpdateProject');
 
   const btnProjectSubmit = document.getElementById('btnProjectSubmit');
+  const btnCreateNewProject = document.getElementById('btnCreateNewProject');
+  const toggleBackG = document.getElementById('toggleBackG');
+  const btnLoadOldProject = document.getElementById('btnLoadOldProject');
+  const formNuevoProyecto = document.getElementById('formNuevoProyecto');
+  const projectList = document.getElementById('projectList');
 
   // ===== VARIABLES GLOBALES =====
   const globalVars = {
@@ -121,7 +133,8 @@ document.addEventListener('DOMContentLoaded', () => {
     resultadosCalculo,
     btnEditProject,
     btnUpdateProject,
-    btnCancelUpdateProject
+    btnCancelUpdateProject,
+    projectList
   };
 
   const indexUIElements = {
@@ -233,11 +246,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 // ===== TOGGLE PARA CREAR O CARGAR PROYECTO =====
-const btnCreateNewProject = document.getElementById('btnCreateNewProject');
-const toggleBackG = document.getElementById('toggleBackG');
-const btnLoadOldProject = document.getElementById('btnLoadOldProject');
-const formNuevoProyecto = document.getElementById('formNuevoProyecto');
-const projectList = document.getElementById('projectList');
 
 if (btnLoadOldProject) {
     btnLoadOldProject.addEventListener('click', () => {
@@ -282,7 +290,10 @@ async function calcularCargasViento() {
     console.log('[WIND] Iniciando cálculo de cargas de viento...');
     
     // Configuración API_BASE (igual que en dashboard.js) - FORZAR LOCALHOST:4008
-    const API_BASE = "http://localhost:4008";
+    const API_BASE =
+    window.location.hostname === "localhost"
+        ? "http://localhost:4008"   // dev backend
+        : "";                       // production (relative)
     console.log('[WIND] 🔗 API_BASE configurado como:', API_BASE);
     
     // Debugging detallado de globalVars
