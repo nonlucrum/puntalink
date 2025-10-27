@@ -40,7 +40,7 @@ body{
   color: var(--text);
 }
 
-.container{ max-width: 1600px; margin: 0 auto; padding: 1.25rem; }
+.container{ max-width: 95%; margin: 0 auto; padding: 1.25rem; }
 .space-y > * + *{ margin-top: 1rem; }
 
 .header{
@@ -602,6 +602,34 @@ pre{
 .table-container {
   overflow-x: auto;
   margin-bottom: 2rem;
+  max-width: 100%;
+  /* Forzar barra de scroll arriba */
+  transform: rotateX(180deg);
+  color: #000; /* Texto en negro */
+}
+
+/* Restaurar orientación del contenido */
+.table-container > * {
+  transform: rotateX(180deg);
+}
+
+/* Personalizar scrollbar */
+.table-container::-webkit-scrollbar {
+  height: 12px;
+}
+
+.table-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 6px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+  background: #000;
+  border-radius: 6px;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+  background: #333;
 }
 
 .wind-results-table {
@@ -1208,4 +1236,78 @@ pre{
     min-height: 100vh;
     margin: 0;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* ====== Tabla de Braces Editable ====== */
+.braces-edit-section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 2px solid var(--border);
+}
+
+/* ====== Tabla Unificada de Viento y Braces ====== */
+.unified-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  background: white;
+  margin-top: 1rem;
+}
+
+.unified-table thead th {
+  background: #f8f9fa;
+  color: #000000;
+  font-weight: 600;
+  padding: 0.6rem 0.4rem;
+  text-align: center;
+  border: 1px solid #0c0d0e;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.unified-table tbody td {
+  padding: 0.4rem;
+  border: 1px solid #dee2e6;
+  text-align: center;
+  font-size: 0.8rem;
+}
+
+.unified-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.unified-table .input-editable {
+  width: 100%;
+  padding: 0.3rem;
+  border: 1px solid #ced4da;
+  border-radius: 3px;
+  font-size: 0.8rem;
+  text-align: center;
+  transition: all 0.2s;
+  background: #fff;
+  color: #000;
+  font-weight: 500;
+}
+
+.unified-table .input-editable:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(31, 111, 235, 0.1);
+}
+
+.unified-table .input-editable:hover {
+  border-color: #adb5bd;
+}
+
+.unified-table .valor-calculado {
+  background: #e8f4fd;
+  font-weight: 600;
+  color: #000;
+}
+
+.unified-table select.input-editable {
+  cursor: pointer;
+  padding: 0.3rem 0.2rem;
+  color: #000;
+  font-weight: 500;
 }

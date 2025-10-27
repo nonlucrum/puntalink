@@ -14,12 +14,16 @@ export interface Muro {
   // Campos manuales editables por muro
   angulo_brace?: number;   // Ángulo de inclinación del brace (grados) - Manual
   npt?: number;            // Nivel de Piso Terminado (m) - Manual
+  tipo_brace_seleccionado?: string; // Tipo de brace seleccionado (B4, B12, B14, B15) - Manual
+  factor_w2?: number;      // Factor W2 para cálculo de tipo de brace
   
-  // Campos de braces
+  // Campos de braces calculados
   x_braces?: number;       // Cantidad total de braces
   fbx?: number;            // Fuerza del brace en dirección X (kN)
   fby?: number;            // Fuerza del brace en dirección Y (kN)
   fb?: number;             // Fuerza total del brace (kN)
+  x_inserto?: number;      // Coordenada X del inserto (m)
+  y_inserto?: number;      // Coordenada Y del inserto (m)
   
   // Cantidades por tipo de brace
   cant_b14?: number;       // Cantidad de braces tipo B14
@@ -45,10 +49,14 @@ export async function addMuro(
   overall_height?: string,  // Cambiado a string
   angulo_brace?: number,    // Nuevo: ángulo manual
   npt?: number,             // Nuevo: NPT manual
+  tipo_brace_seleccionado?: string, // Nuevo: tipo de brace seleccionado
+  factor_w2?: number,       // Nuevo: factor W2
   x_braces?: number,        // Nuevo: cantidad de braces
   fbx?: number,             // Nuevo: fuerza X
   fby?: number,             // Nuevo: fuerza Y
   fb?: number,              // Nuevo: fuerza total
+  x_inserto?: number,       // Nuevo: coordenada X del inserto
+  y_inserto?: number,       // Nuevo: coordenada Y del inserto
   cant_b14?: number,        // Nuevo: cantidad B14
   cant_b12?: number,        // Nuevo: cantidad B12
   cant_b04?: number,        // Nuevo: cantidad B04
@@ -59,16 +67,17 @@ export async function addMuro(
   const query = `
     INSERT INTO muro (
       pk_proyecto, num, id_muro, grosor, area, peso, volumen, overall_height,
-      angulo_brace, npt, x_braces, fbx, fby, fb,
+      angulo_brace, npt, tipo_brace_seleccionado, factor_w2, x_braces, fbx, fby, fb, x_inserto, y_inserto,
       cant_b14, cant_b12, cant_b04, cant_b15, muertos, tipo_construccion
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
     RETURNING *;
   `;
 
   const values = [
     pk_proyecto, num, id_muro, grosor, area, peso, volumen, overall_height || "S/N",
-    angulo_brace || null, npt || null, x_braces || 0, fbx || 0, fby || 0, fb || 0,
+    angulo_brace || null, npt || null, tipo_brace_seleccionado || 'B12', factor_w2 || 1.0,
+    x_braces || 0, fbx || 0, fby || 0, fb || 0, x_inserto || 0, y_inserto || 0,
     cant_b14 || 0, cant_b12 || 0, cant_b04 || 0, cant_b15 || 0, muertos || 1, tipo_construccion || 'TILT-UP'
   ];
 
@@ -89,7 +98,7 @@ export async function getMurosByProject(pk_proyecto: number): Promise<Muro[]> {
   const query = `
     SELECT 
       pid, num, pk_proyecto, id_muro, grosor, area, peso, volumen, overall_height,
-      angulo_brace, npt, x_braces, fbx, fby, fb,
+      angulo_brace, npt, tipo_brace_seleccionado, factor_w2, x_braces, fbx, fby, fb, x_inserto, y_inserto,
       cant_b14, cant_b12, cant_b04, cant_b15, muertos, tipo_construccion
     FROM muro 
     WHERE pk_proyecto = $1
@@ -111,16 +120,17 @@ export async function updateMuroEditableFields(
   npt?: number,
   x_braces?: number,
   tipo_construccion?: string,
-  tipo_brace_seleccionado?: string
+  tipo_brace_seleccionado?: string,
+  factor_w2?: number
 ) {
   const query = `
     UPDATE muro
-    SET angulo_brace = $2, npt = $3, x_braces = $4, tipo_construccion = $5, tipo_brace_seleccionado = $6
+    SET angulo_brace = $2, npt = $3, x_braces = $4, tipo_construccion = $5, tipo_brace_seleccionado = $6, factor_w2 = $7
     WHERE pid = $1
     RETURNING *;
   `;
 
-  const values = [pid, angulo_brace, npt, x_braces, tipo_construccion, tipo_brace_seleccionado];
+  const values = [pid, angulo_brace, npt, x_braces, tipo_construccion, tipo_brace_seleccionado, factor_w2];
 
   try {
     const result = await pool.query(query, values);

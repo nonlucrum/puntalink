@@ -6,6 +6,7 @@ import {
   calculoVientoMuros,
   actualizarCamposEditables,
   calcularBraces,
+  calcularBracesTiempoReal,
   aplicarValoresGlobales
 } from '../controllers/calculosController';
 
@@ -26,8 +27,11 @@ router.post('/viento/calcular-muros', calculoVientoMuros);
 // Actualizar campos editables de un muro (ángulo, NPT, X, tipo)
 router.put('/muros/:pid/editable', actualizarCamposEditables);
 
-// Calcular fuerzas de braces para un muro específico
+// Calcular fuerzas de braces para un muro específico (guarda en BD)
 router.post('/muros/:pid/calcular-braces', calcularBraces);
+
+// Calcular braces en tiempo real sin guardar (para UI reactiva)
+router.post('/muros/:pid/calcular-braces-tiempo-real', calcularBracesTiempoReal);
 
 // Aplicar valores globales de ángulo y NPT a todos los muros de un proyecto
 router.post('/proyectos/:pk_proyecto/aplicar-globales', aplicarValoresGlobales);

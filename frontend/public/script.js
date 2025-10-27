@@ -270,9 +270,30 @@ if (btnCreateNewProject) {
   // ===== ELEMENTOS ADICIONALES PARA VIENTO =====
   const btnCalcularViento = document.getElementById('btnCalcularViento');
 
+  // ===== ELEMENTOS PARA BRACES =====
+  const btnGuardarTodosBraces = document.getElementById('btnGuardarTodosBraces');
+  const btnRecargarBraces = document.getElementById('btnRecargarBraces');
+  const btnAplicarGlobales = document.getElementById('btnAplicarGlobales');
+
   // ===== CONFIGURAR EVENTOS PARA CÁLCULO DE VIENTO =====
   if (btnCalcularViento) {
     btnCalcularViento.addEventListener('click', calcularCargasViento);
+  }
+  
+  // ===== CONFIGURAR EVENTOS PARA BRACES =====
+  if (btnGuardarTodosBraces) {
+    btnGuardarTodosBraces.addEventListener('click', guardarTodosBraces);
+  }
+  
+  if (btnRecargarBraces) {
+    btnRecargarBraces.addEventListener('click', async () => {
+      // Recalcular viento para recargar la tabla
+      await calcularCargasViento();
+    });
+  }
+  
+  if (btnAplicarGlobales) {
+    btnAplicarGlobales.addEventListener('click', aplicarValoresGlobales);
   }
 
   // ===== INICIALIZACIÓN =====
@@ -395,7 +416,7 @@ async function calcularCargasViento() {
  * Función para mostrar resultados de viento en la interfaz
  * Implementa la visualización según los resultados del Excel
  */
-function mostrarResultadosViento(data) {
+async function mostrarResultadosViento(data) {
   console.log('[WIND] Mostrando resultados de viento');
   
   const resultadosViento = document.getElementById('resultadosViento');
@@ -405,87 +426,116 @@ function mostrarResultadosViento(data) {
   // Mostrar la sección de resultados
   resultadosViento.style.display = 'block';
 
-  // Crear tabla de resultados
+  // Obtener valores globales para braces
+  const anguloGlobal = parseFloat(document.getElementById('angulo_global')?.value) || 55;
+  const nptGlobal = parseFloat(document.getElementById('npt_global')?.value) || 0.350;
+  const factorW2Global = parseFloat(document.getElementById('factor_w2_global')?.value) || 1.0;
+
+  // Crear tabla de resultados unificada
   let htmlTabla = `
-    <table class="wind-results-table">
+    <table class="wind-results-table unified-table">
       <thead>
         <tr>
-          <th>Muro</th>
-          <th>Área (m²)</th>
-          <th>Peso (ton)</th>
-          <th>Altura (m)</th>
-          <th>Vd (km/h)</th>
-          <th>G</th>
-          <th>qz (kPa)</th>
-          <th>Presión (kPa)</th>
-          <th>Fuerza (kN)</th>
-          <th>YCG (m)</th>
-          <th>NFT (Nivel Piso)</th>
-          <th>Tipo Brace</th>
-          <th>Ángulo (°)</th>
-          <th>Altura Anclaje (m)</th>
-          <th>Distribución Braces</th>
-          <th>Análisis Dinámico</th>
+          <th rowspan="2">Muro</th>
+          <th colspan="5" style="background: #e3f2fd;">Datos del Muro</th>
+          <th colspan="4" style="background: #fff3e0;">Cálculos de Viento</th>
+          <th colspan="4" style="background: #f3e5f5;">Parámetros Braces (Editables)</th>
+          <th colspan="3" style="background: #e8f5e9;">Geometría Inserto</th>
+          <th colspan="4" style="background: #fce4ec;">Fuerzas y Cantidad</th>
+        </tr>
+        <tr>
+          <!-- Datos del Muro -->
+          <th style="background: #e3f2fd;">Área (m²)</th>
+          <th style="background: #e3f2fd;">Peso (ton)</th>
+          <th style="background: #e3f2fd;">Altura (m)</th>
+          <th style="background: #e3f2fd;">YCG (m)</th>
+          <th style="background: #e3f2fd;">NFT (m)</th>
+          <!-- Viento -->
+          <th style="background: #fff3e0;">Vd (km/h)</th>
+          <th style="background: #fff3e0;">qz (kPa)</th>
+          <th style="background: #fff3e0;">Presión (kPa)</th>
+          <th style="background: #fff3e0;">Fuerza (kN)</th>
+          <!-- Braces Editables -->
+          <th style="background: #f3e5f5;">Tipo</th>
+          <th style="background: #f3e5f5;">Ángulo (°)</th>
+          <th style="background: #f3e5f5;">NPT (m)</th>
+          <th style="background: #f3e5f5;">Factor W2</th>
+          <!-- Geometría -->
+          <th style="background: #e8f5e9;">X (m)</th>
+          <th style="background: #e8f5e9;">Y (m)</th>
+          <th style="background: #e8f5e9;">Longitud (m)</th>
+          <!-- Fuerzas -->
+          <th style="background: #fce4ec;">FBx (kN)</th>
+          <th style="background: #fce4ec;">FBy (kN)</th>
+          <th style="background: #fce4ec;">FB (kN)</th>
+          <th style="background: #fce4ec;">Cantidad</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody id="tablaUnificadaBody">
   `;
 
   data.resultados.forEach(resultado => {
-    const requiereAnalisis = resultado.requiere_analisis_dinamico ? 
-      '<span class="wind-alert">Sí - Requerido</span>' : 
-      '<span class="wind-warning">No</span>';
+    const pid = resultado.pid || 0;
+    const idMuro = resultado.id_muro;
     
-    // Separar información del brace en campos distintos
-    const tipoBrace = resultado.tipo_brace || 'N/A';
-    const anguloBrace = resultado.grados_inclinacion_brace || 'N/A';
-    const alturaAnclaje = resultado.altura_z_m ? ((resultado.altura_z_m * 2/3).toFixed(2)) : 'N/A';
+    // Valores iniciales para braces (usar globales si no existen en resultado)
+    const anguloInicial = resultado.angulo_brace || anguloGlobal;
+    const nptInicial = resultado.npt || nptGlobal;
+    const factorW2Inicial = resultado.factor_w2 || factorW2Global;
+    const tipoInicial = resultado.tipo_brace_seleccionado || 'B12';
     
-    // Información de distribución de braces (solo B12 y B14 como en el Excel)
-    const distribucionBraces = `
-      <div class="brace-distribution">
-        <div class="brace-total">Total: ${resultado.total_braces || 0}</div>
-        <div class="brace-model">Modelo: ${resultado.modelo_principal_brace || 'N/A'}</div>
-        <div class="brace-summary">${resultado.resumen_distribucion_braces || 'N/A'}</div>
-        <div class="brace-detail">
-          B14:${resultado.distribucion_braces?.B14 || 0} | B12:${resultado.distribucion_braces?.B12 || 0}
-        </div>
-      </div>
-    `;
-    
-    // Información NFT (Nivel de Piso Terminado)
-    const infoNFT = `
-      <div class="nft-info">
-        <div class="nft-valor">${resultado.NFT?.toFixed(3) || 'N/A'}m</div>
-        <div class="nft-detalle">
-          ${resultado.componentes_nft ? 
-            `NNT: ${resultado.componentes_nft.nivel_natural}m<br>
-             Losa: ${resultado.componentes_nft.espesor_losa}m<br>
-             Acabado: ${resultado.componentes_nft.acabado}m` : 
-            'Datos no disponibles'
-          }
-        </div>
-      </div>
-    `;
+    // Longitudes por tipo
+    const longitudes = { B4: 4.6, B12: 9.75, B14: 12.75, B15: 15.8 };
+    const longitudActual = longitudes[tipoInicial] || 9.75;
     
     htmlTabla += `
-      <tr>
-        <td><strong>${resultado.id_muro}</strong></td>
+      <tr data-pid="${pid}" data-alto="${resultado.altura_z_m}" data-presion="${resultado.presion_kPa}" data-fuerza="${resultado.fuerza_kN}">
+        <td><strong>${idMuro}</strong></td>
+        
+        <!-- Datos del Muro -->
         <td>${resultado.area_m2}</td>
         <td>${resultado.peso_ton}</td>
         <td>${resultado.altura_z_m}</td>
+        <td>${resultado.YCG || 'N/A'}</td>
+        <td>${resultado.NFT?.toFixed(3) || 'N/A'}</td>
+        
+        <!-- Viento -->
         <td>${resultado.Vd_kmh}</td>
-        <td>${resultado.G || 'N/A'}</td>
         <td>${resultado.qz_kPa}</td>
         <td>${resultado.presion_kPa}</td>
         <td><strong>${resultado.fuerza_kN}</strong></td>
-        <td>${resultado.YCG || 'N/A'}</td>
-        <td>${infoNFT}</td>
-        <td>${tipoBrace}</td>
-        <td>${anguloBrace}</td>
-        <td>${alturaAnclaje}</td>
-        <td>${distribucionBraces}</td>
-        <td>${requiereAnalisis}</td>
+        
+        <!-- Braces Editables -->
+        <td>
+          <select class="input-editable input-calculo-rt" data-pid="${pid}" data-field="tipo_brace" style="width: 90px; font-size: 0.85rem;">
+            <option value="B4" ${tipoInicial === 'B4' ? 'selected' : ''}>B4</option>
+            <option value="B12" ${tipoInicial === 'B12' ? 'selected' : ''}>B12</option>
+            <option value="B14" ${tipoInicial === 'B14' ? 'selected' : ''}>B14</option>
+            <option value="B15" ${tipoInicial === 'B15' ? 'selected' : ''}>B15</option>
+          </select>
+        </td>
+        <td>
+          <input type="number" class="input-editable input-calculo-rt" data-pid="${pid}" data-field="angulo" 
+                 value="${anguloInicial}" step="0.1" min="0" max="90" style="width: 60px;">
+        </td>
+        <td>
+          <input type="number" class="input-editable input-calculo-rt" data-pid="${pid}" data-field="npt" 
+                 value="${nptInicial.toFixed(3)}" step="0.001" style="width: 70px;">
+        </td>
+        <td style="background: #f8f9fa; font-weight: 600; color: #000;">
+          0.6
+        </td>
+        
+        <!-- Geometría (Calculados) -->
+        <td class="valor-calculado valor-x" data-pid="${pid}">-</td>
+        <td class="valor-calculado valor-y" data-pid="${pid}">-</td>
+        <td class="valor-calculado">${longitudActual}</td>
+        
+        <!-- Fuerzas (Calculadas) -->
+        <td class="valor-calculado valor-fbx" data-pid="${pid}">-</td>
+        <td class="valor-calculado valor-fby" data-pid="${pid}">-</td>
+        <td class="valor-calculado valor-fb" data-pid="${pid}">-</td>
+        <td class="valor-calculado valor-cantidad" data-pid="${pid}">-</td>
       </tr>
     `;
   });
@@ -496,6 +546,31 @@ function mostrarResultadosViento(data) {
   `;
 
   tablaResultados.innerHTML = htmlTabla;
+  
+  console.log('[BRACES] Tabla HTML insertada');
+  
+  // Esperar un momento para que el DOM se actualice
+  await new Promise(resolve => setTimeout(resolve, 100));
+  
+  console.log('[BRACES] Agregando listeners...');
+  
+  // Agregar listeners para cálculo en tiempo real
+  agregarListenersCalculoTiempoReal();
+  
+  console.log('[BRACES] Calculando valores iniciales...');
+  
+  // Calcular valores iniciales para todas las filas
+  const rows = document.querySelectorAll('#tablaUnificadaBody tr[data-pid]');
+  console.log(`[BRACES] Encontradas ${rows.length} filas para calcular`);
+  
+  for (const row of rows) {
+    const pid = row.dataset.pid;
+    const inputAngulo = row.querySelector('[data-field="angulo"]');
+    if (inputAngulo) {
+      console.log(`[BRACES] Calculando inicial para PID ${pid}`);
+      await calcularBracesTiempoReal(inputAngulo);
+    }
+  }
 
   // Crear detalle de cálculos
   let htmlDetalle = '';
@@ -641,4 +716,268 @@ function toggleCalculationDetail(header) {
 
 // Hacer la función global para el onclick
 window.toggleCalculationDetail = toggleCalculationDetail;
+
+/**
+ * Agregar listeners para cálculo en tiempo real
+ */
+function agregarListenersCalculoTiempoReal() {
+  console.log('[BRACES] Agregando listeners de tiempo real...');
+  
+  const inputs = document.querySelectorAll('.input-calculo-rt');
+  console.log(`[BRACES] Inputs encontrados: ${inputs.length}`);
+  
+  if (inputs.length === 0) {
+    console.error('[BRACES] No se encontraron inputs con clase .input-calculo-rt');
+    return;
+  }
+  
+  inputs.forEach((input, index) => {
+    console.log(`[BRACES] Agregando listener ${index + 1}: campo=${input.dataset.field}, pid=${input.dataset.pid}`);
+    
+    // Listener para cambio inmediato
+    input.addEventListener('input', async function() {
+      console.log(`[BRACES] Input event disparado: ${this.dataset.field}`);
+      await calcularBracesTiempoReal(this);
+    });
+    
+    // También al cambiar (para selects)
+    input.addEventListener('change', async function() {
+      console.log(`[BRACES] Change event disparado: ${this.dataset.field}`);
+      await calcularBracesTiempoReal(this);
+    });
+  });
+  
+  console.log(`[BRACES] ${inputs.length} listeners agregados correctamente`);
+}
+
+/**
+ * Calcular braces en tiempo real sin guardar
+ */
+async function calcularBracesTiempoReal(input) {
+  // Configuración API_BASE
+  const API_BASE = window.location.hostname === 'localhost' 
+    ? 'http://localhost:4008' 
+    : '';
+  
+  const pid = input.dataset.pid;
+  const row = document.querySelector(`tr[data-pid="${pid}"]`);
+  
+  if (!row) {
+    console.error(`[BRACES-RT] Fila no encontrada para PID ${pid}`);
+    return;
+  }
+  
+  // Obtener valores actuales de la fila
+  const tipoBrace = row.querySelector('[data-field="tipo_brace"]').value;
+  const angulo = parseFloat(row.querySelector('[data-field="angulo"]').value);
+  const npt = parseFloat(row.querySelector('[data-field="npt"]').value);
+  const factorW2 = 0.6; // Factor fijo
+  
+  // Validar
+  if (isNaN(angulo) || isNaN(npt)) {
+    console.log(`[BRACES-RT] Valores inválidos para PID ${pid}`);
+    return;
+  }
+  
+  console.log(`[BRACES-RT] Calculando PID ${pid}:`, { tipoBrace, angulo, npt, factorW2 });
+  
+  try {
+    // Llamar al endpoint de tiempo real
+    const response = await fetch(`${API_BASE}/api/calculos/muros/${pid}/calcular-braces-tiempo-real`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        angulo_brace: angulo,
+        npt: npt,
+        tipo_brace_seleccionado: tipoBrace,
+        factor_w2: factorW2
+      })
+    });
+    
+    if (!response.ok) {
+      console.error(`[BRACES-RT] Error HTTP ${response.status}`);
+      return;
+    }
+    
+    const data = await response.json();
+    
+    if (data.success && data.calculo) {
+      const calc = data.calculo;
+      
+      // Actualizar valores calculados en la UI
+      row.querySelector(`.valor-x[data-pid="${pid}"]`).textContent = 
+        calc.x_inserto !== undefined ? calc.x_inserto.toFixed(3) : '-';
+      
+      row.querySelector(`.valor-y[data-pid="${pid}"]`).textContent = 
+        calc.y_inserto !== undefined ? calc.y_inserto.toFixed(3) : '-';
+      
+      row.querySelector(`.valor-fbx[data-pid="${pid}"]`).textContent = 
+        calc.fbx !== undefined ? calc.fbx.toFixed(2) : '-';
+      
+      row.querySelector(`.valor-fby[data-pid="${pid}"]`).textContent = 
+        calc.fby !== undefined ? calc.fby.toFixed(2) : '-';
+      
+      row.querySelector(`.valor-fb[data-pid="${pid}"]`).textContent = 
+        calc.fb !== undefined ? calc.fb.toFixed(2) : '-';
+      
+      row.querySelector(`.valor-cantidad[data-pid="${pid}"]`).textContent = 
+        calc.cant_braces !== undefined ? calc.cant_braces : '-';
+      
+      // Feedback visual
+      row.style.backgroundColor = '#e8f5e9';
+      setTimeout(() => {
+        row.style.backgroundColor = '';
+      }, 300);
+      
+      console.log(`[BRACES-RT] Actualizado PID ${pid}:`, calc);
+    } else {
+      console.error(`[BRACES-RT] Respuesta inválida:`, data);
+    }
+  } catch (error) {
+    console.error(`[BRACES-RT] Error en cálculo:`, error);
+  }
+}
+
+/**
+ * Guardar todos los cambios de braces
+ */
+async function guardarTodosBraces() {
+  console.log('[BRACES] Guardando todos los cambios...');
+  
+  // Configuración API_BASE
+  const API_BASE = window.location.hostname === 'localhost' 
+    ? 'http://localhost:4008' 
+    : '';
+  
+  const rows = document.querySelectorAll('#tablaUnificadaBody tr[data-pid]');
+  let exitosos = 0;
+  let errores = 0;
+  
+  for (const row of rows) {
+    const pid = row.dataset.pid;
+    
+    try {
+      // Obtener valores de la fila
+      const tipoBrace = row.querySelector('[data-field="tipo_brace"]').value;
+      const angulo = parseFloat(row.querySelector('[data-field="angulo"]').value);
+      const npt = parseFloat(row.querySelector('[data-field="npt"]').value);
+      const factorW2 = 0.6; // Factor fijo
+      
+      // Actualizar campos editables
+      const response = await fetch(`${API_BASE}/api/calculos/muros/${pid}/editable`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          angulo_brace: angulo,
+          npt: npt,
+          tipo_brace_seleccionado: tipoBrace,
+          factor_w2: factorW2
+        })
+      });
+      
+      if (response.ok) {
+        // Ahora calcular y guardar fuerzas
+        const calcResponse = await fetch(`${API_BASE}/api/calculos/muros/${pid}/calcular-braces`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            angulo_brace: angulo,
+            npt: npt,
+            tipo_brace_seleccionado: tipoBrace
+          })
+        });
+        
+        if (calcResponse.ok) {
+          exitosos++;
+        } else {
+          errores++;
+        }
+      } else {
+        errores++;
+      }
+    } catch (error) {
+      console.error(`[BRACES] Error guardando PID ${pid}:`, error);
+      errores++;
+    }
+  }
+  
+  alert(`Guardado completado:\n✓ ${exitosos} muros guardados\n${errores > 0 ? `✗ ${errores} errores` : ''}`);
+  
+  if (exitosos > 0) {
+    // Feedback visual
+    document.getElementById('tablaUnificadaBody').style.backgroundColor = '#d4edda';
+    setTimeout(() => {
+      document.getElementById('tablaUnificadaBody').style.backgroundColor = '';
+    }, 1000);
+  }
+}
+
+// Exponer funciones globalmente
+window.guardarTodosBraces = guardarTodosBraces;
+
+/**
+ * Aplicar valores globales a todos los muros
+ */
+async function aplicarValoresGlobales() {
+  console.log('[BRACES] Aplicando valores globales...');
+  
+  const anguloGlobal = parseFloat(document.getElementById('angulo_global').value);
+  const nptGlobal = parseFloat(document.getElementById('npt_global').value);
+  const factorW2Global = parseFloat(document.getElementById('factor_w2_global').value);
+  
+  // Validar
+  if (isNaN(anguloGlobal) || anguloGlobal < 0 || anguloGlobal > 90) {
+    alert('El ángulo debe estar entre 0° y 90°');
+    return;
+  }
+  
+  if (isNaN(nptGlobal)) {
+    alert('El NPT debe ser un número válido');
+    return;
+  }
+  
+  if (isNaN(factorW2Global) || factorW2Global <= 0) {
+    alert('El Factor W2 debe ser un número positivo');
+    return;
+  }
+  
+  // Obtener proyecto actual
+  const projectConfig = JSON.parse(localStorage.getItem('projectConfig'));
+  if (!projectConfig || !projectConfig.pid) {
+    alert('No se ha seleccionado un proyecto');
+    return;
+  }
+  
+  try {
+    // Aplicar a todos los muros en la tabla
+    const rows = document.querySelectorAll('#tablaUnificadaBody tr[data-pid]');
+    
+    for (const row of rows) {
+      const inputAngulo = row.querySelector('[data-field="angulo"]');
+      const inputNpt = row.querySelector('[data-field="npt"]');
+      const inputFactorW2 = row.querySelector('[data-field="factor_w2"]');
+      
+      if (inputAngulo) inputAngulo.value = anguloGlobal;
+      if (inputNpt) inputNpt.value = nptGlobal.toFixed(3);
+      if (inputFactorW2) inputFactorW2.value = factorW2Global;
+      
+      // Recalcular
+      if (inputAngulo) {
+        await calcularBracesTiempoReal(inputAngulo);
+      }
+    }
+    
+    alert(`✓ Valores aplicados a ${rows.length} muros`);
+    
+  } catch (error) {
+    console.error('[BRACES] Error aplicando valores globales:', error);
+    alert('Error al aplicar valores globales');
+  }
+}
 

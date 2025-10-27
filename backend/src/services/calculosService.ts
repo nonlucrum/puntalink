@@ -133,6 +133,7 @@ export function getAlphaPorClase(terrenoParams: ParametrosTerreno, clase: 'A' | 
 }
 
 export interface WindResult {
+  pid: number;        // ID del panel en la base de datos
   id_muro: string;
   area_m2: number;
   peso_ton: number;
@@ -585,6 +586,7 @@ export function calcularVientoMuro(muro: Muro, parametros: WindParameters): Wind
   }
   
   return {
+    pid: muro.pid || 0,
     id_muro: muro.id_muro || 'N/A',
     area_m2: +parseFloat(area_m2.toString()).toFixed(2),
     peso_ton: +parseFloat(peso_ton.toString()).toFixed(2),
@@ -763,6 +765,7 @@ export function calcularDistribucionBraces(altura_m: number, ancho_estimado_m: n
  * @returns BraceCalculationResult con fuerzas y cantidades por tipo
  */
 /**
+ * @deprecated - Usar calculateBraceForces con el nuevo método
  * Calcular coordenadas del inserto del brace según el tipo y ángulo
  * Fórmulas de Excel:
  * X = (longitud_brace) * cos(ángulo)
@@ -812,23 +815,103 @@ export function calcularInsertoCoordinates(
   };
 }
 
+/**
+ * Determinar tipo de brace según normativa
+ * Usa: (ALTO - NPT) * Factor_W2 vs umbrales con sen(ángulo)
+ * 
+ * Longitudes nominales:
+ * - B4:  4.6 m
+ * - B12: 9.75 m (12.76 en algunos contextos)
+ * - B14: 12.75 m
+ * - B15: 15.8 m (15.81 en algunos contextos)
+ * 
+ * Capacidades (kN):
+ * - B12: 4100 kN
+ * - B4:  2950 kN
+ * - B14: 2360 kN
+ * - B15: 1723 kN
+ */
+function determinarTipoBrace(
+  alto_m: number,
+  npt_m: number,
+  angulo_grados: number,
+  factor_w2: number = 1.0
+): string {
+  // Convertir ángulo a radianes
+  const angulo_rad = (angulo_grados * Math.PI) / 180;
+  const sen_angulo = Math.sin(angulo_rad);
+  
+  // Magnitud base
+  const magnitud = (alto_m - npt_m) * factor_w2;
+  
+  // Longitudes nominales (usar las mismas que para cálculo de X/Y)
+  const L_B4 = 4.6;
+  const L_B12 = 9.75;
+  const L_B14 = 12.75;
+  const L_B15 = 15.8;
+  
+  // Umbrales = Longitud * sen(ángulo)
+  const umbral_B4 = L_B4 * sen_angulo;
+  const umbral_B12 = L_B12 * sen_angulo;
+  const umbral_B14 = L_B14 * sen_angulo;
+  const umbral_B15 = L_B15 * sen_angulo;
+  
+  console.log(`[BRACES] Selección de tipo:`);
+  console.log(`  - Magnitud: (${alto_m} - ${npt_m}) * ${factor_w2} = ${magnitud.toFixed(3)}`);
+  console.log(`  - Ángulo: ${angulo_grados}° → sen = ${sen_angulo.toFixed(4)}`);
+  console.log(`  - Umbrales: B4=${umbral_B4.toFixed(3)}, B12=${umbral_B12.toFixed(3)}, B14=${umbral_B14.toFixed(3)}, B15=${umbral_B15.toFixed(3)}`);
+  
+  // Selección: de mayor a menor longitud
+  if (magnitud >= umbral_B15) {
+    console.log(`  → Seleccionado: B15 (magnitud ≥ ${umbral_B15.toFixed(3)})`);
+    return 'B15';
+  } else if (magnitud >= umbral_B14) {
+    console.log(`  → Seleccionado: B14 (magnitud ≥ ${umbral_B14.toFixed(3)})`);
+    return 'B14';
+  } else if (magnitud >= umbral_B12) {
+    console.log(`  → Seleccionado: B12 (magnitud ≥ ${umbral_B12.toFixed(3)})`);
+    return 'B12';
+  } else {
+    console.log(`  → Seleccionado: B4 (magnitud < ${umbral_B12.toFixed(3)})`);
+    return 'B4';
+  }
+}
+
+/**
+ * Calcular fuerzas en braces con fórmulas actualizadas
+ * 
+ * Flujo:
+ * 1. Determinar TIPO según (ALTO-NPT)*Factor vs umbrales
+ * 2. Calcular X = Longitud_tipo * cos(V)
+ * 3. Calcular Y = NPT + Longitud_tipo * sen(V)
+ * 4. Calcular YCG = ALTO / 2 (Centro de Gravedad)
+ * 5. Calcular FBx = (Fuerza_viento * YCG) / Y
+ * 6. Calcular FBy = FBx * sen(V)
+ * 7. Calcular FB = √(FBx² + FBy²)
+ * 8. Calcular CANTIDAD = max(2, ceil(FBx / Capacidad_tipo))
+ */
 export function calculateBraceForces(
   fuerza_viento_kN: number,
-  x_braces: number,
+  presion_kPa: number,      // Nueva: presión de viento
+  alto_m: number,           // Nueva: altura del muro
   angulo_grados: number,
   npt: number = 0,
-  tipo_brace_seleccionado: string = 'B12'  // Tipo seleccionado por el usuario
+  factor_w2: number = 1.0,
+  tipo_manual?: string      // Opcional: tipo especificado manualmente
 ): BraceCalculationResult {
   const observaciones: string[] = [];
   
-  console.log('[CALCULOS] CALCULO DE BRACES:');
-  console.log(`[CALCULOS] - Fuerza viento: ${fuerza_viento_kN.toFixed(2)} kN`);
-  console.log(`[CALCULOS] - Cantidad braces (X): ${x_braces}`);
-  console.log(`[CALCULOS] - Ángulo: ${angulo_grados}°`);
+  console.log('[CALCULOS] CALCULO DE BRACES (Nuevo método):');
+  console.log(`  - Fuerza viento: ${fuerza_viento_kN.toFixed(2)} kN`);
+  console.log(`  - Presión: ${presion_kPa.toFixed(4)} kPa`);
+  console.log(`  - Alto: ${alto_m.toFixed(2)} m`);
+  console.log(`  - Ángulo: ${angulo_grados}°`);
+  console.log(`  - NPT: ${npt.toFixed(3)} m`);
+  console.log(`  - Factor W2: ${factor_w2}`);
 
   // Validaciones
-  if (x_braces <= 0) {
-    console.log('[CALCULOS] ADVERTENCIA: X = 0, no hay braces');
+  if (angulo_grados <= 0 || angulo_grados >= 90) {
+    observaciones.push('ERROR: Ángulo debe estar entre 0° y 90°');
     return {
       x_braces: 0,
       fbx: 0,
@@ -838,52 +921,109 @@ export function calculateBraceForces(
       cant_b12: 0,
       cant_b04: 0,
       cant_b15: 0,
-      observaciones: ['Sin braces configurados']
+      x_inserto: 0,
+      y_inserto: 0,
+      observaciones
     };
   }
 
   // Convertir ángulo a radianes
   const angulo_rad = (angulo_grados * Math.PI) / 180;
+  const cos_angulo = Math.cos(angulo_rad);
+  const sen_angulo = Math.sin(angulo_rad);
 
-  // FB = Fuerza total por brace = Fuerza de viento / Cantidad de braces
-  const fb = fuerza_viento_kN / x_braces;
-  
-  // FBx = FB × cos(ángulo) × cantidad de braces
-  const fbx = fb * Math.cos(angulo_rad) * x_braces;
-  
-  // FBy = FB × sin(ángulo) × cantidad de braces
-  const fby = fb * Math.sin(angulo_rad) * x_braces;
+  // 1. Determinar tipo de brace (automático o manual)
+  const tipo_brace = tipo_manual || determinarTipoBrace(alto_m, npt, angulo_grados, factor_w2);
+  observaciones.push(`Tipo de brace: ${tipo_brace}${tipo_manual ? ' (manual)' : ' (automático)'}`);
 
-  console.log(`[CALCULOS] - FB (por brace): ${fb.toFixed(2)} kN`);
-  console.log(`[CALCULOS] - FBx (total X): ${fbx.toFixed(2)} kN`);
-  console.log(`[CALCULOS] - FBy (total Y): ${fby.toFixed(2)} kN`);
+  // Longitudes por tipo (metros)
+  const LONGITUDES: Record<string, number> = {
+    B4: 4.6,
+    B12: 9.75,
+    B14: 12.75,
+    B15: 15.8
+  };
 
-  // Distribución de braces por tipo (B14, B12, B04, B15)
-  // Criterio: depende de la fuerza por brace
-  let cant_b14 = 0;
-  let cant_b12 = 0;
-  let cant_b04 = 0;
-  let cant_b15 = 0;
+  // Capacidades por tipo (kN)
+  const CAPACIDADES: Record<string, number> = {
+    B12: 4100,
+    B4: 2950,
+    B14: 2360,
+    B15: 1723
+  };
 
-  // Distribución basada en capacidad de carga (valores de referencia)
-  // B15: > 100 kN por brace (alta capacidad)
-  // B14: 75-100 kN por brace (capacidad media-alta)
-  // B12: 50-75 kN por brace (capacidad media)
-  // B04: < 50 kN por brace (capacidad baja)
+  const longitud_brace = LONGITUDES[tipo_brace] || LONGITUDES.B12;
+  const capacidad_brace = CAPACIDADES[tipo_brace] || CAPACIDADES.B12;
 
-  if (fb >= 100) {
-    cant_b15 = x_braces;
-    observaciones.push(`B15: ${fb.toFixed(2)} kN/brace ≥ 100 kN - Alta capacidad`);
-  } else if (fb >= 75) {
-    cant_b14 = x_braces;
-    observaciones.push(`B14: ${fb.toFixed(2)} kN/brace entre 75-100 kN - Capacidad media-alta`);
-  } else if (fb >= 50) {
-    cant_b12 = x_braces;
-    observaciones.push(`B12: ${fb.toFixed(2)} kN/brace entre 50-75 kN - Capacidad media`);
-  } else {
-    cant_b04 = x_braces;
-    observaciones.push(`B04: ${fb.toFixed(2)} kN/brace < 50 kN - Capacidad estándar`);
+  // 2. Calcular X (distancia horizontal del inserto)
+  const x_inserto = longitud_brace * cos_angulo;
+  console.log(`  - X inserto: ${longitud_brace} * cos(${angulo_grados}°) = ${x_inserto.toFixed(3)} m`);
+
+  // Protección contra división por cero
+  if (x_inserto <= 0.001) {
+    observaciones.push('ERROR: X inserto ≈ 0, no se puede calcular FBx');
+    return {
+      x_braces: 0,
+      fbx: 0,
+      fby: 0,
+      fb: 0,
+      cant_b14: 0,
+      cant_b12: 0,
+      cant_b04: 0,
+      cant_b15: 0,
+      x_inserto: 0,
+      y_inserto: npt,
+      observaciones
+    };
   }
+
+  // 3. Calcular Y (inserto brace)
+  const y_inserto = npt + (longitud_brace * sen_angulo);
+  console.log(`  - Y inserto: ${npt} + ${longitud_brace} * sen(${angulo_grados}°) = ${y_inserto.toFixed(3)} m`);
+
+  // Protección contra división por cero en Y
+  if (y_inserto <= 0.001) {
+    observaciones.push('ERROR: Y inserto ≈ 0, no se puede calcular FBx');
+    return {
+      x_braces: 0,
+      fbx: 0,
+      fby: 0,
+      fb: 0,
+      cant_b14: 0,
+      cant_b12: 0,
+      cant_b04: 0,
+      cant_b15: 0,
+      x_inserto,
+      y_inserto: 0,
+      observaciones
+    };
+  }
+
+  // 4. Calcular YCG (Centro de Gravedad = altura / 2)
+  const ycg = alto_m / 2;
+  console.log(`  - YCG: ${alto_m} / 2 = ${ycg.toFixed(3)} m`);
+
+  // 5. Calcular FBx (componente horizontal)
+  // Fórmula correcta: FBx = (Fuerza_viento × YCG) / Y
+  const fbx = (fuerza_viento_kN * ycg) / y_inserto;
+  console.log(`  - FBx: (${fuerza_viento_kN.toFixed(2)} * ${ycg.toFixed(3)}) / ${y_inserto.toFixed(3)} = ${fbx.toFixed(2)} kN`);
+
+  // 6. Calcular FBy (componente vertical)
+  const fby = fbx * sen_angulo;
+  console.log(`  - FBy: ${fbx.toFixed(2)} * sen(${angulo_grados}°) = ${fby.toFixed(2)} kN`);
+
+  // 7. Calcular FB (fuerza resultante)
+  const fb = Math.sqrt(fbx * fbx + fby * fby);
+  console.log(`  - FB: √(${fbx.toFixed(2)}² + ${fby.toFixed(2)}²) = ${fb.toFixed(2)} kN`);
+
+  // 8. Calcular cantidad de braces
+  // Criterio: max(2, ceil(FBx / Capacidad_tipo))
+  const cant_calculada = Math.ceil(fbx / capacidad_brace);
+  const cant_braces = Math.max(2, cant_calculada);
+  console.log(`  - Cantidad: max(2, ceil(${fbx.toFixed(2)} / ${capacidad_brace})) = ${cant_braces}`);
+
+  observaciones.push(`Demanda: ${fbx.toFixed(2)} kN, Capacidad ${tipo_brace}: ${capacidad_brace} kN`);
+  observaciones.push(`Cantidad de braces: ${cant_braces} (mínimo 2 por criterio de seguridad)`);
 
   // Verificaciones de ángulo
   if (angulo_grados < 30) {
@@ -894,26 +1034,27 @@ export function calculateBraceForces(
     observaciones.push(`Ángulo ${angulo_grados}° en rango óptimo (30°-60°)`);
   }
 
-  console.log(`[CALCULOS] DISTRIBUCION: B14=${cant_b14}, B12=${cant_b12}, B04=${cant_b04}, B15=${cant_b15}`);
-
-  // Calcular coordenadas del inserto usando el tipo seleccionado por el usuario
-  const { x_inserto, y_inserto } = calcularInsertoCoordinates(
-    tipo_brace_seleccionado,
-    angulo_grados,
-    npt
-  );
+  // Distribuir cantidad por tipo
+  let cant_b14 = 0, cant_b12 = 0, cant_b04 = 0, cant_b15 = 0;
+  
+  switch (tipo_brace) {
+    case 'B15': cant_b15 = cant_braces; break;
+    case 'B14': cant_b14 = cant_braces; break;
+    case 'B12': cant_b12 = cant_braces; break;
+    case 'B4':  cant_b04 = cant_braces; break;
+  }
 
   return {
-    x_braces,
-    fbx,
-    fby,
-    fb,
+    x_braces: cant_braces,
+    fbx: parseFloat(fbx.toFixed(2)),
+    fby: parseFloat(fby.toFixed(2)),
+    fb: parseFloat(fb.toFixed(2)),
     cant_b14,
     cant_b12,
     cant_b04,
     cant_b15,
-    x_inserto: x_inserto !== null ? x_inserto : undefined,
-    y_inserto: y_inserto !== null ? y_inserto : undefined,
+    x_inserto: parseFloat(x_inserto.toFixed(3)),
+    y_inserto: parseFloat(y_inserto.toFixed(3)),
     observaciones
   };
 }

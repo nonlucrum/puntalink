@@ -298,6 +298,109 @@ export const calcularBraces = async (req: Request, res: Response) => {
 };
 
 /**
+ * Calcular braces en tiempo real (sin guardar en BD)
+ * POST /api/calculos/muros/:pid/calcular-braces-tiempo-real
+ * Recibe: angulo_brace, npt, tipo_brace_seleccionado (opcional), factor_w2 (opcional)
+ * Retorna: todos los valores calculados sin modificar la base de datos
+ * Usado por el frontend para cálculos en tiempo real tipo Excel
+ */
+export const calcularBracesTiempoReal = async (req: Request, res: Response) => {
+  try {
+    const { pid } = req.params;
+    const { angulo_brace, npt, tipo_brace_seleccionado, factor_w2 } = req.body;
+
+    console.log(`[CALCULOS-RT] Calculando braces en tiempo real para muro PID: ${pid}`);
+    console.log(`[CALCULOS-RT] Parámetros:`, { angulo_brace, npt, tipo_brace_seleccionado, factor_w2 });
+
+    // Validaciones
+    if (!pid || isNaN(parseInt(pid))) {
+      return res.status(400).json({ error: 'PID de muro inválido' });
+    }
+
+    if (angulo_brace === undefined || angulo_brace === null) {
+      return res.status(400).json({ error: 'angulo_brace es requerido' });
+    }
+
+    // Obtener el muro desde la base de datos (para área y altura)
+    const resultMuro = await pool.query('SELECT * FROM muro WHERE pid = $1', [parseInt(pid)]);
+    
+    if (resultMuro.rows.length === 0) {
+      return res.status(404).json({ error: 'Muro no encontrado' });
+    }
+
+    const muro = resultMuro.rows[0];
+
+    // Obtener área y altura del muro
+    const area_m2 = parseFloat(muro.area?.toString() || '0');
+    const alto_m = parseFloat(muro.overall_height?.toString() || '0');
+
+    if (area_m2 <= 0 || alto_m <= 0) {
+      return res.status(400).json({ 
+        error: 'El muro debe tener área y altura válidas',
+        muro: { area: muro.area, altura: muro.overall_height }
+      });
+    }
+
+    // Calcular presión de viento (simplificado - usar valores típicos o del proyecto)
+    // TODO: En el futuro, obtener qz del cálculo de viento del proyecto
+    const qz_kPa = 0.85; // Valor típico en kPa (ajustado)
+    const fuerza_viento_kN = qz_kPa * area_m2;
+
+    console.log(`[CALCULOS-RT] Datos del muro: área=${area_m2}m², alto=${alto_m}m, FV=${fuerza_viento_kN.toFixed(2)}kN`);
+
+    // Usar valor de NPT del body o del muro
+    const npt_final = npt !== undefined ? npt : (muro.npt || 0);
+    const factor_w2_final = factor_w2 !== undefined ? factor_w2 : (muro.factor_w2 || 1.0);
+
+    // Calcular con el nuevo método
+    const resultado = calculateBraceForces(
+      fuerza_viento_kN,
+      qz_kPa,              // Presión
+      alto_m,              // Altura del muro
+      angulo_brace,        // Ángulo
+      npt_final,           // NPT
+      factor_w2_final,     // Factor W2
+      tipo_brace_seleccionado // Tipo manual (opcional)
+    );
+
+    console.log('[CALCULOS-RT] Resultado:', resultado);
+
+    // Retornar resultado SIN GUARDAR en BD
+    res.json({
+      success: true,
+      calculo: {
+        // Campos calculados
+        tipo_brace: tipo_brace_seleccionado || resultado.observaciones.find(o => o.includes('Tipo de brace'))?.split(': ')[1]?.split(' ')[0] || 'B12',
+        x_inserto: resultado.x_inserto,
+        y_inserto: resultado.y_inserto,
+        fbx: resultado.fbx,
+        fby: resultado.fby,
+        fb: resultado.fb,
+        cant_braces: resultado.x_braces,
+        cant_b14: resultado.cant_b14,
+        cant_b12: resultado.cant_b12,
+        cant_b04: resultado.cant_b04,
+        cant_b15: resultado.cant_b15,
+        // Parámetros usados
+        angulo_brace,
+        npt: npt_final,
+        factor_w2: factor_w2_final,
+        // Info adicional
+        observaciones: resultado.observaciones
+      },
+      message: 'Cálculo realizado (no guardado)'
+    });
+
+  } catch (error) {
+    console.error('[CALCULOS-RT] Error:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      details: error instanceof Error ? error.message : 'Error desconocido'
+    });
+  }
+};
+
+/**
  * Aplicar valores de ángulo y NPT a todos los muros de un proyecto
  * POST /api/calculos/proyectos/:pk_proyecto/aplicar-globales
  */
