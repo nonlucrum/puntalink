@@ -49,7 +49,10 @@
           </div>
           
           <div class="project-field">
-            <label>VELOCIDAD DEL VIENTO</label>
+            <label>
+              VELOCIDAD DEL VIENTO
+              <span class="tooltip-icon" data-tooltip="Velocidad básica del viento según la zona geográfica del proyecto (NSR-10 Título B). Se usa para calcular las cargas de viento sobre los muros.">i</span>
+            </label>
             <div class="project-field-unit">
               <input type="number" id="proyectoVelViento" class="project-value-dim" step="0.1" disabled required>
               <div class="project-value-unit">km/h</div>
@@ -57,7 +60,10 @@
           </div>
           
           <div class="project-field">
-            <label>TEMPERATURA PROMEDIO</label>
+            <label>
+              TEMPERATURA PROMEDIO
+              <span class="tooltip-icon" data-tooltip="Temperatura promedio del lugar donde se construirá el proyecto. Utilizada para cálculos térmicos y de materiales.">i</span>
+            </label>
             <div class="project-field-unit">
               <input type="number" id="proyectoTempPromedio" class="project-value-dim" step="0.1" disabled required>
               <div class="project-value-unit">°C</div>
@@ -217,17 +223,26 @@
               <div class="parameter-group">
                 <h4>Ángulo, NPT y Factor</h4>
                 <div class="form-row">
-                  <label for="angulo_global">Ángulo de Brace:</label>
+                  <label for="angulo_global">
+                    Ángulo de Brace:
+                    <span class="tooltip-icon" data-tooltip="Ángulo de inclinación del brace respecto a la horizontal. Valores típicos entre 30° y 60°. Mayor ángulo = mayor componente vertical.">i</span>
+                  </label>
                   <input type="number" id="angulo_global" step="0.1" min="0" max="90" value="55" placeholder="55">
                   <span>grados</span>
                 </div>
                 <div class="form-row">
-                  <label for="npt_global">NPT (Nivel Piso Terminado):</label>
+                  <label for="npt_global">
+                    NPT (Nivel Piso Terminado):
+                    <span class="tooltip-icon" data-tooltip="Nivel de piso terminado del proyecto. Define la altura de referencia para los cálculos de braces. Se mide desde el nivel del suelo.">i</span>
+                  </label>
                   <input type="number" id="npt_global" step="0.001" value="0.350" placeholder="0.350">
                   <span>metros</span>
                 </div>
                 <div class="form-row">
-                  <label for="factor_w2_global">Factor W2:</label>
+                  <label for="factor_w2_global">
+                    Factor W2:
+                    <span class="tooltip-icon" data-tooltip="Factor de reducción según normativa NSR-10 Título J. Valor fijo de 0.6 para cálculo de tipo de brace requerido. Este valor no es editable.">i</span>
+                  </label>
                   <input type="text" id="factor_w2_global" value="0.6" readonly style="background: #2a2a2a; cursor: not-allowed;">
                   <span>(fijo)</span>
                 </div>
@@ -294,6 +309,7 @@
     </div>
   </footer>
 
+  <script type="module" src="js/usability.js"></script>
   <script type="module" src="script.js"></script>
 </body>
 </html>

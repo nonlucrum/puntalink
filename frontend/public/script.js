@@ -1,4 +1,4 @@
-// ===== IMPORTACIÓN DEL MÓDULO DE BOTONES =====
+// ===== IMPORTACIÓN DE MÓDULOS =====
 import { 
   handleFileValidation,
   updatePanelesDisplay,
@@ -15,6 +15,9 @@ import {
     createProject,
     loadPreviousProjects
 } from './js/index.js';
+
+// Importar utilidades de usabilidad
+const { confirmar, mostrarNotificacion, BarraProgreso, ejecutarConLoading, debounce, formatearError } = window.Usability || {};
 
 document.addEventListener('DOMContentLoaded', () => {
   // ===== CARGAR INFORMACIÓN DEL PROYECTO =====
@@ -327,7 +330,15 @@ async function calcularCargasViento() {
     const panelesData = window.globalVars?.panelesActuales || [];
     if (!panelesData || panelesData.length === 0) {
       console.error('[WIND] No hay muros importados');
-      alert('❌ Error: No hay muros importados.\n\n📋 PASOS CORRECTOS:\n1. Ve a "Importar Datos desde TXT"\n2. Selecciona tu archivo .TXT\n3. Haz clic en "Subir y procesar TXT"\n4. Verifica que aparezcan los muros\n5. Luego calcula cargas de viento');
+      if (mostrarNotificacion) {
+        mostrarNotificacion(
+          'Primero debes importar datos desde TXT. Ve a "Importar Datos desde TXT", selecciona tu archivo y haz clic en "Subir y procesar TXT".',
+          'warning',
+          7000
+        );
+      } else {
+        alert('❌ Error: No hay muros importados.\n\n📋 PASOS CORRECTOS:\n1. Ve a "Importar Datos desde TXT"\n2. Selecciona tu archivo .TXT\n3. Haz clic en "Subir y procesar TXT"\n4. Verifica que aparezcan los muros\n5. Luego calcula cargas de viento');
+      }
       return;
     }
     
@@ -363,7 +374,12 @@ async function calcularCargasViento() {
 
     if (camposInvalidos.length > 0) {
       console.error('[WIND] ❌ Campos inválidos encontrados:', camposInvalidos);
-      alert(`❌ Por favor, complete estos campos correctamente:\n\n${camposInvalidos.map(campo => `• ${campo}`).join('\n')}\n\n💡 Asegúrese de que todos los valores sean números válidos.`);
+      if (mostrarNotificacion) {
+        const mensaje = `Complete correctamente: ${camposInvalidos.join(', ')}. Todos los valores deben ser números válidos.`;
+        mostrarNotificacion(mensaje, 'warning', 6000);
+      } else {
+        alert(`❌ Por favor, complete estos campos correctamente:\n\n${camposInvalidos.map(campo => `• ${campo}`).join('\n')}\n\n💡 Asegúrese de que todos los valores sean números válidos.`);
+      }
       return;
     }
 
@@ -408,7 +424,11 @@ async function calcularCargasViento() {
 
   } catch (error) {
     console.error('[WIND] Error en cálculo de viento:', error);
-    alert(`Error al calcular cargas de viento: ${error.message}`);
+    if (mostrarNotificacion) {
+      mostrarNotificacion(formatearError ? formatearError(error) : error.message, 'error');
+    } else {
+      alert(`Error al calcular cargas de viento: ${error.message}`);
+    }
   }
 }
 
@@ -738,23 +758,26 @@ function agregarListenersCalculoTiempoReal() {
     return;
   }
   
+  // Crear función con debounce para reducir llamadas API
+  const calcularDebounced = debounce ? debounce(calcularBracesTiempoReal, 300) : calcularBracesTiempoReal;
+  
   inputs.forEach((input, index) => {
     console.log(`[BRACES] Agregando listener ${index + 1}: campo=${input.dataset.field}, pid=${input.dataset.pid}`);
     
-    // Listener para cambio inmediato
+    // Listener para cambio inmediato CON DEBOUNCE
     input.addEventListener('input', async function() {
       console.log(`[BRACES] Input event disparado: ${this.dataset.field}`);
-      await calcularBracesTiempoReal(this);
+      await calcularDebounced(this);
     });
     
-    // También al cambiar (para selects)
+    // También al cambiar (para selects) - SIN debounce porque es instantáneo
     input.addEventListener('change', async function() {
       console.log(`[BRACES] Change event disparado: ${this.dataset.field}`);
       await calcularBracesTiempoReal(this);
     });
   });
   
-  console.log(`[BRACES] ${inputs.length} listeners agregados correctamente`);
+  console.log(`[BRACES] ${inputs.length} listeners agregados correctamente con debounce de 300ms`);
 }
 
 /**
@@ -914,7 +937,18 @@ async function guardarTodosBraces() {
     }
   }
   
-  alert(`Guardado completado:\n✓ ${exitosos} muros guardados\n${errores > 0 ? `✗ ${errores} errores` : ''}`);
+  // Mostrar resultado del guardado
+  if (mostrarNotificacion) {
+    if (errores === 0) {
+      mostrarNotificacion(`✓ ${exitosos} muros guardados correctamente`, 'success');
+    } else if (exitosos > 0) {
+      mostrarNotificacion(`${exitosos} muros guardados, ${errores} con errores`, 'warning');
+    } else {
+      mostrarNotificacion(`Error: No se pudo guardar ningún muro`, 'error');
+    }
+  } else {
+    alert(`Guardado completado:\n✓ ${exitosos} muros guardados\n${errores > 0 ? `✗ ${errores} errores` : ''}`);
+  }
   
   if (exitosos > 0) {
     // Feedback visual
@@ -940,26 +974,52 @@ async function aplicarValoresGlobales() {
   
   // Validar
   if (isNaN(anguloGlobal) || anguloGlobal < 0 || anguloGlobal > 90) {
-    alert('El ángulo debe estar entre 0° y 90°');
+    if (mostrarNotificacion) {
+      mostrarNotificacion('El ángulo debe estar entre 0° y 90°', 'warning');
+    } else {
+      alert('El ángulo debe estar entre 0° y 90°');
+    }
     return;
   }
   
   if (isNaN(nptGlobal)) {
-    alert('El NPT debe ser un número válido');
+    if (mostrarNotificacion) {
+      mostrarNotificacion('El NPT debe ser un número válido', 'warning');
+    } else {
+      alert('El NPT debe ser un número válido');
+    }
     return;
   }
   
   // Obtener proyecto actual
   const projectConfig = JSON.parse(localStorage.getItem('projectConfig'));
   if (!projectConfig || !projectConfig.pid) {
-    alert('No se ha seleccionado un proyecto');
+    if (mostrarNotificacion) {
+      mostrarNotificacion('No se ha seleccionado un proyecto', 'error');
+    } else {
+      alert('No se ha seleccionado un proyecto');
+    }
     return;
   }
   
   try {
-    // Aplicar a todos los muros en la tabla
+    // CONFIRMACIÓN antes de aplicar cambios masivos
     const rows = document.querySelectorAll('#tablaUnificadaBody tr[data-pid]');
     
+    if (confirmar) {
+      const confirmado = await confirmar(
+        `Esto cambiará el ángulo y NPT de ${rows.length} muros.\n\nÁngulo: ${anguloGlobal}°\nNPT: ${nptGlobal} m\n\nEsta acción recalculará todos los braces.`,
+        '¿Aplicar a todos los muros?',
+        { confirmText: 'Sí, aplicar', cancelText: 'Cancelar', tipo: 'warning' }
+      );
+      
+      if (!confirmado) {
+        console.log('[BRACES] Usuario canceló aplicación global');
+        return;
+      }
+    }
+    
+    // Aplicar a todos los muros en la tabla
     for (const row of rows) {
       const inputAngulo = row.querySelector('[data-field="angulo"]');
       const inputNpt = row.querySelector('[data-field="npt"]');
@@ -975,11 +1035,19 @@ async function aplicarValoresGlobales() {
       }
     }
     
-    alert(`✓ Valores aplicados a ${rows.length} muros`);
+    if (mostrarNotificacion) {
+      mostrarNotificacion(`Valores aplicados correctamente a ${rows.length} muros`, 'success');
+    } else {
+      alert(`✓ Valores aplicados a ${rows.length} muros`);
+    }
     
   } catch (error) {
     console.error('[BRACES] Error aplicando valores globales:', error);
-    alert('Error al aplicar valores globales');
+    if (mostrarNotificacion) {
+      mostrarNotificacion(formatearError ? formatearError(error) : 'Error al aplicar valores globales', 'error');
+    } else {
+      alert('Error al aplicar valores globales');
+    }
   }
 }
 
