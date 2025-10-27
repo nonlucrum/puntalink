@@ -23,11 +23,11 @@ Se han implementado mejoras significativas en la experiencia de usuario (UX/UI) 
 ```
 
 **Tooltips agregados**:
-- ✅ **Factor W2**: Explica que es fijo en 0.6 según NSR-10
-- ✅ **Ángulo de Brace**: Rango típico 30-60°, efecto del ángulo
-- ✅ **NPT**: Definición de nivel de piso terminado
-- ✅ **Velocidad del Viento**: Referencia a NSR-10 Título B
-- ✅ **Temperatura Promedio**: Uso en cálculos térmicos
+-  **Factor W2**: Explica que es fijo en 0.6 según NSR-10
+-  **Ángulo de Brace**: Rango típico 30-60°, efecto del ángulo
+-  **NPT**: Definición de nivel de piso terminado
+-  **Velocidad del Viento**: Referencia a NSR-10 Título B
+-  **Temperatura Promedio**: Uso en cálculos térmicos
 
 **CSS**: `.tooltip-icon` con animación hover, posicionamiento automático arriba
 
@@ -49,15 +49,15 @@ const confirmado = await confirmar(
 ```
 
 **Características**:
-- ✅ Modal con backdrop blur
-- ✅ Animación de entrada (slide-up)
-- ✅ Botones personalizables (confirm/cancel)
-- ✅ Tipos: `default`, `danger`, `warning`
-- ✅ Cierre con tecla `ESC`
-- ✅ Retorna `Promise<boolean>`
+-  Modal con backdrop blur
+-  Animación de entrada (slide-up)
+-  Botones personalizables (confirm/cancel)
+-  Tipos: `default`, `danger`, `warning`
+-  Cierre con tecla `ESC`
+-  Retorna `Promise<boolean>`
 
 **Casos de uso implementados**:
-- ✅ **Aplicar valores globales**: Confirma antes de cambiar NPT/ángulo en todos los muros
+-  **Aplicar valores globales**: Confirma antes de cambiar NPT/ángulo en todos los muros
 
 ---
 
@@ -73,10 +73,10 @@ mostrarNotificacion('Valores aplicados correctamente a 232 muros', 'success');
 ```
 
 **Tipos disponibles**:
-1. **success** ✅: Operaciones exitosas (verde)
-2. **error** ❌: Errores (rojo)
-3. **warning** ⚠️: Advertencias (amarillo)
-4. **info** ℹ️: Información (azul)
+1. **success** : Operaciones exitosas (verde)
+2. **error** : Errores (rojo)
+3. **warning** : Advertencias (amarillo)
+4. **info** : Información (azul)
 
 **Características**:
 - ✅ Auto-desaparece después de 4 segundos (configurable)

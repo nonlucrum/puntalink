@@ -536,7 +536,7 @@ export function calcularVientoMuro(muro: Muro, parametros: WindParameters): Wind
   console.log(`[CALCULOS] VERIFICACION: VERIFICACIÓN PRESIÓN:`);
   console.log(`[CALCULOS] 📊 qz: ${qz_kPa.toFixed(4)} kPa`);
   console.log(`[CALCULOS] 💨 Fuerza viento: ${fuerza_kN.toFixed(2)} kN`);
-  console.log(`[CALCULOS] � Área: ${area_m2.toFixed(2)} m²`);
+  console.log(`[CALCULOS] 📏 Área: ${area_m2.toFixed(2)} m²`);
   console.log(`[CALCULOS] 🧮 Presión = (${fuerza_kN.toFixed(2)} / ${area_m2.toFixed(2)}) × (9.81/1000) = ${presion_kPa.toFixed(4)} kPa`);
   
   // Cálculos geométricos y estructurales adicionales
