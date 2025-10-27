@@ -429,7 +429,7 @@ async function mostrarResultadosViento(data) {
   // Obtener valores globales para braces
   const anguloGlobal = parseFloat(document.getElementById('angulo_global')?.value) || 55;
   const nptGlobal = parseFloat(document.getElementById('npt_global')?.value) || 0.350;
-  const factorW2Global = parseFloat(document.getElementById('factor_w2_global')?.value) || 1.0;
+  const factorW2Global = 0.6; // Factor fijo
 
   // Crear tabla de resultados unificada
   let htmlTabla = `
@@ -694,6 +694,13 @@ async function mostrarResultadosViento(data) {
 
   detalleCalculos.innerHTML = htmlDetalle;
 
+  // Mostrar el panel de configuración de braces después del primer cálculo
+  const bracesConfigPanel = document.getElementById('bracesConfigPanel');
+  if (bracesConfigPanel) {
+    bracesConfigPanel.style.display = 'block';
+    console.log('[BRACES] Panel de configuración mostrado después del cálculo');
+  }
+
   // Scroll hacia los resultados
   resultadosViento.scrollIntoView({ behavior: 'smooth' });
 }
@@ -929,7 +936,7 @@ async function aplicarValoresGlobales() {
   
   const anguloGlobal = parseFloat(document.getElementById('angulo_global').value);
   const nptGlobal = parseFloat(document.getElementById('npt_global').value);
-  const factorW2Global = parseFloat(document.getElementById('factor_w2_global').value);
+  const factorW2Global = 0.6; // Factor fijo
   
   // Validar
   if (isNaN(anguloGlobal) || anguloGlobal < 0 || anguloGlobal > 90) {
@@ -939,11 +946,6 @@ async function aplicarValoresGlobales() {
   
   if (isNaN(nptGlobal)) {
     alert('El NPT debe ser un número válido');
-    return;
-  }
-  
-  if (isNaN(factorW2Global) || factorW2Global <= 0) {
-    alert('El Factor W2 debe ser un número positivo');
     return;
   }
   

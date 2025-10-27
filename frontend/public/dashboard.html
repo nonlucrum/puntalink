@@ -203,8 +203,13 @@
             </div>
           </div>
 
-          <!-- Configuración de Braces (Valores Globales por Defecto) -->
-          <div class="braces-global-config" style="margin-top: 2rem;">
+          <!-- Botón Principal de Cálculo -->
+          <div class="actions" style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--border-color);">
+            <button id="btnCalcularViento" class="btn btn--primary">Calcular Cargas de Viento y Braces</button>
+          </div>
+
+          <!-- Configuración de Braces (Valores Globales por Defecto) - OCULTO INICIALMENTE -->
+          <div id="bracesConfigPanel" class="braces-global-config" style="margin-top: 2rem; display: none;">
             <h3>Configuración de Braces (Valores por Defecto)</h3>
             <p class="muted">Define los valores iniciales. Podrás editarlos por muro en los resultados.</p>
             
@@ -223,8 +228,8 @@
                 </div>
                 <div class="form-row">
                   <label for="factor_w2_global">Factor W2:</label>
-                  <input type="number" id="factor_w2_global" step="0.1" min="0" value="1.0" placeholder="1.0">
-                  <span>(multiplier)</span>
+                  <input type="text" id="factor_w2_global" value="0.6" readonly style="background: #2a2a2a; cursor: not-allowed;">
+                  <span>(fijo)</span>
                 </div>
               </div>
             </div>
@@ -233,11 +238,6 @@
             <div class="actions" style="margin-top: 1rem;">
               <button id="btnAplicarGlobales" class="btn btn--secondary">Aplicar a Todos los Muros</button>
             </div>
-          </div>
-
-          <!-- Botón Principal de Cálculo -->
-          <div class="actions" style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--border-color);">
-            <button id="btnCalcularViento" class="btn btn--primary">Calcular Cargas de Viento y Braces</button>
           </div>
 
         </div>
