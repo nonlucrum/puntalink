@@ -48,10 +48,11 @@ CREATE TABLE muro (
     tipo_brace_seleccionado VARCHAR(10) DEFAULT 'B12',  -- Tipo de brace seleccionado manualmente (B04, B12, B14, B15)
     
     -- Campos de braces
-    x_braces INT DEFAULT 0,            -- Cantidad total de braces
-    fbx DECIMAL(10,2) DEFAULT 0,       -- Fuerza del brace en dirección X (kN)
-    fby DECIMAL(10,2) DEFAULT 0,       -- Fuerza del brace en dirección Y (kN)
-    fb DECIMAL(10,2) DEFAULT 0,        -- Fuerza total del brace (kN)
+    x_braces INT DEFAULT 0,                 -- Cantidad total de braces
+    fbx DECIMAL(10,2) DEFAULT 0,            -- Fuerza del brace en dirección X (kN)
+    fby DECIMAL(10,2) DEFAULT 0,            -- Fuerza del brace en dirección Y (kN)
+    fb DECIMAL(10,2) DEFAULT 0,             -- Fuerza total del brace (kN)
+    factor_w2 DECIMAL(10,4) DEFAULT 0.6,    -- Factor W2 para cálculo de tipo de brace
     
     -- Coordenadas de inserto de brace
     x_inserto DECIMAL(10,3),           -- X del inserto = longitud_brace * cos(angulo)
