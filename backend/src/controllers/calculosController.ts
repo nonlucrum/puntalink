@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { calcularPaneles } from '../services/panelesService';
 import { generarInforme } from '../services/pdfService';
 import { calcularVientoMuros, getParametrosVientoDefecto, WindParameters, getParametrosTerreno, calculateBraceForces } from '../services/calculosService';
-import { Muro, updateMuroEditableFields, updateMuroBraceCalculations, getMurosByProject } from '../models/Muro';
+import { Muro, updateMuroEditableFields, updateMuroBraceCalculations, getMurosByProject, updateMuroWindCalculations } from '../models/Muro';
 import pool from '../config/db';
 
 /**
@@ -116,6 +116,37 @@ export const calculoVientoMuros = async (req: Request, res: Response) => {
     console.log('[CALCULOS DEBUG] Factor G del primer resultado:', resultados[0]?.G);
     console.log('[CALCULOS DEBUG] Alpha del primer resultado:', resultados[0]?.alpha);
     console.log('[CALCULOS DEBUG] Delta del primer resultado:', resultados[0]?.delta);
+
+    // ✅ GUARDAR VALORES DE VIENTO EN LA BASE DE DATOS
+    console.log('[CALCULOS] Guardando valores de viento en la base de datos...');
+    const actualizaciones = [];
+    for (const resultado of resultados) {
+      if (resultado.pid) {
+        try {
+          await updateMuroWindCalculations(
+            resultado.pid,
+            resultado.qz_kPa,
+            resultado.presion_kPa,
+            resultado.fuerza_kN
+          );
+          actualizaciones.push({
+            pid: resultado.pid,
+            id_muro: resultado.id_muro,
+            actualizado: true
+          });
+          console.log(`[CALCULOS] ✅ Muro ${resultado.id_muro} (PID ${resultado.pid}): qz=${resultado.qz_kPa}, presión=${resultado.presion_kPa}, fuerza=${resultado.fuerza_kN}`);
+        } catch (error) {
+          console.error(`[CALCULOS] ERROR actualizando muro ${resultado.id_muro}:`, error);
+          actualizaciones.push({
+            pid: resultado.pid,
+            id_muro: resultado.id_muro,
+            actualizado: false,
+            error: error instanceof Error ? error.message : 'Error desconocido'
+          });
+        }
+      }
+    }
+    console.log(`[CALCULOS] Actualización completada: ${actualizaciones.filter(a => a.actualizado).length}/${resultados.length} muros`);
 
     // Estadísticas del cálculo
     const totalMuros = resultados.length;
@@ -307,10 +338,10 @@ export const calcularBraces = async (req: Request, res: Response) => {
 export const calcularBracesTiempoReal = async (req: Request, res: Response) => {
   try {
     const { pid } = req.params;
-    const { angulo_brace, npt, tipo_brace_seleccionado, factor_w2 } = req.body;
+    const { angulo_brace, npt, tipo_brace_seleccionado } = req.body;
 
     console.log(`[CALCULOS-RT] Calculando braces en tiempo real para muro PID: ${pid}`);
-    console.log(`[CALCULOS-RT] Parámetros:`, { angulo_brace, npt, tipo_brace_seleccionado, factor_w2 });
+    console.log(`[CALCULOS-RT] Parámetros:`, { angulo_brace, npt, tipo_brace_seleccionado });
 
     // Validaciones
     if (!pid || isNaN(parseInt(pid))) {
@@ -335,31 +366,52 @@ export const calcularBracesTiempoReal = async (req: Request, res: Response) => {
     const alto_m = parseFloat(muro.overall_height?.toString() || '0');
 
     if (area_m2 <= 0 || alto_m <= 0) {
-      return res.status(400).json({ 
-        error: 'El muro debe tener área y altura válidas',
+      return res.status(404).json({
+        error: 'Muro no encontrado',
         muro: { area: muro.area, altura: muro.overall_height }
       });
     }
 
-    // Calcular presión de viento (simplificado - usar valores típicos o del proyecto)
-    // TODO: En el futuro, obtener qz del cálculo de viento del proyecto
-    const qz_kPa = 0.85; // Valor típico en kPa (ajustado)
-    const fuerza_viento_kN = qz_kPa * area_m2;
+    // ✅ LEER VALORES DE VIENTO DE LA BASE DE DATOS (NO CALCULAR CON HARDCODED)
+    // Estos valores deben haber sido calculados y almacenados previamente por calcularVientoMuros
+    const qz_kPa = parseFloat(muro.qz_kpa?.toString() || '0');
+    const presion_kPa = parseFloat(muro.presion_kpa?.toString() || '0');
+    const fuerza_viento_kN = parseFloat(muro.fuerza_viento?.toString() || '0');
 
-    console.log(`[CALCULOS-RT] Datos del muro: área=${area_m2}m², alto=${alto_m}m, FV=${fuerza_viento_kN.toFixed(2)}kN`);
+    console.log(`[CALCULOS-RT] Valores leídos de BD: qz_kpa=${muro.qz_kpa}, presion_kpa=${muro.presion_kpa}, fuerza_viento=${muro.fuerza_viento}`);
+    console.log(`[CALCULOS-RT] Valores parseados: qz=${qz_kPa}, presión=${presion_kPa}, FV=${fuerza_viento_kN}`);
 
-    // Usar valor de NPT del body o del muro
+    // Validar que los valores de viento existan en la base de datos
+    if (!qz_kPa || qz_kPa <= 0 || !presion_kPa || presion_kPa <= 0 || !fuerza_viento_kN || fuerza_viento_kN <= 0) {
+      console.log('[CALCULOS-RT] ❌ ERROR: Valores de viento no encontrados o inválidos en BD');
+      return res.status(400).json({
+        error: 'El muro no tiene cálculos de viento válidos. Debe calcular el viento primero.',
+        pid: parseInt(pid),
+        id_muro: muro.id_muro,
+        valores_actuales: {
+          qz_kpa: muro.qz_kpa || null,
+          presion_kpa: muro.presion_kpa || null,
+          fuerza_viento: muro.fuerza_viento || null
+        },
+        solucion: 'En el dashboard, haga clic en "CALCULAR VIENTO" para generar estos valores antes de editar braces'
+      });
+    }
+
+    console.log(`[CALCULOS-RT] ✅ Usando valores de viento de BD: qz=${qz_kPa.toFixed(4)}kPa, presión=${presion_kPa.toFixed(4)}kPa, FV=${fuerza_viento_kN.toFixed(2)}kN`);
+    console.log(`[CALCULOS-RT] Datos del muro: área=${area_m2}m², alto=${alto_m}m`);
+
+    // Usar valores del muro en la BD (NPT y factor_w2 deben existir en BD)
     const npt_final = npt !== undefined ? npt : (muro.npt || 0);
-    const factor_w2_final = factor_w2 !== undefined ? factor_w2 : (muro.factor_w2 || 1.0);
+    const factor_w2_final = muro.factor_w2 || 0.6; // Siempre desde BD, default 0.6 si no existe
 
-    // Calcular con el nuevo método
+    // Calcular con el nuevo método usando valores de BD
     const resultado = calculateBraceForces(
-      fuerza_viento_kN,
-      qz_kPa,              // Presión
+      fuerza_viento_kN,    // De BD
+      presion_kPa,         // De BD
       alto_m,              // Altura del muro
       angulo_brace,        // Ángulo
       npt_final,           // NPT
-      factor_w2_final,     // Factor W2
+      factor_w2_final,     // Factor W2 de BD
       tipo_brace_seleccionado // Tipo manual (opcional)
     );
 

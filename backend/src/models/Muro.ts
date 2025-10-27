@@ -17,6 +17,11 @@ export interface Muro {
   tipo_brace_seleccionado?: string; // Tipo de brace seleccionado (B4, B12, B14, B15) - Manual
   factor_w2?: number;      // Factor W2 para cálculo de tipo de brace
   
+  // Campos de viento calculados (desde calcularVientoMuros)
+  qz_kpa?: number;         // Presión dinámica de viento (kPa)
+  presion_kpa?: number;    // Presión de viento (kPa)
+  fuerza_viento?: number;  // Fuerza de viento calculada (kN)
+  
   // Campos de braces calculados
   x_braces?: number;       // Cantidad total de braces
   fbx?: number;            // Fuerza del brace en dirección X (kN)
@@ -98,7 +103,9 @@ export async function getMurosByProject(pk_proyecto: number): Promise<Muro[]> {
   const query = `
     SELECT 
       pid, num, pk_proyecto, id_muro, grosor, area, peso, volumen, overall_height,
-      angulo_brace, npt, tipo_brace_seleccionado, factor_w2, x_braces, fbx, fby, fb, x_inserto, y_inserto,
+      angulo_brace, npt, tipo_brace_seleccionado, factor_w2, 
+      qz_kpa, presion_kpa, fuerza_viento,
+      x_braces, fbx, fby, fb, x_inserto, y_inserto,
       cant_b14, cant_b12, cant_b04, cant_b15, muertos, tipo_construccion
     FROM muro 
     WHERE pk_proyecto = $1
@@ -168,6 +175,34 @@ export async function updateMuroBraceCalculations(
     return result.rows[0];
   } catch (error) {
     console.error("Error updating muro brace calculations:", error);
+    throw error;
+  }
+}
+
+/**
+ * Actualizar valores de viento calculados en la base de datos
+ * Debe ejecutarse después de calcularVientoMuros
+ */
+export async function updateMuroWindCalculations(
+  pid: number,
+  qz_kpa: number,
+  presion_kpa: number,
+  fuerza_viento: number
+) {
+  const query = `
+    UPDATE muro
+    SET qz_kpa = $2, presion_kpa = $3, fuerza_viento = $4
+    WHERE pid = $1
+    RETURNING *;
+  `;
+
+  const values = [pid, qz_kpa, presion_kpa, fuerza_viento];
+
+  try {
+    const result = await pool.query(query, values);
+    return result.rows[0];
+  } catch (error) {
+    console.error("Error updating muro wind calculations:", error);
     throw error;
   }
 }
