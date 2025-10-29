@@ -3,7 +3,7 @@ import { calcularPaneles } from '../services/panelesService';
 import { generarInforme } from '../services/pdfService';
 import { calcularVientoMuros, getParametrosVientoDefecto, WindParameters, getParametrosTerreno, calculateBraceForces } from '../services/calculosService';
 import { Muro, updateMuroEditableFields, updateMuroBraceCalculations, getMurosByProject, updateMuroWindCalculations } from '../models/Muro';
-import pool from '../config/db';
+import pool from '../services/config/db';
 
 /**
  * Sección 1: Obtener parámetros por defecto para cálculo de viento

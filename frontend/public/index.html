@@ -5,27 +5,60 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Nuevo Proyecto - PuntaLink</title>
   <link rel="stylesheet" href="styles.css"/>
+
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body class="project-body">
   <main>
     <section class="card-project">
       <h1>Configuración de Proyecto</h1>
-        <div class="togglebar">
-          <button id="toggleBackG" class="togglebg"></button>
-          <button id="btnCreateNewProject" class="togglebtn">Crear Proyecto</button>
-          <button id="btnLoadOldProject" class="togglebtn--ghost"> Cargar Proyecto</button>
+
+      <!-- ===== Auth (Google) ===== -->
+      <div id="authBlock" style="margin: 12px 0 20px;">
+        <!-- Carga del cliente y callback -->
+        <div id="g_id_onload"
+          data-client_id="263905342858-atfen47bui228gtv1eckq6o1fnfgg5rf.apps.googleusercontent.com"
+          data-callback="onGoogleCredential"
+          data-auto_prompt="false">
         </div>
+
+        <!-- Botón visible de Google -->
+        <div class="g_id_signin"
+          data-type="standard"
+          data-size="large"
+          data-theme="outline"
+          data-text="sign_in_with"
+          data-shape="rectangular"
+          data-logo_alignment="left">
+        </div>
+
+        <!-- Info de usuario (se muestra tras login) -->
+        <div id="userInfo" style="display:none; gap:8px; align-items:center; margin-top:10px;">
+          <img id="userPic" alt="avatar" style="width:28px;height:28px;border-radius:50%;object-fit:cover"/>
+          <span id="userEmail" class="muted"></span>
+          <button id="btnLogout" class="togglebtn--ghost" type="button">Cerrar sesión</button>
+        </div>
+      </div>
+      <!-- ===== /Auth (Google) ===== -->
+
+      <div class="togglebar">
+        <button id="toggleBackG" class="togglebg"></button>
+        <button id="btnCreateNewProject" class="togglebtn">Crear Proyecto</button>
+        <button id="btnLoadOldProject" class="togglebtn--ghost"> Cargar Proyecto</button>
+      </div>
+
       <form id="formNuevoProyecto" autocomplete="off">
         <div class="form-group">
           <label for="nombreProyecto">Nombre del proyecto</label>
           <input type="text" id="nombreProyecto" name="nombreProyecto" required />
         </div>
-        
+
         <div class="form-group">
           <label for="empresaConstructora">Empresa constructora</label>
           <input type="text" id="empresaConstructora" name="empresaConstructora" required />
         </div>
-        
+
         <div class="form-group">
           <label>Tipo de fundación (muerto)</label>
           <div class="radio-group">
@@ -43,49 +76,62 @@
             </div>
           </div>
         </div>
-        
+
         <div class="form-group">
           <label for="velViento">Velocidad del viento (km/h)</label>
           <input type="number" id="velViento" name="velViento" step="0.1" required />
         </div>
-        
+
         <div class="form-group">
           <label for="tempPromedio">Temperatura promedio (°C)</label>
           <input type="number" id="tempPromedio" name="tempPromedio" step="0.1" required />
         </div>
-        
+
         <div class="form-group">
           <label for="presionAtm">Presión atmosférica (mmHg)</label>
           <input type="number" id="presionAtm" name="presionAtm" step="0.1" required />
         </div>
-        
+
         <div class="actions">
           <button id="btnProjectSubmit" class="btn-primary">Crear Proyecto</button>
         </div>
       </form>
+
       <div id="projectList" class="project-list" style="display:none">
         <button class="project-card">
-        	<div style="display: flex; flex-direction: row">
-              <svg width="40" height="77">
-                  <circle cx="0" cy="38.5" r="30" stroke="#ccc" stroke-width="3" fill="transparent" />
-                  <rect x="-30" y="8.5" width="60" height="60" stroke="#ccc" stroke-width="3" fill="transparent" style="display:none" />
-                  <polygon points="-30,12 30,12 0,64" style="fill:transparent;stroke:#ccc;stroke-width:3;display:none" />
-              </svg>
-              <div class="project-card-title">
-                  <h3>Frontier 04</h3>
-                  <h4>Magnorth</h4>
-                  <text class="project-card-var">Muerto Cilíndrico</text>
-                  <text class="project-card-var">28/10/2025 18:30</text>
-              </div>
+          <div style="display: flex; flex-direction: row">
+            <svg width="40" height="77">
+              <circle cx="0" cy="38.5" r="30" stroke="#ccc" stroke-width="3" fill="transparent" />
+              <rect x="-30" y="8.5" width="60" height="60" stroke="#ccc" stroke-width="3" fill="transparent" style="display:none" />
+              <polygon points="-30,12 30,12 0,64" style="fill:transparent;stroke:#ccc;stroke-width:3;display:none" />
+            </svg>
+            <div class="project-card-title">
+              <h3>Frontier 04</h3>
+              <h4>Magnorth</h4>
+              <text class="project-card-var">Muerto Cilíndrico</text>
+              <text class="project-card-var">28/10/2025 18:30</text>
             </div>
-            <div class="project-card-info">
-              <text class="project-card-var">Hidalgo, México</text>
-              <text class="project-card-var">128 km/h</text>
-              <text class="project-card-var">30 °C</text>
-              <text class="project-card-var">760 mmHg</text>
-            </div>
+          </div>
+          <div class="project-card-info">
+            <text class="project-card-var">Hidalgo, México</text>
+            <text class="project-card-var">128 km/h</text>
+            <text class="project-card-var">30 °C</text>
+            <text class="project-card-var">760 mmHg</text>
+          </div>
         </button>
       </div>
+
+      <!-- Callback global que invoca Google; delega al handler que define script.js -->
+      <script>
+        function onGoogleCredential(resp) {
+          if (window.__gisCredentialHandler) {
+            window.__gisCredentialHandler(resp);
+          } else {
+            console.error('Handler de GIS no inicializado');
+          }
+        }
+      </script>
+
       <script type="module" src="script.js"></script>
     </section>
   </main>

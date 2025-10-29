@@ -1,4 +1,4 @@
-import pool from "../config/db";
+import pool from "../services/config/db";
 
 export interface Muro {
   pid?: number;           // Opcional, lo asigna la base de datos

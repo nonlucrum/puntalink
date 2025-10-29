@@ -16,16 +16,148 @@ import {
     loadPreviousProjects
 } from './js/index.js';
 
-// Importar utilidades de usabilidad
 const { confirmar, mostrarNotificacion, BarraProgreso, ejecutarConLoading, debounce, formatearError } = window.Usability || {};
 
+// --- API BASE ---
+const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+export const API_BASE = isLocalHost ? 'http://localhost:4008' : '';
+'';
+// --- CALLBACK GIS ---
+window.onGoogleCredential = async (response) => {
+  try {
+    const credential = response?.credential;
+    if (!credential) {
+      console.error('[LOGIN] No llegó credential desde Google');
+      alert('No se recibió el token de Google.');
+      return;
+    }
+
+    const resp = await fetch(`${API_BASE}/api/auth/google`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',             // ⬅️ IMPORTANTE
+      body: JSON.stringify({ credential })// id_token
+    });
+
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => '');
+      console.error('[LOGIN] HTTP', resp.status, text);
+      alert(`Error al iniciar sesión (HTTP ${resp.status})`);
+      return;
+    }
+
+    const data = await resp.json();
+    console.log('[LOGIN] OK:', data);
+
+    const me = await fetch(`${API_BASE}/api/auth/me`, { credentials: 'include' }).then(r => r.json());
+    console.log('[ME]', me);
+
+  } catch (e) {
+    console.error('[LOGIN] Network error:', e);
+    alert('Fallo de red al iniciar sesión (revisa CORS/servidor)');
+  }
+};
+
+
+const $userInfo  = () => document.getElementById('userInfo');
+const $userPic   = () => document.getElementById('userPic');
+const $userEmail = () => document.getElementById('userEmail');
+const $btnLogout = () => document.getElementById('btnLogout');
+
+
+const AuthState = { user: null };
+
+
+window.__gisCredentialHandler = async (response) => {
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/google`, {
+      method: 'POST',
+      credentials: 'include', // cookie HttpOnly
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credential: response.credential }),
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      alert('No se pudo iniciar sesión: ' + (data.error || 'Error desconocido'));
+      return;
+    }
+    localStorage.setItem('user', JSON.stringify(data.user));
+    AuthState.user = data.user;
+    await refreshMeUI();
+  } catch (err) {
+    console.error(err);
+    alert('Fallo de red al iniciar sesión');
+  }
+};
+
+async function refreshMeUI() {
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/me`, { credentials: 'include' });
+    const { ok, user } = await res.json();
+
+    const signinDiv = document.querySelector('.g_id_signin');
+    const ui = $userInfo();
+    const email = $userEmail();
+    const pic = $userPic();
+
+    if (ok && user) {
+      AuthState.user = user;
+      localStorage.setItem('user', JSON.stringify(user));
+      if (signinDiv) signinDiv.style.display = 'none';
+      if (ui) ui.style.display = 'flex';
+      if (email) email.textContent = user.email || '';
+      if (pic) {
+        if (user.picture) { pic.src = user.picture; pic.style.display = ''; }
+        else { pic.style.display = 'none'; }
+      }
+    } else {
+      AuthState.user = null;
+      localStorage.removeItem('user');
+      if (signinDiv) signinDiv.style.display = '';
+      if (ui) ui.style.display = 'none';
+    }
+  } catch (e) {
+    console.error('Error consultando /me', e);
+  }
+}
+
+async function doLogout() {
+  try {
+    await fetch(`${API_BASE}/api/auth/logout`, { method: 'POST', credentials: 'include' });
+  } catch (e) {
+    console.warn('Logout con warning:', e);
+  } finally {
+    AuthState.user = null;
+    localStorage.removeItem('user');
+    await refreshMeUI();
+  }
+}
+
+function requireAuthOrWarn() {
+  if (AuthState.user) return true;
+  if (mostrarNotificacion) {
+    mostrarNotificacion('Debes iniciar sesión con Google para continuar.', 'warning', 4000);
+  } else {
+    alert('Debes iniciar sesión con Google para continuar.');
+  }
+  return false;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
-  // ===== CARGAR INFORMACIÓN DEL PROYECTO =====
+
+  if ($btnLogout()) {
+    $btnLogout().addEventListener('click', doLogout);
+  }
+
+  refreshMeUI();
+
+  
   if (window.location.pathname === "/dashboard") {
+   
     loadProjectInfo();
   }
   if (window.location.pathname === "/") {
-    // Cargar proyectos anteriores en index
+    // Cargar proyectos anteriores en index (si hay sesión)
     loadPreviousProjects();
   }
   
@@ -168,7 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('[FRONTEND] No hay archivos seleccionados');
         return;
       }
-      
+      if (!requireAuthOrWarn()) return;
       const file = txtInput.files[0];
       await handleUploadTxt(file, uiElements, callbacks, globalVars);
     });
@@ -184,6 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Calcular paneles
   if (btnCalcular) {
     btnCalcular.addEventListener('click', async () => {
+      if (!requireAuthOrWarn()) return;
       await handleCalcularPaneles(uiElements, callbacks, globalVars);
     });
   }
@@ -191,6 +324,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Generar PDF
   if (btnInforme) {
     btnInforme.addEventListener('click', async () => {
+      if (!requireAuthOrWarn()) return;
       await handleGenerarPDF(uiElements, globalVars);
     });
   }
@@ -198,6 +332,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Editar proyecto
   if (btnEditProject) {
     btnEditProject.addEventListener('click', () => {
+      if (!requireAuthOrWarn()) return;
       editarProyecto(uiElements);
     });
   }
@@ -209,9 +344,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-    // Guardar edicion proyecto
+  // Guardar edicion proyecto
   if (btnUpdateProject) {
     btnUpdateProject.addEventListener('click', () => {
+      if (!requireAuthOrWarn()) return;
       guardarCambiosProyecto();
     });
   }
@@ -221,46 +357,45 @@ document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('formNuevoProyecto');
 
     if (form) {
-        btnProjectSubmit.addEventListener('click', async (e) => {
+      btnProjectSubmit.addEventListener('click', async (e) => {
+        if (!form.reportValidity()) {
+          console.log('[FRONTEND] Formulario inválido');
+          return;
+        }
+        e.preventDefault();
+        if (!requireAuthOrWarn()) return;
 
-            if (!form.reportValidity()) {
-                console.log('[FRONTEND] Formulario inválido');
-                return;
-            }
-            
-            e.preventDefault();
+        const formData = new FormData(form);
+        const projectData = {
+          nombreProyecto: formData.get('nombreProyecto'),
+          empresaConstructora: formData.get('empresaConstructora'),
+          tipoMuerto: formData.get('tipoMuerto'),
+          velViento: formData.get('velViento'),
+          tempPromedio: formData.get('tempPromedio'),
+          presionAtm: formData.get('presionAtm')
+        };
 
-            const formData = new FormData(form);
-            const projectData = {
-            nombreProyecto: formData.get('nombreProyecto'),
-            empresaConstructora: formData.get('empresaConstructora'),
-            tipoMuerto: formData.get('tipoMuerto'),
-            velViento: formData.get('velViento'),
-            tempPromedio: formData.get('tempPromedio'),
-            presionAtm: formData.get('presionAtm')
-            };
-
-            globalVars.projectData = projectData;
-            await createProject(indexUIElements, callbacks, globalVars);
-        });
+        globalVars.projectData = projectData;
+        await createProject(indexUIElements, callbacks, globalVars);
+      });
     } else {
-        console.error('[FRONTEND] No se encontró el formulario de nuevo proyecto');
+      console.error('[FRONTEND] No se encontró el formulario de nuevo proyecto');
     }
   }
 
-// ===== TOGGLE PARA CREAR O CARGAR PROYECTO =====
-
-if (btnLoadOldProject) {
+  // ===== TOGGLE PARA CREAR O CARGAR PROYECTO =====
+  if (btnLoadOldProject) {
     btnLoadOldProject.addEventListener('click', () => {
+      if (!requireAuthOrWarn()) return;
       btnCreateNewProject.className = "togglebtn--ghost";
       btnLoadOldProject.className = "togglebtn";
       toggleBackG.style.transform = "translate(100%)"
       formNuevoProyecto.style.display = 'none';
       projectList.style.display = '';
     });
-}
+  }
 
-if (btnCreateNewProject) {
+  if (btnCreateNewProject) {
     btnCreateNewProject.addEventListener('click', () => {
       btnCreateNewProject.className = "togglebtn";
       btnLoadOldProject.className = "togglebtn--ghost";
@@ -268,7 +403,7 @@ if (btnCreateNewProject) {
       formNuevoProyecto.style.display = '';
       projectList.style.display = 'none';
     });
-}
+  }
 
   // ===== ELEMENTOS ADICIONALES PARA VIENTO =====
   const btnCalcularViento = document.getElementById('btnCalcularViento');
@@ -312,13 +447,6 @@ if (btnCreateNewProject) {
 async function calcularCargasViento() {
   try {
     console.log('[WIND] Iniciando cálculo de cargas de viento...');
-    
-    // Configuración API_BASE (igual que en dashboard.js) - FORZAR LOCALHOST:4008
-    const API_BASE =
-    window.location.hostname === "localhost"
-        ? "http://localhost:4008"   // dev backend
-        : "";                       // production (relative)
-    console.log('[WIND] 🔗 API_BASE configurado como:', API_BASE);
     
     // Debugging detallado de globalVars
     console.log('[WIND] Estado de window.globalVars:', window.globalVars);
@@ -391,20 +519,14 @@ async function calcularCargasViento() {
       parametros: parametros
     });
 
-    // Llamar a la API con API_BASE
+    // Llamar a la API
     const response = await fetch(`${API_BASE}/api/calculos/viento/calcular-muros`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        muros: panelesData,
-        parametros: parametros
-      })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ muros: panelesData, parametros })
     });
 
-    console.log('[WIND] 📡 Respuesta HTTP status:', response.status);
-    console.log('[WIND] 📡 Respuesta OK:', response.ok);
+    console.log('[WIND] 📡 Respuesta HTTP status:', response.status, 'OK:', response.ok);
 
     if (!response.ok) {
       throw new Error(`Error HTTP: ${response.status}`);
@@ -412,9 +534,6 @@ async function calcularCargasViento() {
 
     const data = await response.json();
     console.log('[WIND] Respuesta de la API:', data);
-    console.log('[WIND] Primer resultado:', data.resultados ? data.resultados[0] : 'No hay resultados');
-    console.log('[WIND] Alpha del primer resultado:', data.resultados ? data.resultados[0]?.alpha : 'undefined');
-    console.log('[WIND] Delta del primer resultado:', data.resultados ? data.resultados[0]?.delta : 'undefined');
 
     if (data.success && data.resultados) {
       mostrarResultadosViento(data);
@@ -634,17 +753,14 @@ async function mostrarResultadosViento(data) {
     htmlDetalle += `<li><strong>Presión neta:</strong> P = qz × (Cpi - Cpe) × Factor = ${resultado.qz_kPa} × (${data.parametros_utilizados.Cp_int} - ${data.parametros_utilizados.Cp_ext}) × ${data.parametros_utilizados.factor_succion} = ${resultado.presion_kPa} kPa</li>`;
     htmlDetalle += `<li><strong>Fuerza de viento:</strong> F = qz × Área = ${resultado.qz_kPa} × ${resultado.area_m2} = ${resultado.fuerza_kN} kN</li>`;
     
-    // Nuevos parámetros calculados con fórmulas
     if (resultado.YCG !== undefined) {
       htmlDetalle += `<li><strong>Centro de gravedad (YCG):</strong> YCG = H/2 = ${resultado.altura_z_m}/2 = ${resultado.YCG} m</li>`;
     }
     
-    // NFT: Nivel de Piso Terminado (elevación física)
     if (resultado.NFT !== undefined) {
       htmlDetalle += `<li><strong>📏 NFT - Nivel de Piso Terminado:</strong></li>`;
       htmlDetalle += `<ul>`;
       htmlDetalle += `<li><strong>Nivel final:</strong> ${resultado.NFT.toFixed(3)}m</li>`;
-      
       if (resultado.componentes_nft) {
         htmlDetalle += `<li><strong>Componentes del cálculo:</strong></li>`;
         htmlDetalle += `<li style="margin-left: 20px;">• Nivel Natural Terreno: ${resultado.componentes_nft.nivel_natural}m</li>`;
@@ -670,7 +786,6 @@ async function mostrarResultadosViento(data) {
         htmlDetalle += `<li><strong>Modelo sugerido:</strong> ${resultado.modelo_brace}</li>`;
       }
       
-      // Agregar información de distribución de braces
       if (resultado.total_braces !== undefined) {
         htmlDetalle += `<li><strong>Distribución de braces:</strong></li>`;
         htmlDetalle += `<ul>`;
@@ -784,11 +899,6 @@ function agregarListenersCalculoTiempoReal() {
  * Calcular braces en tiempo real sin guardar
  */
 async function calcularBracesTiempoReal(input) {
-  // Configuración API_BASE
-  const API_BASE = window.location.hostname === 'localhost' 
-    ? 'http://localhost:4008' 
-    : '';
-  
   const pid = input.dataset.pid;
   const row = document.querySelector(`tr[data-pid="${pid}"]`);
   
@@ -815,9 +925,7 @@ async function calcularBracesTiempoReal(input) {
     // Llamar al endpoint de tiempo real
     const response = await fetch(`${API_BASE}/api/calculos/muros/${pid}/calcular-braces-tiempo-real`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         angulo_brace: angulo,
         npt: npt,
@@ -857,9 +965,7 @@ async function calcularBracesTiempoReal(input) {
       
       // Feedback visual
       row.style.backgroundColor = '#e8f5e9';
-      setTimeout(() => {
-        row.style.backgroundColor = '';
-      }, 300);
+      setTimeout(() => { row.style.backgroundColor = ''; }, 300);
       
       console.log(`[BRACES-RT] Actualizado PID ${pid}:`, calc);
     } else {
@@ -875,11 +981,7 @@ async function calcularBracesTiempoReal(input) {
  */
 async function guardarTodosBraces() {
   console.log('[BRACES] Guardando todos los cambios...');
-  
-  // Configuración API_BASE
-  const API_BASE = window.location.hostname === 'localhost' 
-    ? 'http://localhost:4008' 
-    : '';
+  if (!requireAuthOrWarn()) return;
   
   const rows = document.querySelectorAll('#tablaUnificadaBody tr[data-pid]');
   let exitosos = 0;
@@ -898,9 +1000,7 @@ async function guardarTodosBraces() {
       // Actualizar campos editables
       const response = await fetch(`${API_BASE}/api/calculos/muros/${pid}/editable`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           angulo_brace: angulo,
           npt: npt,
@@ -913,9 +1013,7 @@ async function guardarTodosBraces() {
         // Ahora calcular y guardar fuerzas
         const calcResponse = await fetch(`${API_BASE}/api/calculos/muros/${pid}/calcular-braces`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             angulo_brace: angulo,
             npt: npt,
@@ -952,10 +1050,11 @@ async function guardarTodosBraces() {
   
   if (exitosos > 0) {
     // Feedback visual
-    document.getElementById('tablaUnificadaBody').style.backgroundColor = '#d4edda';
-    setTimeout(() => {
-      document.getElementById('tablaUnificadaBody').style.backgroundColor = '';
-    }, 1000);
+    const tbody = document.getElementById('tablaUnificadaBody');
+    if (tbody) {
+      tbody.style.backgroundColor = '#d4edda';
+      setTimeout(() => { tbody.style.backgroundColor = ''; }, 1000);
+    }
   }
 }
 
@@ -1050,4 +1149,3 @@ async function aplicarValoresGlobales() {
     }
   }
 }
-
