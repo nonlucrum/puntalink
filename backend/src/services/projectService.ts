@@ -4,15 +4,16 @@ import { getProjectsByUser } from '../models/Project';
 
 export async function crearProyectoService(projectData: any) {
     console.log('[service - projectService] crearProyecto - Inicio');
+    console.log('[service - projectService] crearProyecto - Datos recibidos:', projectData);
     try {
         const nuevoProyecto = await addProject(
             1, // pk_usuario temporal
-            projectData.body.nombreProyecto,
-            projectData.body.empresaConstructora,
-            projectData.body.tipoMuerto,
-            projectData.body.velViento,
-            projectData.body.tempPromedio,
-            projectData.body.presionAtm
+            projectData.nombreProyecto,
+            projectData.empresaConstructora,
+            projectData.tipoMuerto,
+            parseFloat(projectData.velViento),
+            parseFloat(projectData.tempPromedio),
+            parseFloat(projectData.presionAtm)
         );
         console.log('[service - projectService] crearProyecto - Proyecto creado exitosamente');
         return nuevoProyecto;

@@ -6,7 +6,7 @@ import { listarProyectosService } from '../services/projectService';
 export async function crearProyecto(req: Request, res: Response) {
   console.log('[controller - projectController] crearProyecto - Inicio');
     try {
-        const new_project = await crearProyectoService(req);
+        const new_project = await crearProyectoService(req.body);
         console.log('[controller - projectController] crearProyecto - Proyecto creado:');
         res.json({ ok: true, new_project });
     } catch (err: any) {

@@ -28,18 +28,24 @@ export function loadProjectInfo() {
   try {
     const projectConfig = localStorage.getItem('projectConfig');
     
-    if (projectConfig) {
-      const project = JSON.parse(projectConfig);
-      
-      // Actualizar elementos del DOM con la información del proyecto
-      document.getElementById('proyectoNombre').value = project.nombre || '-';
-      document.getElementById('proyectoEmpresa').value = project.empresa || '-';
-      document.getElementById('proyectoTipoMuerto').value = project.tipo_muerto || '-';
-      document.getElementById('proyectoVelViento').value = project.vel_viento || '-';
-      document.getElementById('proyectoTempPromedio').value = project.temp_promedio || '-';
-      document.getElementById('proyectoPresionAtm').value = project.presion_atmo || '-';
-      
-      console.log('[FRONTEND] Información del proyecto cargada:', project);
+    if (projectConfig && projectConfig !== 'undefined' && projectConfig !== 'null') {
+      try {
+        const project = JSON.parse(projectConfig);
+        
+        // Actualizar elementos del DOM con la información del proyecto
+        document.getElementById('proyectoNombre').value = project.nombre || '-';
+        document.getElementById('proyectoEmpresa').value = project.empresa || '-';
+        document.getElementById('proyectoTipoMuerto').value = project.tipo_muerto || '-';
+        document.getElementById('proyectoVelViento').value = project.vel_viento || '-';
+        document.getElementById('proyectoTempPromedio').value = project.temp_promedio || '-';
+        document.getElementById('proyectoPresionAtm').value = project.presion_atmo || '-';
+        
+        console.log('[FRONTEND] Información del proyecto cargada:', project);
+      } catch (parseError) {
+        console.error('[FRONTEND] Error al parsear JSON del proyecto:', parseError);
+        localStorage.removeItem('projectConfig'); // Limpiar datos corruptos
+        console.log('[FRONTEND] Datos corruptos eliminados del localStorage');
+      }
     } else {
       console.log('[FRONTEND] No hay información de proyecto guardada');
     }

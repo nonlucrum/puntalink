@@ -1,16 +1,20 @@
 \c puntalink;
 
 -- Create a table
-CREATE TABLE usuario (
-    pid SERIAL PRIMARY KEY,
-    nombre VARCHAR(240) NOT NULL,
-    correo VARCHAR(240) UNIQUE NOT NULL,
-    password VARCHAR(45) NOT NULL
+CREATE TABLE app_user (
+  id SERIAL PRIMARY KEY,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  name VARCHAR(255),
+  picture VARCHAR(512),
+  provider VARCHAR(32),
+  google_sub VARCHAR(64),
+  last_login TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT NOW()
 );
 
 -- Insert some data into the table
-INSERT INTO usuario (nombre, correo, password)
-VALUES ('Victor Silva', 'victor@email.com', '12345');
+INSERT INTO app_user (name, email, provider)
+VALUES ('Victor Silva', 'victor@email.com', 'manual');
 
 -- Create another table
 CREATE TABLE proyecto (
@@ -25,9 +29,10 @@ CREATE TABLE proyecto (
     texto_entrada JSON,
 
     CONSTRAINT fk_proyecto_usuario FOREIGN KEY (pk_usuario) 
-        REFERENCES usuario (pid) ON DELETE CASCADE
+        REFERENCES app_user (id) ON DELETE CASCADE
 );
 
+-- Insertar proyecto de prueba DESPUÉS de crear la tabla
 INSERT INTO proyecto (pk_usuario, nombre, empresa, tipo_muerto, vel_viento, temp_promedio, presion_atmo)
 VALUES (1, 'Proyecto Prueba', 'Mi Empresa', 'Corrido', 50.0, 22.5, 1013.25);
 
@@ -41,6 +46,11 @@ CREATE TABLE muro (
     peso DECIMAL(10,2),
     volumen DECIMAL(10,2),
     overall_height VARCHAR(50),
+    
+    -- Campos de cálculos de viento
+    qz_kpa DECIMAL(10,4),              -- Presión dinámica de viento (kPa)
+    presion_kpa DECIMAL(10,4),         -- Presión de viento (kPa)
+    fuerza_viento DECIMAL(10,4),       -- Fuerza de viento calculada (kN)
     
     -- Campos manuales editables por muro
     angulo_brace DECIMAL(10,2),        -- Ángulo de inclinación del brace (grados) - Manual

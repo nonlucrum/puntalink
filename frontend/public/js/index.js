@@ -8,36 +8,43 @@ export async function createProject(uiElements, callbacks, globalVars) {
         console.log('[FRONTEND] Creando nuevo proyecto con datos:', globalVars.projectData);
 
         // Enviar datos al backend
-        await fetch(`${API_BASE}/api/proyecto/crear`, {
+        const response = await fetch(`${API_BASE}/api/proyecto/crear`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify(globalVars.projectData)
-        })
-        .then(res => res.json())
-        .then(data => {
-            console.log("[FRONTEND] Full response:", data.new_project);
+        });
+        
+        const data = await response.json();
+        console.log("[FRONTEND] Full response:", data);
+        
+        if (data.ok && data.new_project) {
+            console.log("[FRONTEND] Project data to save:", data.new_project);
             // Guardar los datos en localStorage para uso posterior
             localStorage.setItem('projectConfig', JSON.stringify(data.new_project));
-        })
-        
-        // Redirigir al dashboard
-        window.location.href = 'dashboard.html';
+            console.log("[FRONTEND] Project saved to localStorage");
+            
+            // Redirigir al dashboard
+            window.location.href = 'dashboard.html';
+        } else {
+            console.error("[FRONTEND] Error in response:", data);
+            alert('Error al crear el proyecto: ' + (data.error || 'Respuesta inválida del servidor'));
+        }
     } catch (error) {
         console.error('[FRONTEND] Error al crear el proyecto:', error);
         alert('Error al crear el proyecto. Por favor, inténtelo de nuevo.');
     }
 }
 
-export async function loadPreviousProjects() {
+export async function loadPreviousProjects(userId) {
     console.log('[FRONTEND] Cargando proyectos anteriores...');
 
     try {
         const response = await fetch(`${API_BASE}/api/proyecto/listar`, {
             method: 'GET',
             headers: {
-                'x-user-id': '1'  // Reemplaza con el ID real del usuario
+                'x-user-id': userId
             }
         });
 

@@ -157,8 +157,11 @@ document.addEventListener('DOMContentLoaded', () => {
     loadProjectInfo();
   }
   if (window.location.pathname === "/") {
-    // Cargar proyectos anteriores en index (si hay sesión)
-    loadPreviousProjects();
+    // Cargar proyectos anteriores en index solo si hay sesión
+    const user = AuthState.user || JSON.parse(localStorage.getItem('user') || 'null');
+    if (user && user.id) {
+      loadPreviousProjects(user.id);
+    }
   }
   
   // ===== ELEMENTOS DEL DOM =====

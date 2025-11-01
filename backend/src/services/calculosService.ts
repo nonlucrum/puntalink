@@ -886,8 +886,8 @@ function determinarTipoBrace(
  * 3. Calcular Y = NPT + Longitud_tipo * sen(V)
  * 4. Calcular YCG = ALTO / 2 (Centro de Gravedad)
  * 5. Calcular FBx = (Fuerza_viento * YCG) / Y
- * 6. Calcular FBy = FBx * sen(V)
- * 7. Calcular FB = √(FBx² + FBy²)
+ * 6. Calcular FB = FBx / cos(V)
+ * 7. Calcular FBy = FB * sen(V)
  * 8. Calcular CANTIDAD = max(2, ceil(FBx / Capacidad_tipo))
  */
 export function calculateBraceForces(
@@ -1008,13 +1008,13 @@ export function calculateBraceForces(
   const fbx = (fuerza_viento_kN * ycg) / y_inserto;
   console.log(`  - FBx: (${fuerza_viento_kN.toFixed(2)} * ${ycg.toFixed(3)}) / ${y_inserto.toFixed(3)} = ${fbx.toFixed(2)} kN`);
 
-  // 6. Calcular FBy (componente vertical)
-  const fby = fbx * sen_angulo;
-  console.log(`  - FBy: ${fbx.toFixed(2)} * sen(${angulo_grados}°) = ${fby.toFixed(2)} kN`);
+  // 6. Calcular FB (fuerza resultante) - FB = FBx / cos(ángulo)
+  const fb = fbx / cos_angulo;
+  console.log(`  - FB: ${fbx.toFixed(2)} / cos(${angulo_grados}°) = ${fb.toFixed(2)} kN`);
 
-  // 7. Calcular FB (fuerza resultante)
-  const fb = Math.sqrt(fbx * fbx + fby * fby);
-  console.log(`  - FB: √(${fbx.toFixed(2)}² + ${fby.toFixed(2)}²) = ${fb.toFixed(2)} kN`);
+  // 7. Calcular FBy (componente vertical) - CORREGIDO: FBy = FB * sen(ángulo)
+  const fby = fb * sen_angulo;
+  console.log(`  - FBy: ${fb.toFixed(2)} * sen(${angulo_grados}°) = ${fby.toFixed(2)} kN`);
 
   // 8. Calcular cantidad de braces
   // Criterio: max(2, ceil(FBx / Capacidad_tipo))
