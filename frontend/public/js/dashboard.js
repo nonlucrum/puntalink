@@ -592,6 +592,9 @@ export async function handleGenerarPDF(elements, globalVars) {
 }
 
 // Función para recalcular automáticamente todos los tipos de brace
+// NOTA: Esta función ya no se usa porque el sistema es automático
+// Se mantiene comentada por si se necesita en el futuro
+/*
 async function recalcularTiposBracesMasivo() {
   try {
     const projectConfig = localStorage.getItem('projectConfig');
@@ -642,6 +645,7 @@ async function recalcularTiposBracesMasivo() {
     alert('Error ejecutando recálculo masivo: ' + error.message);
   }
 }
+*/
 
 /**
  * Recalcular automáticamente tipos de braces si es necesario
