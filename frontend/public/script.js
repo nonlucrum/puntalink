@@ -151,6 +151,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   refreshMeUI();
 
+  // ===== CONFIGURACIÓN AUTOMÁTICA DE PROYECTO =====
+  // Asegurar que existe un proyecto por defecto para evitar errores de foreign key
+  if (!localStorage.getItem('projectConfig')) {
+    const defaultProject = {
+      pid: 3, // ID del proyecto que creamos
+      nombre: 'Proyecto Principal',
+      empresa: 'Empresa Test',
+      tipo_muerto: 'Corrido',
+      vel_viento: 120,
+      temp_promedio: 25,
+      presion_atmo: 760
+    };
+    localStorage.setItem('projectConfig', JSON.stringify(defaultProject));
+    console.log('[INIT] Proyecto por defecto configurado:', defaultProject);
+  }
   
   if (window.location.pathname === "/dashboard") {
    
@@ -694,6 +709,15 @@ async function mostrarResultadosViento(data) {
   // Esperar un momento para que el DOM se actualice
   await new Promise(resolve => setTimeout(resolve, 100));
   
+  // Recalcular automáticamente los tipos de braces basado en la fórmula
+  console.log('[BRACES] Recalculando tipos de braces automáticamente...');
+  try {
+    // En lugar de llamar al backend, recalcular directamente en el frontend
+    await recalcularTiposEnFrontend();
+  } catch (error) {
+    console.error('[BRACES] Error al recalcular tipos automáticamente:', error);
+  }
+  
   console.log('[BRACES] Agregando listeners...');
   
   // Agregar listeners para cálculo en tiempo real
@@ -911,10 +935,23 @@ async function calcularBracesTiempoReal(input) {
   }
   
   // Obtener valores actuales de la fila
-  const tipoBrace = row.querySelector('[data-field="tipo_brace"]').value;
+  const altoText = row.dataset.alto || '15.15';
+  const alto = parseFloat(altoText);
   const angulo = parseFloat(row.querySelector('[data-field="angulo"]').value);
   const npt = parseFloat(row.querySelector('[data-field="npt"]').value);
   const factorW2 = 0.6; // Factor fijo
+  
+  // CALCULAR AUTOMÁTICAMENTE EL TIPO DE BRACE
+  const tipoCalculado = determinarTipoBraceFormula(alto, npt, factorW2, angulo);
+  
+  // Actualizar el dropdown automáticamente
+  const selectTipo = row.querySelector('[data-field="tipo_brace"]');
+  if (selectTipo.value !== tipoCalculado) {
+    selectTipo.value = tipoCalculado;
+    console.log(`[BRACES-RT] Tipo auto-actualizado de ${selectTipo.value} a ${tipoCalculado}`);
+  }
+  
+  const tipoBrace = tipoCalculado; // Usar el tipo calculado
   
   // Validar
   if (isNaN(angulo) || isNaN(npt)) {
@@ -1151,4 +1188,182 @@ async function aplicarValoresGlobales() {
       alert('Error al aplicar valores globales');
     }
   }
+}
+
+// Función para determinar el tipo de brace basado en la fórmula geométrica
+function determinarTipoBraceFormula(alto, npt, factorW2 = 0.6, anguloGrados = 55) {
+  const valorCalculado = (alto - npt) * factorW2;
+  const anguloRadianes = anguloGrados * (Math.PI / 180);
+  const senAngulo = Math.sin(anguloRadianes);
+  
+  console.log(`[BRACES] Determinando tipo: ALTO=${alto}m, NPT=${npt}m, Factor=${factorW2}, Ángulo=${anguloGrados}°`);
+  console.log(`[BRACES] Valor calculado: (${alto} - ${npt}) × ${factorW2} = ${valorCalculado.toFixed(2)}`);
+  console.log(`[BRACES] ${anguloGrados}° = ${anguloRadianes.toFixed(4)} rad`);
+  console.log(`[BRACES] sin(${anguloGrados}°) = ${senAngulo.toFixed(3)}`);
+  
+  // Longitudes de cada tipo de brace (en metros)
+  const longitudes = {
+    'B4': 4.56,
+    'B12': 9.75,
+    'B14': 12.76,
+    'B15': 15.81
+  };
+  
+  // Calcular rangos: Longitud × sin(ángulo)
+  const rangos = {
+    'B4': longitudes.B4 * senAngulo,
+    'B12': longitudes.B12 * senAngulo,
+    'B14': longitudes.B14 * senAngulo,
+    'B15': longitudes.B15 * senAngulo
+  };
+  
+  console.log(`[BRACES] Rangos calculados:`);
+  console.log(`  B4:  ${longitudes.B4} × ${senAngulo.toFixed(3)} = ${rangos.B4.toFixed(2)}`);
+  console.log(`  B12: ${longitudes.B12} × ${senAngulo.toFixed(3)} = ${rangos.B12.toFixed(2)}`);
+  console.log(`  B14: ${longitudes.B14} × ${senAngulo.toFixed(3)} = ${rangos.B14.toFixed(2)}`);
+  console.log(`  B15: ${longitudes.B15} × ${senAngulo.toFixed(3)} = ${rangos.B15.toFixed(2)}`);
+  
+  // Encontrar el rango adecuado
+  let tipoSeleccionado;
+  if (valorCalculado <= rangos.B4) {
+    tipoSeleccionado = 'B4';
+  } else if (valorCalculado <= rangos.B12) {
+    tipoSeleccionado = 'B12';
+  } else if (valorCalculado <= rangos.B14) {
+    tipoSeleccionado = 'B14';
+  } else {
+    tipoSeleccionado = 'B15';
+  }
+  
+  console.log(`[BRACES] Resultado: ${valorCalculado.toFixed(2)} → Tipo: ${tipoSeleccionado} (rango: ≤${rangos[tipoSeleccionado].toFixed(2)})`);
+  
+  return tipoSeleccionado;
+}
+
+// Función para calcular cantidad de braces usando FB/capacidad
+function calcularCantidadBraces(fb, tipoBrace) {
+  const capacidades = {
+    'B4': 2950,   // kN
+    'B12': 4100,  // kN
+    'B14': 2360,  // kN
+    'B15': 1723   // kN
+  };
+  
+  const capacidad = capacidades[tipoBrace] || capacidades.B12;
+  const division = fb / capacidad;
+  const cantidadCalculada = Math.ceil(division);
+  const cantidad = Math.max(2, cantidadCalculada);
+  
+  console.log(`[BRACES] Cálculo cantidad detallado:`);
+  console.log(`  FB = ${fb} kN`);
+  console.log(`  Tipo = ${tipoBrace}`);
+  console.log(`  Capacidad = ${capacidad} kN`);
+  console.log(`  División: ${fb} / ${capacidad} = ${division.toFixed(4)}`);
+  console.log(`  ceil(${division.toFixed(4)}) = ${cantidadCalculada}`);
+  console.log(`  max(2, ${cantidadCalculada}) = ${cantidad}`);
+  console.log(`  --------------------------------`);
+  
+  return cantidad;
+}
+
+// Función para recalcular tipos directamente en el frontend
+async function recalcularTiposEnFrontend() {
+  console.log('[BRACES] Recalculando tipos en frontend...');
+  
+  // Obtener todas las filas de la tabla
+  const tabla = document.getElementById('resultadosVientoTable');
+  if (!tabla) {
+    console.warn('[BRACES] Tabla de resultados no encontrada');
+    return;
+  }
+  
+  const filas = tabla.querySelectorAll('tbody tr');
+  console.log(`[BRACES] Procesando ${filas.length} filas`);
+  
+  const actualizaciones = []; // Array para guardar las actualizaciones a la BD
+  
+  filas.forEach((fila, index) => {
+    try {
+      const celdas = fila.querySelectorAll('td');
+      if (celdas.length < 10) return; // Verificar que tenga suficientes columnas
+      
+      // Extraer valores (ajustar índices según la estructura real de la tabla)
+      const altoText = celdas[2]?.textContent?.trim() || '0';
+      const nptText = celdas[3]?.textContent?.trim() || '0';
+      const fbText = celdas[8]?.textContent?.trim() || '0'; // FB total, no FBx
+      
+      const alto = parseFloat(altoText.replace(',', '.')) || 0;
+      const npt = parseFloat(nptText.replace(',', '.')) || 0;
+      const fb = parseFloat(fbText.replace(',', '.')) || 0;
+      
+      // Obtener ángulo del input en la fila
+      const inputAngulo = fila.querySelector('[data-field="angulo"]');
+      const angulo = inputAngulo ? parseFloat(inputAngulo.value) || 55 : 55;
+      
+      // Obtener PID de la fila
+      const pid = fila.dataset.pid;
+      
+      // Calcular el tipo correcto usando la fórmula geométrica
+      const tipoCalculado = determinarTipoBraceFormula(alto, npt, 0.6, angulo);
+      
+      // Calcular la cantidad usando FB total / capacidad (como me dijiste)
+      const cantidadCalculada = calcularCantidadBraces(fb, tipoCalculado);
+      
+      // Actualizar las celdas correspondientes
+      const selectTipo = celdas[9]?.querySelector('select'); // Dropdown del tipo de brace
+      const celdaCantidad = celdas[10]; // Columna de cantidad
+      
+      if (selectTipo) {
+        selectTipo.value = tipoCalculado;
+        console.log(`[BRACES] Fila ${index + 1}: ALTO=${alto}, NPT=${npt}, FB=${fb} → Tipo: ${tipoCalculado}, Cantidad: ${cantidadCalculada}`);
+      }
+      
+      if (celdaCantidad) {
+        celdaCantidad.textContent = cantidadCalculada.toString();
+      }
+      
+      // Agregar a las actualizaciones para la BD
+      if (pid) {
+        actualizaciones.push({
+          pid: pid,
+          tipo_brace_seleccionado: tipoCalculado,
+          x_braces: cantidadCalculada,
+          factor_w2: 0.6
+        });
+      }
+      
+    } catch (error) {
+      console.error(`[BRACES] Error procesando fila ${index + 1}:`, error);
+    }
+  });
+  
+  // Guardar todas las actualizaciones en la base de datos
+  if (actualizaciones.length > 0) {
+    try {
+      console.log(`[BRACES] Guardando ${actualizaciones.length} actualizaciones en BD...`);
+      await guardarActualizacionesBraces(actualizaciones);
+      console.log('[BRACES] ✅ Actualizaciones guardadas en BD');
+    } catch (error) {
+      console.error('[BRACES] ❌ Error guardando en BD:', error);
+    }
+  }
+  
+  console.log('[BRACES] Recálculo completado en frontend');
+}
+
+// Función para guardar las actualizaciones en la base de datos
+async function guardarActualizacionesBraces(actualizaciones) {
+  const response = await fetch('/api/calculos/actualizar-braces-masivo', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ actualizaciones })
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Error ${response.status}: ${response.statusText}`);
+  }
+  
+  return await response.json();
 }

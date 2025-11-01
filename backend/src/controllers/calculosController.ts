@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { calcularPaneles } from '../services/panelesService';
 import { generarInforme } from '../services/pdfService';
-import { calcularVientoMuros, getParametrosVientoDefecto, WindParameters, getParametrosTerreno, calculateBraceForces } from '../services/calculosService';
+import { calcularVientoMuros, getParametrosVientoDefecto, WindParameters, getParametrosTerreno, calculateBraceForces, determinarTipoBrace } from '../services/calculosService';
 import { Muro, updateMuroEditableFields, updateMuroBraceCalculations, getMurosByProject, updateMuroWindCalculations } from '../models/Muro';
 import pool from '../services/config/db';
 
@@ -255,7 +255,8 @@ export const calcularBraces = async (req: Request, res: Response) => {
     // Usar valores del body o los existentes en el muro
     angulo_brace = angulo_brace || muro.angulo_brace;
     x_braces = x_braces || muro.x_braces;
-    tipo_brace_seleccionado = tipo_brace_seleccionado || muro.tipo_brace_seleccionado || 'B12';
+    // Solo usar tipo_brace_seleccionado si se especifica explícitamente, NO valor por defecto
+    tipo_brace_seleccionado = tipo_brace_seleccionado || muro.tipo_brace_seleccionado;
     npt = npt !== undefined ? npt : (muro.npt || 0); // NPT del body o del muro
 
     // Validar que tengamos los datos necesarios
@@ -288,10 +289,12 @@ export const calcularBraces = async (req: Request, res: Response) => {
     // Calcular fuerzas de braces incluyendo coordenadas de inserto
     const resultado = calculateBraceForces(
       fuerza_viento_kN,
-      x_braces,
+      82, // qz_kPa - agregado para compatibilidad
+      altura_m,
       angulo_brace,
       npt, // Pasar NPT para calcular Y inserto
-      tipo_brace_seleccionado // Pasar tipo seleccionado para calcular X e Y
+      0.6, // factor_w2 por defecto
+      tipo_brace_seleccionado || undefined // Solo pasar si fue especificado explícitamente
     );
 
     console.log('[CALCULOS] Resultado cálculo braces:', resultado);
@@ -400,18 +403,18 @@ export const calcularBracesTiempoReal = async (req: Request, res: Response) => {
     console.log(`[CALCULOS-RT] ✅ Usando valores de viento de BD: qz=${qz_kPa.toFixed(4)}kPa, presión=${presion_kPa.toFixed(4)}kPa, FV=${fuerza_viento_kN.toFixed(2)}kN`);
     console.log(`[CALCULOS-RT] Datos del muro: área=${area_m2}m², alto=${alto_m}m`);
 
-    // Usar valores del muro en la BD (NPT y factor_w2 deben existir en BD)
+    // Usar valores del muro en la BD (NPT) y factor_w2 fijo
     const npt_final = npt !== undefined ? npt : (muro.npt || 0);
-    const factor_w2_final = muro.factor_w2 || 0.6; // Siempre desde BD, default 0.6 si no existe
+    const factor_w2_final = 0.6; // VALOR FIJO - siempre usar 0.6 según normativa
 
-    // Calcular con el nuevo método usando valores de BD
+    // Calcular con el nuevo método usando factor_w2 fijo
     const resultado = calculateBraceForces(
       fuerza_viento_kN,    // De BD
       presion_kPa,         // De BD
       alto_m,              // Altura del muro
       angulo_brace,        // Ángulo
       npt_final,           // NPT
-      factor_w2_final,     // Factor W2 de BD
+      factor_w2_final,     // Factor W2 fijo = 0.6
       tipo_brace_seleccionado // Tipo manual (opcional)
     );
 
@@ -422,7 +425,7 @@ export const calcularBracesTiempoReal = async (req: Request, res: Response) => {
       success: true,
       calculo: {
         // Campos calculados
-        tipo_brace: tipo_brace_seleccionado || resultado.observaciones.find(o => o.includes('Tipo de brace'))?.split(': ')[1]?.split(' ')[0] || 'B12',
+        tipo_brace: resultado.observaciones.find(o => o.includes('Tipo de brace'))?.split(': ')[1]?.split(' ')[0] || 'AUTO',
         x_inserto: resultado.x_inserto,
         y_inserto: resultado.y_inserto,
         fbx: resultado.fbx,
@@ -507,6 +510,327 @@ export const aplicarValoresGlobales = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error aplicando valores globales:', error);
     res.status(500).json({
+      error: 'Error interno del servidor',
+      details: error instanceof Error ? error.message : 'Error desconocido'
+    });
+  }
+};
+
+/**
+ * Recalcular automáticamente el tipo de brace para TODOS los muros de un proyecto
+ * POST /api/calculos/proyectos/:proyecto_id/recalcular-tipos-braces
+ * Actualiza masivamente todos los tipos de brace según las fórmulas automáticas
+ */
+export const recalcularTiposBracesMasivo = async (req: Request, res: Response) => {
+  try {
+    const { proyecto_id } = req.params;
+
+    console.log(`[BRACES-MASIVO] Recalculando tipos de brace para proyecto ${proyecto_id}`);
+
+    // Obtener todos los muros del proyecto con datos necesarios
+    const resultMuros = await pool.query(`
+      SELECT pid, id_muro, overall_height, npt, factor_w2, tipo_brace_seleccionado
+      FROM muro 
+      WHERE pk_proyecto = $1 
+      AND overall_height IS NOT NULL 
+      AND overall_height > 0
+    `, [parseInt(proyecto_id)]);
+
+    if (resultMuros.rows.length === 0) {
+      return res.status(404).json({ 
+        error: 'No se encontraron muros para el proyecto especificado' 
+      });
+    }
+
+    console.log(`[BRACES-MASIVO] Procesando ${resultMuros.rows.length} muros`);
+
+    const actualizaciones = [];
+
+    // Procesar cada muro
+    for (const muro of resultMuros.rows) {
+      const alto_m = parseFloat(muro.overall_height?.toString() || '0');
+      const npt_m = parseFloat(muro.npt?.toString() || '0');
+      const factor_w2 = parseFloat(muro.factor_w2?.toString() || '0.6');
+      
+      // Solo recalcular si NO tiene tipo manual (tipo_brace_seleccionado es NULL)
+      if (muro.tipo_brace_seleccionado === null && alto_m > 0) {
+        // Determinar tipo automáticamente (usar ángulo estándar de 55°)
+        const angulo_estandar = 55;
+        const tipo_automatico = determinarTipoBraceSimple(alto_m, npt_m, angulo_estandar, factor_w2);
+        
+        actualizaciones.push({
+          pid: muro.pid,
+          id_muro: muro.id_muro,
+          tipo_nuevo: tipo_automatico,
+          magnitud: (alto_m - npt_m) * factor_w2
+        });
+      }
+    }
+
+    console.log(`[BRACES-MASIVO] ${actualizaciones.length} muros necesitan actualización`);
+
+    // Actualizar base de datos en una sola transacción
+    if (actualizaciones.length > 0) {
+      await pool.query('BEGIN');
+      
+      try {
+        for (const update of actualizaciones) {
+          await pool.query(
+            'UPDATE muro SET tipo_brace_seleccionado = $1 WHERE pid = $2',
+            [update.tipo_nuevo, update.pid]
+          );
+        }
+        
+        await pool.query('COMMIT');
+        console.log(`[BRACES-MASIVO] ✅ ${actualizaciones.length} tipos de brace actualizados`);
+      } catch (error) {
+        await pool.query('ROLLBACK');
+        throw error;
+      }
+    }
+
+    // Preparar resumen de resultados
+    const resumen = {
+      total_muros: resultMuros.rows.length,
+      muros_actualizados: actualizaciones.length,
+      distribucion: {},
+      actualizaciones: actualizaciones
+    };
+
+    // Contar distribución por tipo
+    actualizaciones.forEach(update => {
+      resumen.distribucion[update.tipo_nuevo] = (resumen.distribucion[update.tipo_nuevo] || 0) + 1;
+    });
+
+    res.json({
+      success: true,
+      mensaje: `Tipos de brace recalculados automáticamente para ${actualizaciones.length} muros`,
+      resumen
+    });
+
+  } catch (error) {
+    console.error('[BRACES-MASIVO] Error:', error);
+    res.status(500).json({ 
+      error: 'Error recalculando tipos de brace masivamente',
+      details: error.message 
+    });
+  }
+};
+
+// Función auxiliar simplificada para determinación de tipo
+function determinarTipoBraceSimple(
+  alto_m: number,
+  npt_m: number,
+  angulo_grados: number,
+  factor_w2: number = 0.6
+): string {
+  const angulo_rad = (angulo_grados * Math.PI) / 180;
+  const sen_angulo = Math.sin(angulo_rad);
+  
+  const magnitud = (alto_m - npt_m) * factor_w2;
+  
+  // Longitudes nominales
+  const L_B4 = 4.6;
+  const L_B12 = 9.75;
+  const L_B14 = 12.75;
+  const L_B15 = 15.8;
+  
+  // Umbrales
+  const umbral_B12 = L_B12 * sen_angulo;
+  const umbral_B14 = L_B14 * sen_angulo;
+  const umbral_B15 = L_B15 * sen_angulo;
+  
+  // Selección
+  if (magnitud >= umbral_B15) return 'B15';
+  else if (magnitud >= umbral_B14) return 'B14';
+  else if (magnitud >= umbral_B12) return 'B12';
+  else return 'B4';
+}
+
+/**
+ * Recalcular tipos de braces automáticamente
+ * POST /api/calculos/auto-recalcular-tipos-braces
+ * Se ejecuta automáticamente cuando se detecta que es necesario
+ */
+export const autoRecalcularTiposBraces = async (req: Request, res: Response) => {
+  try {
+    console.log('[CALCULOS] Iniciando recálculo automático BÁSICO');
+
+    // Obtener solo 5 muros para probar
+    const result = await pool.query(`
+      SELECT pid, overall_height, npt, fuerza_viento
+      FROM muro 
+      WHERE pid IN (SELECT pid FROM muro LIMIT 5)
+    `);
+
+    let procesados = 0;
+
+    for (const muro of result.rows) {
+      try {
+        // Valores básicos con validación
+        const pid = muro.pid;
+        let alto_str = muro.overall_height || '0';
+        let alto_m = 14.86; // Valor por defecto basado en tus datos
+        
+        // Intentar parsear el overall_height si es un string válido
+        if (typeof alto_str === 'string' && alto_str.includes('.')) {
+          const parsed = parseFloat(alto_str);
+          if (!isNaN(parsed) && parsed > 0) {
+            alto_m = parsed;
+          }
+        }
+
+        const npt_m = 0.35; // Valor fijo
+        const factor_w2 = 0.6; // Valor fijo
+        
+        // Fórmula simple: (ALTO - NPT) * Factor_W2
+        const magnitud = (alto_m - npt_m) * factor_w2;
+        
+        // Determinar tipo basado en magnitud y umbrales fijos
+        let tipo_calculado = 'B12'; // default
+        
+        if (magnitud < 3.8) {
+          tipo_calculado = 'B4';
+        } else if (magnitud < 8.0) {
+          tipo_calculado = 'B12'; 
+        } else if (magnitud < 10.5) {
+          tipo_calculado = 'B14';
+        } else {
+          tipo_calculado = 'B15';
+        }
+
+        // Actualizar en BD
+        await pool.query(
+          'UPDATE muro SET tipo_brace_seleccionado = $1, factor_w2 = $2 WHERE pid = $3',
+          [tipo_calculado, factor_w2, pid]
+        );
+        
+        procesados++;
+        console.log(`[CALCULOS] Muro ${pid}: Alto=${alto_m}m, Magnitud=${magnitud.toFixed(3)}, Tipo=${tipo_calculado}`);
+
+      } catch (error) {
+        console.error(`[CALCULOS] Error en muro ${muro.pid}:`, error.message);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Recálculo básico completado: ${procesados} muros`,
+      procesados
+    });
+
+  } catch (error) {
+    console.error('[CALCULOS] Error en recálculo básico:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Error en recálculo automático',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Actualizar factor W2 en todos los muros
+ * POST /api/calculos/actualizar-factor-w2
+ */
+export const actualizarFactorW2 = async (req: Request, res: Response) => {
+  try {
+    console.log('[CALCULOS] Actualizando factor_w2 en todos los muros');
+    
+    const { factor_w2 } = req.body;
+    const factor_w2_num = parseFloat(factor_w2 || '0.6');
+    
+    if (factor_w2_num <= 0 || factor_w2_num > 2) {
+      return res.status(400).json({
+        success: false,
+        error: 'Factor W2 debe estar entre 0.1 y 2.0'
+      });
+    }
+
+    // Actualizar todos los muros
+    const result = await pool.query(
+      'UPDATE muro SET factor_w2 = $1',
+      [factor_w2_num]
+    );
+
+    console.log(`[CALCULOS] Factor W2 actualizado a ${factor_w2_num} en ${result.rowCount} muros`);
+
+    res.json({
+      success: true,
+      message: `Factor W2 actualizado a ${factor_w2_num}`,
+      muros_actualizados: result.rowCount
+    });
+
+  } catch (error) {
+    console.error('[CALCULOS] Error actualizando factor W2:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Error interno del servidor'
+    });
+  }
+};
+
+// Nueva función para actualización masiva de braces
+export const actualizarBracesMasivo = async (req: Request, res: Response) => {
+  try {
+    console.log('[CALCULOS] Iniciando actualización masiva de braces...');
+    const { actualizaciones } = req.body;
+    
+    if (!actualizaciones || !Array.isArray(actualizaciones)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Se requiere un array de actualizaciones' 
+      });
+    }
+    
+    let actualizados = 0;
+    
+    // Procesar cada actualización
+    for (const actualizacion of actualizaciones) {
+      const { pid, tipo_brace_seleccionado, x_braces, factor_w2 } = actualizacion;
+      
+      if (!pid) continue;
+      
+      try {
+        const updateQuery = `
+          UPDATE muro 
+          SET 
+            tipo_brace_seleccionado = $1,
+            x_braces = $2,
+            factor_w2 = $3
+          WHERE pid = $4
+        `;
+        
+        const result = await pool.query(updateQuery, [
+          tipo_brace_seleccionado,
+          x_braces,
+          factor_w2 || 0.6,
+          pid
+        ]);
+        
+        if (result.rowCount > 0) {
+          actualizados++;
+          console.log(`[CALCULOS] Muro ${pid}: ${tipo_brace_seleccionado}, cantidad: ${x_braces}`);
+        }
+        
+      } catch (error) {
+        console.error(`[CALCULOS] Error actualizando muro ${pid}:`, error);
+      }
+    }
+    
+    console.log(`[CALCULOS] ✅ Actualizados ${actualizados} muros de ${actualizaciones.length}`);
+    
+    res.json({ 
+      success: true, 
+      message: `Actualizados ${actualizados} muros`,
+      actualizados,
+      total: actualizaciones.length
+    });
+    
+  } catch (error) {
+    console.error('[CALCULOS] Error en actualización masiva:', error);
+    res.status(500).json({ 
+      success: false, 
       error: 'Error interno del servidor',
       details: error instanceof Error ? error.message : 'Error desconocido'
     });

@@ -3,6 +3,7 @@ import importRoutes from './import';
 import calculosRoutes from './calculosRoutes';
 import pdfRoutes from './pdfRoutes';
 import panelesRoutes from './panelesRoutes';
+import projectRoutes from './projectRoutes';
 
 const router = Router();
 
@@ -41,5 +42,11 @@ router.use('/paneles', (req, res, next) => {
   console.log('[routes - index] Redirigiendo a /paneles');
   next();
 }, panelesRoutes);
+
+// Rutas de proyecto
+router.use('/proyecto', (req, res, next) => {
+  console.log('[ROUTES - index] Redirigiendo a /proyecto');
+  next();
+}, projectRoutes);
 
 export default router;

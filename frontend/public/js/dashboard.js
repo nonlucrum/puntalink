@@ -492,7 +492,8 @@ export async function handleGenerarPDF(elements, globalVars) {
     // Datos editables de braces
     const angulo = parseFloat(row.querySelector('[data-field="angulo_brace"]')?.value) || 55;
     const npt = parseFloat(row.querySelector('[data-field="npt"]')?.value) || 0.350;
-    const tipoBrace = row.querySelector('[data-field="tipo_brace_seleccionado"]')?.value || 'B12';
+    const tipoBraceInput = row.querySelector('[data-field="tipo_brace_seleccionado"]')?.value;
+    const tipoBrace = tipoBraceInput && tipoBraceInput !== '' ? tipoBraceInput : undefined; // Solo enviar si fue seleccionado
     const xBraces = parseInt(row.querySelector('[data-field="x_braces"]')?.value) || 2;
     
     // Valores calculados
@@ -589,3 +590,88 @@ export async function handleGenerarPDF(elements, globalVars) {
     console.log('[DASHBOARD] Botón PDF rehabilitado');
   }
 }
+
+// Función para recalcular automáticamente todos los tipos de brace
+async function recalcularTiposBracesMasivo() {
+  try {
+    const projectConfig = localStorage.getItem('projectConfig');
+    if (!projectConfig) {
+      alert('No hay proyecto seleccionado');
+      return;
+    }
+
+    const proyecto = JSON.parse(projectConfig);
+    console.log('[DASHBOARD] Recalculando tipos de brace para proyecto:', proyecto.pid);
+
+    const confirmacion = confirm(
+      '¿Deseas recalcular automáticamente el tipo de brace para TODOS los muros?\n\n' +
+      'Esto aplicará las fórmulas automáticas basadas en:\n' +
+      '• (ALTO - NPT) × FACTOR_W2\n' +
+      '• Comparación con umbrales por longitud de brace\n\n' +
+      'Solo se actualizarán muros SIN tipo manual especificado.'
+    );
+
+    if (!confirmacion) return;
+
+    const response = await fetch(`${API_BASE}/api/calculos/proyectos/${proyecto.pid}/recalcular-tipos-braces`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      alert(
+        `✅ ${result.mensaje}\n\n` +
+        `📊 Resumen:\n` +
+        `• Total muros: ${result.resumen.total_muros}\n` +
+        `• Muros actualizados: ${result.resumen.muros_actualizados}\n` +
+        `• Distribución: ${JSON.stringify(result.resumen.distribucion, null, 2)}`
+      );
+      
+      // Recargar la tabla de braces
+      location.reload();
+    } else {
+      alert('Error: ' + (result.error || 'Error desconocido'));
+    }
+
+  } catch (error) {
+    console.error('[DASHBOARD] Error recalculando tipos de brace:', error);
+    alert('Error ejecutando recálculo masivo: ' + error.message);
+  }
+}
+
+/**
+ * Recalcular automáticamente tipos de braces si es necesario
+ */
+async function autoRecalcularTiposBraces() {
+  try {
+    console.log('[DASHBOARD] Verificando si necesita recálculo automático de tipos');
+    
+    const response = await fetch(`${API_BASE}/api/calculos/auto-recalcular-tipos-braces`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const result = await response.json();
+    
+    if (result.success && result.procesados > 0) {
+      console.log(`[DASHBOARD] Recálculo automático completado: ${result.procesados} muros actualizados`);
+      return true; // Indica que hubo cambios
+    } else {
+      console.log('[DASHBOARD] No se necesitó recálculo automático');
+      return false; // No hubo cambios
+    }
+
+  } catch (error) {
+    console.error('[DASHBOARD] Error en recálculo automático:', error);
+    return false;
+  }
+}
+
+// Exponer funciones globalmente
+window.autoRecalcularTiposBraces = autoRecalcularTiposBraces;

@@ -831,11 +831,11 @@ export function calcularInsertoCoordinates(
  * - B14: 2360 kN
  * - B15: 1723 kN
  */
-function determinarTipoBrace(
+export function determinarTipoBrace(
   alto_m: number,
   npt_m: number,
   angulo_grados: number,
-  factor_w2: number = 1.0
+  factor_w2: number = 0.6
 ): string {
   // Convertir ángulo a radianes
   const angulo_rad = (angulo_grados * Math.PI) / 180;
@@ -896,7 +896,7 @@ export function calculateBraceForces(
   alto_m: number,           // Nueva: altura del muro
   angulo_grados: number,
   npt: number = 0,
-  factor_w2: number = 1.0,
+  factor_w2: number = 0.6,
   tipo_manual?: string      // Opcional: tipo especificado manualmente
 ): BraceCalculationResult {
   const observaciones: string[] = [];
@@ -1017,12 +1017,12 @@ export function calculateBraceForces(
   console.log(`  - FBy: ${fb.toFixed(2)} * sen(${angulo_grados}°) = ${fby.toFixed(2)} kN`);
 
   // 8. Calcular cantidad de braces
-  // Criterio: max(2, ceil(FBx / Capacidad_tipo))
-  const cant_calculada = Math.ceil(fbx / capacidad_brace);
+  // Criterio: max(2, ceil(FB total / Capacidad_tipo))
+  const cant_calculada = Math.ceil(fb / capacidad_brace);
   const cant_braces = Math.max(2, cant_calculada);
-  console.log(`  - Cantidad: max(2, ceil(${fbx.toFixed(2)} / ${capacidad_brace})) = ${cant_braces}`);
+  console.log(`  - Cantidad: max(2, ceil(${fb.toFixed(2)} / ${capacidad_brace})) = ${cant_braces}`);
 
-  observaciones.push(`Demanda: ${fbx.toFixed(2)} kN, Capacidad ${tipo_brace}: ${capacidad_brace} kN`);
+  observaciones.push(`Demanda: ${fb.toFixed(2)} kN, Capacidad ${tipo_brace}: ${capacidad_brace} kN`);
   observaciones.push(`Cantidad de braces: ${cant_braces} (mínimo 2 por criterio de seguridad)`);
 
   // Verificaciones de ángulo

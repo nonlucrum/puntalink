@@ -7,7 +7,11 @@ import {
   actualizarCamposEditables,
   calcularBraces,
   calcularBracesTiempoReal,
-  aplicarValoresGlobales
+  aplicarValoresGlobales,
+  recalcularTiposBracesMasivo,
+  autoRecalcularTiposBraces,
+  actualizarFactorW2,
+  actualizarBracesMasivo
 } from '../controllers/calculosController';
 
 const router = Router();
@@ -35,5 +39,17 @@ router.post('/muros/:pid/calcular-braces-tiempo-real', calcularBracesTiempoReal)
 
 // Aplicar valores globales de ángulo y NPT a todos los muros de un proyecto
 router.post('/proyectos/:pk_proyecto/aplicar-globales', aplicarValoresGlobales);
+
+// Recalcular automáticamente tipos de brace para todos los muros de un proyecto
+router.post('/proyectos/:proyecto_id/recalcular-tipos-braces', recalcularTiposBracesMasivo);
+
+// Recalcular automáticamente tipos de braces (sin parámetros de proyecto)
+router.post('/auto-recalcular-tipos-braces', autoRecalcularTiposBraces);
+
+// Actualizar factor W2 en todos los muros
+router.post('/actualizar-factor-w2', actualizarFactorW2);
+
+// Actualización masiva de braces (tipo y cantidad)
+router.post('/actualizar-braces-masivo', actualizarBracesMasivo);
 
 export default router;

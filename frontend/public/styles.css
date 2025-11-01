@@ -215,6 +215,17 @@ input:focus, select:focus, textarea:focus{
 .btn--ghost:hover{
   background: color-mix(in srgb, var(--primary) 12%, transparent);
 }
+.btn--tertiary{
+  background: #f8f9fa;
+  color: #6c757d;
+  border: 1px solid #dee2e6;
+  font-size: 0.875rem;
+}
+.btn--tertiary:hover{
+  background: #e9ecef;
+  border-color: #adb5bd;
+  color: #495057;
+}
 
 /* ====== Table ====== */
 .table-wrap{ width: 100%; overflow: auto; }

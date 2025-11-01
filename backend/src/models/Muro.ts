@@ -81,7 +81,7 @@ export async function addMuro(
 
   const values = [
     pk_proyecto, num, id_muro, grosor, area, peso, volumen, overall_height || "S/N",
-    angulo_brace || null, npt || null, tipo_brace_seleccionado || 'B12', factor_w2 || 1.0,
+    angulo_brace || null, npt || null, tipo_brace_seleccionado || null, factor_w2 || 0.6,
     x_braces || 0, fbx || 0, fby || 0, fb || 0, x_inserto || 0, y_inserto || 0,
     cant_b14 || 0, cant_b12 || 0, cant_b04 || 0, cant_b15 || 0, muertos || 1, tipo_construccion || 'TILT-UP'
   ];
