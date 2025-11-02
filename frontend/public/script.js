@@ -110,6 +110,9 @@ async function refreshMeUI() {
         if (user.picture) { pic.src = user.picture; pic.style.display = ''; }
         else { pic.style.display = 'none'; }
       }
+      if (window.location.pathname === "/") {
+        await loadPreviousProjects(user.uid);
+        }
     } else {
       AuthState.user = null;
       localStorage.removeItem('user');
@@ -174,8 +177,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (window.location.pathname === "/") {
     // Cargar proyectos anteriores en index solo si hay sesión
     const user = AuthState.user || JSON.parse(localStorage.getItem('user') || 'null');
-    if (user && user.id) {
-      loadPreviousProjects(user.id);
+    console.log('[FRONTEND] Usuario actual:', user);
+    if (user && user.uid) {
+      loadPreviousProjects(user.uid);
     }
   }
   
@@ -386,6 +390,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const formData = new FormData(form);
         const projectData = {
           nombreProyecto: formData.get('nombreProyecto'),
+          id_usuario: AuthState.user.uid,
           empresaConstructora: formData.get('empresaConstructora'),
           tipoMuerto: formData.get('tipoMuerto'),
           velViento: formData.get('velViento'),

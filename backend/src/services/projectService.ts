@@ -7,7 +7,7 @@ export async function crearProyectoService(projectData: any) {
     console.log('[service - projectService] crearProyecto - Datos recibidos:', projectData);
     try {
         const nuevoProyecto = await addProject(
-            1, // pk_usuario temporal
+            projectData.id_usuario,
             projectData.nombreProyecto,
             projectData.empresaConstructora,
             projectData.tipoMuerto,
