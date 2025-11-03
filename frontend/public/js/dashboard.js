@@ -473,7 +473,7 @@ export async function handleGenerarPDF(elements, globalVars) {
   const { btnInforme } = elements;
   
   // Verificar si hay resultados de viento (ya no usamos paneles)
-  if (!globalVars.resultadosViento || globalVars.resultadosViento.length === 0) {
+  if (!globalVars.resultadosTomoIII || globalVars.resultadosTomoIII.length === 0) {
     alert('No hay resultados de cálculos. Por favor calcula las cargas de viento primero.');
     console.log('[DASHBOARD] No hay resultados de viento para generar informe');
     return;
@@ -509,8 +509,8 @@ export async function handleGenerarPDF(elements, globalVars) {
     const cantB04 = parseInt(row.querySelector(`.cant-b04[data-pid="${pid}"]`)?.textContent) || 0;
     const cantB15 = parseInt(row.querySelector(`.cant-b15[data-pid="${pid}"]`)?.textContent) || 0;
     
-    // Buscar el muro original en resultadosViento para obtener datos de viento
-    const muroOriginal = globalVars.resultadosViento.find(m => m.pid === parseInt(pid));
+    // Buscar el muro original en panelesActuales para obtener datos de viento
+    const muroOriginal = globalVars.resultadosTomoIII.find(m => m.pid === parseInt(pid));
     
     if (muroOriginal) {
       murosConBraces.push({
@@ -555,6 +555,10 @@ export async function handleGenerarPDF(elements, globalVars) {
   
   try {
     console.log('[DASHBOARD] Enviando petición POST a /api/paneles/pdf');
+    console.log('[DASHBOARD] Payload:', { 
+      paneles: murosConBraces,
+      projectInfo: projectInfo
+    });
     const resp = await fetch(`${API_BASE}/api/paneles/pdf`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

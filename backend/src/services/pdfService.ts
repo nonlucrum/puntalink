@@ -7,11 +7,17 @@ interface PanelCalculado {
   volumen_m3: number;
   peso_kN: number;
   grua_min_kN_aprox: number;
-  viento_kN: number;
+  fuerza_kN: number;
   traccion_puntal_kN_aprox: number;
   // Información adicional para el PDF
-  grosor_mm?: number;
-  area_m2?: number;
+  grosor?: number;
+  area?: number;
+  grados_inclinacion_brace?: number;
+  modelo_brace?: string;
+    fbx?: number;
+    fby?: number;
+    fb?: number;
+    total_braces?: number;
 }
 
 // Función para convertir entre formatos
@@ -21,10 +27,10 @@ function convertirPanelParaPDF(panel: PanelCalculadoPaneles): PanelCalculado {
     volumen_m3: panel.volumen_m3,
     peso_kN: panel.peso_kN,
     grua_min_kN_aprox: panel.gruaMin_kN,
-    viento_kN: panel.viento_kN,
+    fuerza_kN: panel.fuerza_kN,
     traccion_puntal_kN_aprox: panel.traccionPuntal_kN,
-    grosor_mm: panel.grosor_mm,
-    area_m2: panel.area_m2
+    grosor: panel.grosor,
+    area: panel.area
   };
 }
 
@@ -238,7 +244,7 @@ function crearPaginasCalculos(doc: any, paneles: PanelCalculado[]) {
   // Encabezados de tabla
   const tableTop = currentY;
   const colWidths = [60, 80, 70, 70, 80, 80, 80];
-  const headers = ['Panel', 'Grosor (mm)', 'Área (m²)', 'Vol. (m³)', 'Peso (kN)', 'Viento (kN)', 'Grúa (kN)'];
+  const headers = ['Panel', 'Ángulo (°)', 'Tipo Brace', 'FBx (kN)', 'FBy (kN)', 'FB (kN)', 'Cantidad'];
   
   doc.fontSize(10).fillColor('#2E86AB');
   let xPos = 50;
@@ -267,12 +273,12 @@ function crearPaginasCalculos(doc: any, paneles: PanelCalculado[]) {
     xPos = 50;
     const rowData = [
       panel.id_muro || 'N/A',
-      panel.grosor_mm ? panel.grosor_mm.toString() : 'N/A',
-      panel.area_m2 ? parseFloat(panel.area_m2.toString()).toFixed(2) : 'N/A',
-      (panel.volumen_m3 || 0).toFixed(2),
-      (panel.peso_kN || 0).toFixed(2),
-      (panel.viento_kN || 0).toFixed(2),
-      (panel.grua_min_kN_aprox || 0).toFixed(2)
+      panel.grados_inclinacion_brace || null,
+      panel.modelo_brace || 'N/A',
+      panel.fbx || 'N/A',
+      panel.fby || 'N/A',
+      panel.fb || 'N/A',
+      panel.total_braces || 'N/A'
     ];
     
     rowData.forEach((data, j) => {

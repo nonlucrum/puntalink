@@ -207,7 +207,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const globalVars = {
     projectData: [],
     panelesActuales: [],
-    resultadosActuales: []
+    resultadosActuales: [],
+    resultadosTomoIII: []
   };
   
   // Hacer globalVars accesible globalmente para funciones de viento
@@ -560,6 +561,7 @@ async function calcularCargasViento() {
 
     if (data.success && data.resultados) {
       mostrarResultadosViento(data);
+      globalVars.resultadosTomoIII = data.resultados;
     } else {
       throw new Error(data.error || 'Error desconocido en el cálculo');
     }
@@ -870,6 +872,9 @@ async function mostrarResultadosViento(data) {
 
   // Scroll hacia los resultados
   resultadosViento.scrollIntoView({ behavior: 'smooth' });
+
+  btnInforme.style.display = '';
+  btnInforme.disabled = false;
 }
 
 /**
