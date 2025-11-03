@@ -16,6 +16,7 @@ export interface Muro {
   npt?: number;            // Nivel de Piso Terminado (m) - Manual
   tipo_brace_seleccionado?: string; // Tipo de brace seleccionado (B4, B12, B14, B15) - Manual
   factor_w2?: number;      // Factor W2 para cálculo de tipo de brace
+  eje?: string;            // Eje del panel (A, B, C, etc.) - Manual
   
   // Campos de viento calculados (desde calcularVientoMuros)
   qz_kpa?: number;         // Presión dinámica de viento (kPa)
@@ -128,16 +129,16 @@ export async function updateMuroEditableFields(
   x_braces?: number,
   tipo_construccion?: string,
   tipo_brace_seleccionado?: string,
-  factor_w2?: number
+  eje?: string
 ) {
   const query = `
     UPDATE muro
-    SET angulo_brace = $2, npt = $3, x_braces = $4, tipo_construccion = $5, tipo_brace_seleccionado = $6, factor_w2 = $7
+    SET angulo_brace = $2, npt = $3, x_braces = $4, tipo_construccion = $5, tipo_brace_seleccionado = $6, eje = $7
     WHERE pid = $1
     RETURNING *;
   `;
 
-  const values = [pid, angulo_brace, npt, x_braces, tipo_construccion, tipo_brace_seleccionado, factor_w2];
+  const values = [pid, angulo_brace, npt, x_braces, tipo_construccion, tipo_brace_seleccionado, eje];
 
   try {
     const result = await pool.query(query, values);

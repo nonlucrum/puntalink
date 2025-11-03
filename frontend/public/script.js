@@ -437,6 +437,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnRecargarBraces = document.getElementById('btnRecargarBraces');
   const btnAplicarGlobales = document.getElementById('btnAplicarGlobales');
 
+  // ===== ELEMENTOS PARA EJES POR RANGOS =====
+  const btnAgregarRango = document.getElementById('btnAgregarRango');
+  const btnAutoGenerarRangos = document.getElementById('btnAutoGenerarRangos');
+  const btnAplicarEjesRango = document.getElementById('btnAplicarEjesRango');
+
   // ===== CONFIGURAR EVENTOS PARA CÁLCULO DE VIENTO =====
   if (btnCalcularViento) {
     btnCalcularViento.addEventListener('click', calcularCargasViento);
@@ -456,6 +461,19 @@ document.addEventListener('DOMContentLoaded', () => {
   
   if (btnAplicarGlobales) {
     btnAplicarGlobales.addEventListener('click', aplicarValoresGlobales);
+  }
+
+  // ===== CONFIGURAR EVENTOS PARA EJES POR RANGOS =====
+  if (btnAgregarRango) {
+    btnAgregarRango.addEventListener('click', agregarNuevoRango);
+  }
+
+  if (btnAutoGenerarRangos) {
+    btnAutoGenerarRangos.addEventListener('click', autoGenerarRangos);
+  }
+
+  if (btnAplicarEjesRango) {
+    btnAplicarEjesRango.addEventListener('click', aplicarEjesPorRango);
   }
 
   // ===== INICIALIZACIÓN =====
@@ -583,12 +601,28 @@ async function calcularCargasViento() {
 async function mostrarResultadosViento(data) {
   console.log('[WIND] Mostrando resultados de viento');
   
+  // Normalizar data - puede venir como array directo o como objeto con propiedad resultados
+  let resultados;
+  if (Array.isArray(data)) {
+    resultados = data;
+  } else if (data && Array.isArray(data.resultados)) {
+    resultados = data.resultados;
+  } else {
+    console.error('[WIND] Formato de data inválido:', data);
+    return;
+  }
+  
+  console.log(`[WIND] Procesando ${resultados.length} resultados`);
+  
   const resultadosViento = document.getElementById('resultadosViento');
   const tablaResultados = document.getElementById('tablaResultadosViento');
   const detalleCalculos = document.getElementById('detalleCalculosViento');
 
   // Mostrar la sección de resultados
   resultadosViento.style.display = 'block';
+
+  // Mostrar panel de asignación de ejes si no existe
+  mostrarPanelAsignacionEjes();
 
   // Obtener valores globales para braces
   const anguloGlobal = parseFloat(document.getElementById('angulo_global')?.value) || 55;
@@ -603,7 +637,7 @@ async function mostrarResultadosViento(data) {
           <th rowspan="2">Muro</th>
           <th colspan="5" style="background: #e3f2fd;">Datos del Muro</th>
           <th colspan="4" style="background: #fff3e0;">Cálculos de Viento</th>
-          <th colspan="4" style="background: #f3e5f5;">Parámetros Braces (Editables)</th>
+          <th colspan="5" style="background: #f3e5f5;">Parámetros Braces (Editables)</th>
           <th colspan="3" style="background: #e8f5e9;">Geometría Inserto</th>
           <th colspan="4" style="background: #fce4ec;">Fuerzas y Cantidad</th>
         </tr>
@@ -623,6 +657,7 @@ async function mostrarResultadosViento(data) {
           <th style="background: #f3e5f5;">Tipo</th>
           <th style="background: #f3e5f5;">Ángulo (°)</th>
           <th style="background: #f3e5f5;">NPT (m)</th>
+          <th style="background: #f3e5f5;">Eje</th>
           <th style="background: #f3e5f5;">Factor W2</th>
           <!-- Geometría -->
           <th style="background: #e8f5e9;">X (m)</th>
@@ -638,7 +673,7 @@ async function mostrarResultadosViento(data) {
       <tbody id="tablaUnificadaBody">
   `;
 
-  data.resultados.forEach(resultado => {
+  resultados.forEach((resultado, index) => {
     const pid = resultado.pid || 0;
     const idMuro = resultado.id_muro;
     
@@ -686,6 +721,10 @@ async function mostrarResultadosViento(data) {
           <input type="number" class="input-editable input-calculo-rt" data-pid="${pid}" data-field="npt" 
                  value="${nptInicial.toFixed(3)}" step="0.001" style="width: 70px;">
         </td>
+        <td>
+          <input type="text" class="input-editable input-calculo-rt" data-pid="${pid}" data-field="eje" 
+                 value="${resultado.eje || resultado.id_muro || `Eje_${index + 1}`}" style="width: 80px;">
+        </td>
         <td style="background: #f8f9fa; font-weight: 600; color: #000;">
           0.6
         </td>
@@ -709,9 +748,30 @@ async function mostrarResultadosViento(data) {
     </table>
   `;
 
-  tablaResultados.innerHTML = htmlTabla;
+  // Insertar botón de guardado antes de la tabla
+  const htmlConBotones = `
+    <!-- Botón de guardado posicionado arriba de la tabla -->
+    <div class="table-controls" style="margin-bottom: 1rem; padding: 0.75rem; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; display: flex; gap: 1rem; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+      <button id="btnGuardarTodosBracesTop" class="btn btn--primary" title="Guardar todos los cambios realizados en la tabla" style="font-weight: bold;">
+        💾 Guardar Todos los Cambios de Braces
+      </button>
+      <span class="help-text" style="color: #6c757d; font-size: 0.9em; font-style: italic;">
+        💡 Recuerda guardar después de editar los valores en la tabla para que se reflejen en la reagrupación
+      </span>
+    </div>
+    ${htmlTabla}
+  `;
+
+  tablaResultados.innerHTML = htmlConBotones;
   
-  console.log('[BRACES] Tabla HTML insertada');
+  console.log('[BRACES] Tabla HTML insertada con botón de guardado arriba');
+  
+  // Configurar evento del nuevo botón de guardado
+  const btnGuardarTop = document.getElementById('btnGuardarTodosBracesTop');
+  if (btnGuardarTop) {
+    btnGuardarTop.addEventListener('click', guardarTodosBraces);
+    console.log('[BRACES] Evento configurado para botón de guardado superior');
+  }
   
   // Esperar un momento para que el DOM se actualice
   await new Promise(resolve => setTimeout(resolve, 100));
@@ -748,7 +808,7 @@ async function mostrarResultadosViento(data) {
   // Crear detalle de cálculos
   let htmlDetalle = '';
   
-  data.resultados.forEach(resultado => {
+  resultados.forEach(resultado => {
     htmlDetalle += `
       <div class="calculation-detail">
         <div class="calculation-detail-header" onclick="toggleCalculationDetail(this)">
@@ -862,6 +922,13 @@ async function mostrarResultadosViento(data) {
   });
 
   detalleCalculos.innerHTML = htmlDetalle;
+
+  // Generar tabla agrupada por 'muertos' basada en resultados
+  try {
+    renderTablaMuertos(data.resultados || []);
+  } catch (err) {
+    console.error('[MUERTOS] Error generando tabla de muertos:', err);
+  }
 
   // Mostrar el panel de configuración de braces después del primer cálculo
   const bracesConfigPanel = document.getElementById('bracesConfigPanel');
@@ -1033,57 +1100,207 @@ async function guardarTodosBraces() {
   console.log('[BRACES] Guardando todos los cambios...');
   if (!requireAuthOrWarn()) return;
   
-  const rows = document.querySelectorAll('#tablaUnificadaBody tr[data-pid]');
+  // Buscar en ambas tablas: la unificada antigua y la nueva de braces
+  const rowsUnificada = document.querySelectorAll('#tablaUnificadaBody tr[data-pid]');
+  const rowsBraces = document.querySelectorAll('#tablaBracesBody tr[data-pid]');
+  
+  console.log(`[DEBUG] Guardado - rowsBraces.length: ${rowsBraces.length}, rowsUnificada.length: ${rowsUnificada.length}`);
+  
+  // También intentar otros posibles IDs de tabla de braces
+  const rowsAlt1 = document.querySelectorAll('#tablaBraces tr[data-pid]');
+  const rowsAlt2 = document.querySelectorAll('#tablaResultados tr[data-pid]');
+  const rowsAlt3 = document.querySelectorAll('#tabla-braces tr[data-pid]');
+  
+  console.log(`[DEBUG] Guardado Alt: rowsAlt1=${rowsAlt1.length}, rowsAlt2=${rowsAlt2.length}, rowsAlt3=${rowsAlt3.length}`);
+  
+  // Usar la tabla que tenga datos, priorizando la de braces
+  let rows = rowsUnificada;
+  let isTablaUnificada = true;
+  let tipoTabla = 'tabla unificada';
+  
+  if (rowsBraces.length > 0) {
+    rows = rowsBraces;
+    isTablaUnificada = false;
+    tipoTabla = 'tabla braces (tablaBracesBody)';
+  } else if (rowsAlt1.length > 0) {
+    rows = rowsAlt1;
+    isTablaUnificada = false;
+    tipoTabla = 'tabla braces (tablaBraces)';
+  } else if (rowsAlt2.length > 0) {
+    rows = rowsAlt2;
+    isTablaUnificada = false;
+    tipoTabla = 'tabla braces (tablaResultados)';
+  } else if (rowsAlt3.length > 0) {
+    rows = rowsAlt3;
+    isTablaUnificada = false;
+    tipoTabla = 'tabla braces (tabla-braces)';
+  }
+  
+  console.log(`[BRACES] Guardando desde ${tipoTabla}, ${rows.length} filas`);
+  
+  if (rows.length === 0) {
+    if (mostrarNotificacion) {
+      mostrarNotificacion('No hay datos para guardar', 'warning');
+    } else {
+      alert('No hay datos para guardar');
+    }
+    return;
+  }
+  
   let exitosos = 0;
   let errores = 0;
+  
+  // Mostrar indicador de progreso
+  const progressMsg = document.createElement('div');
+  progressMsg.id = 'progress-save';
+  progressMsg.style.cssText = 'position:fixed; top:10px; right:10px; background:#007acc; color:white; padding:10px; border-radius:5px; z-index:9999;';
+  progressMsg.textContent = 'Guardando cambios...';
+  document.body.appendChild(progressMsg);
   
   for (const row of rows) {
     const pid = row.dataset.pid;
     
     try {
-      // Obtener valores de la fila
-      const tipoBrace = row.querySelector('[data-field="tipo_brace"]').value;
-      const angulo = parseFloat(row.querySelector('[data-field="angulo"]').value);
-      const npt = parseFloat(row.querySelector('[data-field="npt"]').value);
+      let tipoBrace, angulo, npt, xBraces, eje;
+      
+      if (isTablaUnificada) {
+        // Debug: verificar qué campos están disponibles en la fila
+        const allInputs = row.querySelectorAll('input, select');
+        console.log(`[DEBUG] PID ${pid} - Campos disponibles en fila:`, 
+          Array.from(allInputs).map(input => ({
+            type: input.type || input.tagName,
+            dataField: input.dataset.field,
+            name: input.name,
+            value: input.value
+          }))
+        );
+        
+        // Selectores para tabla unificada antigua
+        const tipoBraceInput = row.querySelector('[data-field="tipo_brace"]');
+        const anguloInput = row.querySelector('[data-field="angulo"]');
+        const nptInput = row.querySelector('[data-field="npt"]');
+        const ejeInput = row.querySelector('[data-field="eje"]');
+        
+        console.log(`[DEBUG] PID ${pid} - Inputs encontrados:`, {
+          tipoBrace: !!tipoBraceInput,
+          angulo: !!anguloInput, 
+          npt: !!nptInput,
+          eje: !!ejeInput
+        });
+        
+        tipoBrace = tipoBraceInput?.value || '';
+        angulo = parseFloat(anguloInput?.value) || 0;
+        npt = parseFloat(nptInput?.value) || 0;
+        eje = ejeInput?.value || '';
+        xBraces = 2; // Valor por defecto para tabla antigua
+      } else {
+        // Selectores para nueva tabla de braces
+        tipoBrace = row.querySelector('[data-field="tipo_brace_seleccionado"]')?.value || '';
+        angulo = parseFloat(row.querySelector('[data-field="angulo_brace"]')?.value) || 0;
+        npt = parseFloat(row.querySelector('[data-field="npt"]')?.value) || 0;
+        eje = row.querySelector('[data-field="eje"]')?.value || '';
+        
+        // También obtener X braces si está disponible
+        const xBracesInput = row.querySelector('[data-field="x_braces"]');
+        console.log(`[DEBUG] PID ${pid}: xBracesInput found:`, !!xBracesInput, 'value:', xBracesInput?.value);
+        xBraces = xBracesInput ? (parseInt(xBracesInput.value) || 2) : 2;
+        console.log(`[DEBUG] PID ${pid}: xBraces final value:`, xBraces);
+      }
+      
       const factorW2 = 0.6; // Factor fijo
       
+      console.log(`[BRACES] Guardando PID ${pid}: angulo=${angulo}, npt=${npt}, tipo=${tipoBrace}, xBraces=${xBraces}`);
+      
+      // Validar datos antes de enviar
+      if (!tipoBrace || tipoBrace === '') {
+        console.warn(`[BRACES] PID ${pid}: tipo_brace vacío, usando B12 por defecto`);
+        tipoBrace = 'B12';
+      }
+      
+      if (isNaN(angulo) || angulo <= 0) {
+        console.warn(`[BRACES] PID ${pid}: ángulo inválido (${angulo}), usando 55 por defecto`);
+        angulo = 55;
+      }
+      
+      if (isNaN(xBraces) || xBraces <= 0) {
+        console.warn(`[BRACES] PID ${pid}: x_braces inválido (${xBraces}), usando 2 por defecto`);
+        xBraces = 2;
+      }
+      
+      if (!eje || eje.trim() === '') {
+        console.warn(`[BRACES] PID ${pid}: eje vacío, usando Eje_${pid} por defecto`);
+        eje = `Eje_${pid}`;
+      }
+      
+      console.log(`[BRACES] Guardando PID ${pid}: angulo=${angulo}, npt=${npt}, tipo=${tipoBrace}, eje=${eje}, xBraces=${xBraces}`);
+      
       // Actualizar campos editables
+      const updateData = {
+        angulo_brace: angulo,
+        npt: npt,
+        tipo_brace_seleccionado: tipoBrace,
+        factor_w2: factorW2,
+        x_braces: xBraces,
+        eje: eje
+      };
+      
+      console.log(`[BRACES] Datos de actualización para PID ${pid}:`, updateData);
+      
       const response = await fetch(`${API_BASE}/api/calculos/muros/${pid}/editable`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          angulo_brace: angulo,
-          npt: npt,
-          tipo_brace_seleccionado: tipoBrace,
-          factor_w2: factorW2
-        })
+        body: JSON.stringify(updateData)
       });
       
       if (response.ok) {
-        // Ahora calcular y guardar fuerzas
+        // Ahora calcular y guardar fuerzas - incluir todos los parámetros
+        const calcData = {
+          angulo_brace: angulo,
+          x_braces: xBraces,
+          npt: npt,
+          tipo_brace_seleccionado: tipoBrace
+        };
+        
+        console.log(`[BRACES] Calculando PID ${pid} con datos:`, calcData);
+        
         const calcResponse = await fetch(`${API_BASE}/api/calculos/muros/${pid}/calcular-braces`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            angulo_brace: angulo,
-            npt: npt,
-            tipo_brace_seleccionado: tipoBrace
-          })
+          body: JSON.stringify(calcData)
         });
         
         if (calcResponse.ok) {
           exitosos++;
+          console.log(`[BRACES] ✓ PID ${pid} guardado y calculado`);
         } else {
           errores++;
+          const errorData = await calcResponse.json().catch(() => ({ error: 'Error desconocido' }));
+          console.error(`[BRACES] ✗ Error calculando PID ${pid}:`, {
+            status: calcResponse.status,
+            statusText: calcResponse.statusText,
+            error: errorData
+          });
         }
       } else {
         errores++;
+        const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
+        console.error(`[BRACES] ✗ Error actualizando PID ${pid}:`, {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData
+        });
       }
     } catch (error) {
       console.error(`[BRACES] Error guardando PID ${pid}:`, error);
       errores++;
     }
+    
+    // Actualizar progreso
+    progressMsg.textContent = `Guardando... ${exitosos + errores}/${rows.length}`;
   }
+  
+  // Remover indicador de progreso
+  document.body.removeChild(progressMsg);
   
   // Mostrar resultado del guardado
   if (mostrarNotificacion) {
@@ -1099,11 +1316,23 @@ async function guardarTodosBraces() {
   }
   
   if (exitosos > 0) {
-    // Feedback visual
-    const tbody = document.getElementById('tablaUnificadaBody');
+    // Feedback visual en la tabla activa
+    const tbody = isTablaUnificada ? 
+      document.getElementById('tablaUnificadaBody') : 
+      document.getElementById('tablaBracesBody');
+      
     if (tbody) {
       tbody.style.backgroundColor = '#d4edda';
       setTimeout(() => { tbody.style.backgroundColor = ''; }, 1000);
+    }
+    
+    // Reagrupar tabla de muertos si está visible - usar datos actualizados de BD
+    const tablaMuertos = document.querySelector('#tablaMuertosContainer');
+    if (tablaMuertos && tablaMuertos.style.display !== 'none') {
+      console.log('[BRACES] Reagrupando tabla de muertos con valores desde BD...');
+      setTimeout(async () => {
+        await reagruparMuertosDesdeBaseDatos();
+      }, 800); // Dar tiempo para que se procesen los cambios en BD
     }
   }
 }
@@ -1377,3 +1606,1524 @@ async function guardarActualizacionesBraces(actualizaciones) {
   
   return await response.json();
 }
+
+/**
+ * Renderizar tabla agrupada por 'muertos'.
+ * Agrupa los muros según las 5 características: X (cantidad), ángulo, tipo brace, eje y tipo de construcción (til-up/precast)
+ */
+function renderTablaMuertos(resultados) {
+  const cont = document.getElementById('tablaMuertos');
+  if (!cont) return;
+
+  if (!Array.isArray(resultados) || resultados.length === 0) {
+    cont.innerHTML = '<p class="muted">No hay resultados para agrupar.</p>';
+    return;
+  }
+
+  // Construir grupos usando algoritmo secuencial: partir del primero y comparar
+  // campos (X, ángulo, tipo brace, eje, tipo construcción). Si alguno cambia,
+  // se incrementa el número de "muerto". Se limita a un máximo (39).
+  const grupos = buildGruposMuertosSequential(resultados, 39);
+
+  // Guardar temporalmente para depuración externa
+  window.lastGruposMuertos = grupos;
+  window.lastResultadosMuertos = resultados;
+
+  // Construir HTML de la tabla
+  let html = `
+    <div class="braces-table-container">
+      <h3>Resumen por Muertos</h3>
+      <table class="wind-results-table unified-table" id="tablaMuertosTable">
+        <thead>
+          <tr>
+            <th>Muerto #</th>
+            <th>X (braces)</th>
+            <th>Ángulo (°)</th>
+            <th>Eje</th>
+            <th>Tipo Construcción</th>
+            <th>Cantidad Muros</th>
+            <th>Total Braces</th>
+            <th>Muros (IDs)</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+
+  Object.values(grupos).forEach(g => {
+    html += `
+      <tr>
+        <td style="font-weight: bold; color: #007bff;">M${g.muerto}</td>
+        <td style="text-align: center; font-weight: bold;">${g.x || 'No def.'}</td>
+        <td style="text-align: center; font-weight: bold;">${g.ang}°</td>
+        <td style="font-weight: bold; color: #28a745; background: #f8fff9; text-align: center;">${g.eje || 'Sin asignar'}</td>
+        <td style="text-align: center; color: #6f42c1; font-weight: bold;">${g.tipoConst || 'No def.'}</td>
+        <td style="text-align: center; font-weight: bold;">${g.cantidadMuros}</td>
+        <td style="text-align: center; color: #e83e8c; font-weight: bold;">${g.totalBraces}</td>
+        <td style="font-family: monospace; font-size: 0.85em;">${g.muros.join(', ')}</td>
+      </tr>
+    `;
+  });
+
+  html += `</tbody></table></div>`;
+
+  cont.innerHTML = html;
+
+  // Adjuntar listener del botón de verificación si existe
+  const btnVer = document.getElementById('btnVerificarClaves');
+  if (btnVer) {
+    btnVer.onclick = () => {
+      try {
+        debugMostrarClaves(resultados);
+      } catch (err) {
+        console.error('[MUERTOS-DEBUG] Error verificando claves:', err);
+      }
+    };
+  }
+
+  // Adjuntar listener del botón de reagrupación si existe
+  const btnReagrupar = document.getElementById('btnReagruparMuertos');
+  if (btnReagrupar) {
+    btnReagrupar.onclick = async () => {
+      console.log('🔄 [REAGRUPAR] Botón clickeado - iniciando reagrupación desde BD...');
+      try {
+        // Mostrar mensaje de que se está reagrupando
+        if (mostrarNotificacion) {
+          mostrarNotificacion('Reagrupando con valores actualizados desde la base de datos...', 'info');
+        }
+        
+        // Usar la nueva función que lee desde BD en lugar del DOM
+        await reagruparMuertosDesdeBaseDatos();
+        
+        // Confirmar éxito
+        if (mostrarNotificacion) {
+          mostrarNotificacion('✅ Reagrupación completada con valores de la base de datos', 'success');
+        }
+      } catch (err) {
+        console.error('[MUERTOS] Error reagrupando:', err);
+        if (mostrarNotificacion) {
+          mostrarNotificacion('Error al reagrupar muertos. Revisa la consola.', 'error');
+        }
+      }
+    };
+  }
+
+  // Si el contenedor debug existe, auto-ejecutar para mostrar claves después de render
+  const dbgCont = document.getElementById('muertosDebugOutput');
+  if (dbgCont) {
+    try { debugMostrarClaves(resultados); } catch (e) { console.error(e); }
+  }
+}
+
+/**
+ * Construye los grupos usando la misma lógica que la fórmula de Excel (eje-ángulo-tipo-brace-muerto)
+ */
+function buildGruposMuertos(resultados) {
+  const grupos = {};
+  if (!Array.isArray(resultados)) return grupos;
+
+  resultados.forEach(r => {
+    const eje = (r.eje || r.axis || r.axis_name || r.eje_muro || r.axisLabel || '').toString().trim();
+    const angRaw = r.angulo_brace ?? r.angulo ?? r.grados_inclinacion_brace ?? r.alpha ?? '';
+    const angNum = angRaw === '' || angRaw === null || angRaw === undefined ? '' : Number(angRaw);
+    const ang = Number.isFinite(angNum) ? String(Math.round(angNum)) : String(angRaw || '');
+    const tipo = (r.tipo_brace_seleccionado || r.tipo_brace || r.modelo_brace || '').toString().trim();
+    const muerto = (r.muerto ?? r.muerto_num ?? r['Muerto #'] ?? r.id_muro ?? r.id ?? '').toString().trim();
+    const x = r.x_braces ?? r.total_braces ?? r.x_braces_manual ?? r.cant_braces ?? 'N/A';
+    const tipoConst = (r.tipo_construccion || r.tipo_construction || r.tipo_construccion_muro || '').toString().trim();
+
+    const key = `${eje}-${ang}-${tipo}-${muerto}`;
+
+    if (!grupos[key]) {
+      grupos[key] = { eje, ang, tipo, muerto, x, tipoConst, muros: [], cantidadMuros: 0, totalBraces: 0 };
+    }
+
+    grupos[key].muros.push((r.id_muro ?? r.id ?? null) || muerto || 'N/A');
+    grupos[key].cantidadMuros += 1;
+    grupos[key].totalBraces += (r.total_braces ?? r.x_braces ?? r.cant_braces ?? 0);
+  });
+
+  return grupos;
+}
+
+/**
+ * Construye grupos secuenciales (muertos) iterando en el orden de `resultados`.
+ * - Compara los campos: X (cantidad), ángulo (redondeado), tipo brace, eje y tipoConstrucción.
+ * - Si alguno cambia, crea el siguiente "muerto" (incrementa index) hasta maxMuertos.
+ * - Devuelve un objeto con claves 'M1','M2',... cada una con resumen y lista de muros.
+ */
+function buildGruposMuertosSequential(resultados, maxMuertos = 39) {
+  const grupos = {};
+  if (!Array.isArray(resultados) || resultados.length === 0) return grupos;
+
+  let muertoIndex = 1;
+  let currentKey = null;
+
+  const makeKey = (r) => {
+    const x = (r.x_braces ?? r.total_braces ?? r.x_braces_manual ?? r.cant_braces ?? '').toString().trim();
+    const angRaw = r.angulo_brace ?? r.angulo ?? r.grados_inclinacion_brace ?? r.alpha ?? '';
+    const angNum = angRaw === '' || angRaw === null || angRaw === undefined ? '' : Number(angRaw);
+    const ang = Number.isFinite(angNum) ? String(Math.round(angNum)) : String(angRaw || '');
+    const tipo = (r.tipo_brace_seleccionado || r.tipo_brace || r.modelo_brace || '').toString().trim();
+    const eje = (r.eje || r.axis || r.axis_name || r.eje_muro || r.axisLabel || '').toString().trim();
+    const tipoConst = (r.tipo_construccion || r.tipo_construction || r.tipo_construccion_muro || '').toString().trim();
+    
+    // INCLUIR EJE de nuevo en la agrupación - comparar: X, ángulo, tipo brace, eje, tipo construcción
+    return { key: `${x}|${ang}|${tipo}|${eje}|${tipoConst}`, x, ang, tipo, eje, tipoConst };
+  };
+
+  for (const r of resultados) {
+    const kobj = makeKey(r);
+    if (currentKey === null) {
+      currentKey = kobj.key;
+      const label = `M${muertoIndex}`;
+      grupos[label] = { muerto: muertoIndex, key: currentKey, x: kobj.x, ang: kobj.ang, tipo: kobj.tipo, eje: kobj.eje, tipoConst: kobj.tipoConst, muros: [], cantidadMuros: 0, totalBraces: 0 };
+    }
+
+    // Si la clave cambia y aún no llegamos al máximo, incrementamos muertoIndex
+    if (kobj.key !== currentKey) {
+      if (muertoIndex < maxMuertos) {
+        muertoIndex += 1;
+      } else {
+        // si llegamos al máximo, seguir asignando al último grupo (M39)
+        muertoIndex = maxMuertos;
+      }
+      currentKey = kobj.key;
+      const label = `M${muertoIndex}`;
+      if (!grupos[label]) {
+        grupos[label] = { muerto: muertoIndex, key: currentKey, x: kobj.x, ang: kobj.ang, tipo: kobj.tipo, eje: kobj.eje, tipoConst: kobj.tipoConst, muros: [], cantidadMuros: 0, totalBraces: 0 };
+      }
+    }
+
+    const label = `M${muertoIndex}`;
+    grupos[label].muros.push((r.id_muro ?? r.id ?? null) || (r.muerto ?? r.muerto_num ?? '') || 'N/A');
+    grupos[label].cantidadMuros += 1;
+    grupos[label].totalBraces += (r.total_braces ?? r.x_braces ?? r.cant_braces ?? 0);
+  }
+
+  return grupos;
+}
+
+/**
+ * Construye grupos por SIMILITUD (no secuencial) - agrupa muros con características idénticas
+ * - Compara los campos: X (cantidad), ángulo (redondeado), tipo brace, eje y tipoConstrucción.
+ * - Todos los muros con las mismas características van al mismo grupo
+ * - Asigna números de muerto M1, M2, etc. a cada grupo único
+ */
+function buildGruposMuertosPorSimilitud(resultados, maxMuertos = 39) {
+  const gruposPorClave = {};
+  if (!Array.isArray(resultados) || resultados.length === 0) return {};
+
+  const makeKey = (r) => {
+    const x = (r.x_braces ?? r.total_braces ?? r.x_braces_manual ?? r.cant_braces ?? '').toString().trim();
+    const angRaw = r.angulo_brace ?? r.angulo ?? r.grados_inclinacion_brace ?? r.alpha ?? '';
+    const angNum = angRaw === '' || angRaw === null || angRaw === undefined ? '' : Number(angRaw);
+    const ang = Number.isFinite(angNum) ? String(Math.round(angNum)) : String(angRaw || '');
+    const tipo = (r.tipo_brace_seleccionado || r.tipo_brace || r.modelo_brace || '').toString().trim();
+    const eje = (r.eje || r.axis || r.axis_name || r.eje_muro || r.axisLabel || '').toString().trim();
+    const tipoConst = (r.tipo_construccion || r.tipo_construction || r.tipo_construccion_muro || '').toString().trim();
+    
+    // INCLUIR EJE de nuevo en la agrupación - comparar: X, ángulo, tipo brace, eje, tipo construcción
+    return { key: `${x}|${ang}|${tipo}|${eje}|${tipoConst}`, x, ang, tipo, eje, tipoConst };
+  };
+
+  // Paso 1: Agrupar por clave única (características idénticas)
+  for (const r of resultados) {
+    const kobj = makeKey(r);
+    
+    if (!gruposPorClave[kobj.key]) {
+      gruposPorClave[kobj.key] = {
+        x: kobj.x,
+        ang: kobj.ang, 
+        tipo: kobj.tipo,
+        eje: kobj.eje,
+        tipoConst: kobj.tipoConst,
+        muros: [],
+        cantidadMuros: 0,
+        totalBraces: 0
+      };
+    }
+    
+    gruposPorClave[kobj.key].muros.push((r.id_muro ?? r.id ?? null) || (r.muerto ?? r.muerto_num ?? '') || 'N/A');
+    gruposPorClave[kobj.key].cantidadMuros += 1;
+    gruposPorClave[kobj.key].totalBraces += (r.total_braces ?? r.x_braces ?? r.cant_braces ?? 0);
+  }
+
+  // Paso 2: Asignar números de muerto M1, M2, etc.
+  const gruposFinales = {};
+  const claves = Object.keys(gruposPorClave);
+  
+  for (let i = 0; i < claves.length && i < maxMuertos; i++) {
+    const clave = claves[i];
+    const grupo = gruposPorClave[clave];
+    const numeroMuerto = i + 1;
+    const label = `M${numeroMuerto}`;
+    
+    gruposFinales[label] = {
+      muerto: numeroMuerto,
+      key: clave,
+      x: grupo.x,
+      ang: grupo.ang,
+      tipo: grupo.tipo,
+      eje: grupo.eje,
+      tipoConst: grupo.tipoConst,
+      muros: grupo.muros,
+      cantidadMuros: grupo.cantidadMuros,
+      totalBraces: grupo.totalBraces
+    };
+  }
+
+  console.log(`[MUERTOS-SIMILITUD] Agrupación por similitud completada: ${Object.keys(gruposFinales).length} grupos únicos`);
+  return gruposFinales;
+}
+
+/**
+ * Reagrupa muertos leyendo valores DIRECTAMENTE desde la base de datos
+ * Esto evita problemas con valores desactualizados en el DOM
+ */
+async function reagruparMuertosDesdeBaseDatos() {
+  console.log('🚀 [MUERTOS-BD] INICIO - Reagrupando con valores desde base de datos...');
+  
+  try {
+    // Obtener proyecto actual
+    const projectConfig = JSON.parse(localStorage.getItem('projectConfig') || '{}');
+    console.log('[MUERTOS-BD] Config proyecto:', projectConfig);
+    if (!projectConfig.pid) {
+      console.error('[MUERTOS-BD] No hay proyecto seleccionado');
+      return;
+    }
+    
+    // Obtener muros actualizados desde la BD
+    const response = await fetch(`${API_BASE}/api/importar-muros/muros?pk_proyecto=${projectConfig.pid}`);
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    console.log(`[MUERTOS-BD] Obtenidos ${data.muros?.length || 0} muros desde BD`);
+    
+    if (!data.muros || data.muros.length === 0) {
+      console.warn('[MUERTOS-BD] No hay muros en la respuesta');
+      return;
+    }
+    
+    // Convertir datos de BD al formato esperado
+    const resultadosActualizados = data.muros.map((muro, index) => ({
+      id_muro: muro.id_muro || `Muro_${index + 1}`,
+      pid: muro.pid,
+      altura_z_m: parseFloat(muro.overall_height) || 0,
+      
+      // Valores actualizados desde BD
+      tipo_brace_seleccionado: muro.tipo_brace_seleccionado || 'B12',
+      angulo_brace: parseFloat(muro.angulo_brace) || 55,
+      npt: parseFloat(muro.npt) || 0.35,
+      x_braces: parseInt(muro.x_braces) || 2,
+      total_braces: parseInt(muro.x_braces) || 2,
+      
+      // Valores del muro
+      eje: muro.eje || `Eje_${index + 1}`,
+      tipo_construccion: muro.tipo_construccion || 'TILT-UP'
+    }));
+    
+    console.log(`[MUERTOS-BD] Procesando ${resultadosActualizados.length} muros con valores de BD`);
+    
+    // Mostrar algunos valores para verificar que están actualizados
+    const muestras = resultadosActualizados.slice(0, 5).map(r => ({
+      muro: r.id_muro,
+      angulo: r.angulo_brace,
+      tipo: r.tipo_brace_seleccionado,
+      x_braces: r.x_braces,
+      eje: r.eje // ← Agregar eje para verificar
+    }));
+    console.log('[MUERTOS-BD] Muestra de valores desde BD:', muestras);
+    
+    // Verificar específicamente los ejes únicos
+    const ejesUnicos = [...new Set(resultadosActualizados.map(r => r.eje))];
+    console.log('[MUERTOS-BD] 🔍 Ejes únicos encontrados en BD:', ejesUnicos);
+    
+    // Log adicional: verificar si HAY algún ángulo diferente de 55
+    const angulosUnicos = [...new Set(resultadosActualizados.map(r => r.angulo_brace))];
+    console.log('[MUERTOS-BD] 🔍 Ángulos únicos encontrados en BD:', angulosUnicos);
+    
+    // Verificar específicamente el PID 3745 que acabamos de guardar
+    const pid3745 = resultadosActualizados.find(r => r.pid == 3745);
+    if (pid3745) {
+      console.log('[MUERTOS-BD] 🎯 Verificación PID 3745:', {
+        id_muro: pid3745.id_muro,
+        angulo_brace: pid3745.angulo_brace,
+        tipo_brace_seleccionado: pid3745.tipo_brace_seleccionado,
+        x_braces: pid3745.x_braces
+      });
+    } else {
+      console.log('[MUERTOS-BD] ⚠️ PID 3745 no encontrado en datos de BD');
+      
+      // Debug: mostrar algunos PIDs que SÍ están disponibles
+      const pidsDisponibles = resultadosActualizados.slice(0, 10).map(r => ({
+        pid: r.pid,
+        id_muro: r.id_muro,
+        angulo_brace: r.angulo_brace
+      }));
+      console.log('[MUERTOS-BD] 📋 PIDs disponibles (muestra):', pidsDisponibles);
+      
+      // Buscar si hay algún muro con ángulo 57°
+      const muros57 = resultadosActualizados.filter(r => r.angulo_brace == 57);
+      console.log('[MUERTOS-BD] 🔍 Muros con ángulo 57°:', muros57.map(r => ({
+        pid: r.pid,
+        id_muro: r.id_muro,
+        angulo_brace: r.angulo_brace
+      })));
+    }
+    
+    if (angulosUnicos.length === 1 && angulosUnicos[0] === 55) {
+      console.warn('[MUERTOS-BD] ⚠️ PROBLEMA: Todos los ángulos en BD siguen siendo 55° - El guardado no funcionó');
+    }
+    
+    // Reagrupar usando los valores de BD con algoritmo SECUENCIAL (sin retroceso)
+    const gruposObj = buildGruposMuertosSequential(resultadosActualizados, 39);
+    console.log('[MUERTOS-BD] Tipo de gruposObj:', typeof gruposObj);
+    console.log('[MUERTOS-BD] Es object?:', typeof gruposObj === 'object');
+    console.log('[MUERTOS-BD] Keys en gruposObj:', Object.keys(gruposObj));
+    
+    // Mostrar información de agrupación por ejes
+    const gruposConEjes = Object.values(gruposObj).map(g => ({
+      muerto: g.muerto,
+      eje: g.eje,
+      cantidadMuros: g.cantidadMuros,
+      angulo: g.ang,
+      tipo: g.tipo
+    }));
+    console.log('[MUERTOS-BD] 🎯 Agrupación por ejes:', gruposConEjes);
+    
+    // Convertir objeto a array como hace la función original
+    const gruposNuevos = Object.values(gruposObj);
+    console.log('[MUERTOS-BD] Array gruposNuevos length:', gruposNuevos.length);
+    
+    if (!Array.isArray(gruposNuevos)) {
+      throw new Error(`Object.values() devolvió ${typeof gruposNuevos} en lugar de array`);
+    }
+    
+    // Actualizar la tabla de muertos con los nuevos grupos
+    const cont = document.getElementById('tablaMuertos');
+    if (!cont) {
+      console.error('[MUERTOS-BD] Contenedor tablaMuertos no encontrado');
+      return;
+    }
+
+    let html = `
+      <div class="braces-table-container">
+        <h3>Resumen por Muertos (Reagrupado desde BD) ✅</h3>
+        <table class="wind-results-table unified-table" id="tablaMuertosTable">
+          <thead>
+            <tr>
+              <th style="background: var(--primary); color: white;">#</th>
+              <th style="background: var(--primary); color: white;">Muerto</th>
+              <th style="background: var(--primary); color: white;">X (braces)</th>
+              <th style="background: var(--primary); color: white;">Ángulo</th>
+              <th style="background: var(--primary); color: white;">Eje</th>
+              <th style="background: var(--primary); color: white;">Tipo Construcción</th>
+              <th style="background: var(--primary); color: white;">Cant. Muros</th>
+              <th style="background: var(--primary); color: white;">Muros</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    gruposNuevos.forEach((grupo, index) => {
+      const rowClass = index % 2 === 0 ? 'even-row' : 'odd-row';
+      const murosText = grupo.muros.length > 10 ? 
+        grupo.muros.slice(0, 10).join(', ') + ` ... (+${grupo.muros.length - 10} más)` :
+        grupo.muros.join(', ');
+      
+      html += `
+        <tr class="${rowClass}">
+          <td>${index + 1}</td>
+          <td><strong>M${grupo.muerto}</strong></td>
+          <td style="text-align: center; font-weight: bold;">${grupo.x || 'No def.'}</td>
+          <td><strong>${grupo.ang}°</strong></td>
+          <td style="font-weight: bold; color: #28a745; background: #f8fff9; text-align: center;">${grupo.eje || 'Sin asignar'}</td>
+          <td style="text-align: center; color: #6f42c1; font-weight: bold;">${grupo.tipoConst || 'No def.'}</td>
+          <td><strong>${grupo.cantidadMuros}</strong></td>
+          <td style="font-family: monospace; font-size: 0.85em;">${murosText}</td>
+        </tr>
+      `;
+    });
+
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    cont.innerHTML = html;
+    
+    console.log(`[MUERTOS-BD] ✅ Reagrupación completada desde BD: ${gruposNuevos.length} grupos (M1 a M${gruposNuevos.length})`);
+    
+  } catch (error) {
+    console.error('[MUERTOS-BD] ❌ Error reagrupando desde BD:', error);
+    console.error('[MUERTOS-BD] Stack trace completo:', error.stack);
+    // Fallback a la función original
+    console.log('[MUERTOS-BD] 🔄 Usando fallback a reagrupación desde DOM...');
+    reagruparMuertosConValoresActuales();
+  }
+}
+
+/**
+ * Función debug: muestra claves y conteos en consola y en el panel de debug
+ */
+function debugMostrarClaves(resultados) {
+  // Usar agrupación SECUENCIAL para debug (M1..M39)
+  const grupos = buildGruposMuertosSequential(resultados || window.lastResultadosMuertos || [], 39);
+  const lista = Object.entries(grupos).map(([k, v]) => ({ key: k, eje: v.eje, ang: v.ang, tipo: v.tipo, tipoConst: v.tipoConst, muerto: v.muerto, count: v.cantidadMuros, muros: v.muros }));
+
+  console.log('[MUERTOS-DEBUG] Grupos secuenciales encontrados:', lista.length);
+  console.table(lista.map(l => ({ muerto: l.muerto, key: l.key, eje: l.eje, ang: l.ang, tipo: l.tipo, tipoConst: l.tipoConst, count: l.count })));
+
+  const out = document.getElementById('muertosDebugOutput');
+  if (!out) return lista;
+
+  // Construir HTML resumido
+  let html = `<div class="braces-table-container"><h4>Debug: Grupos Secuenciales (muertos) - ${lista.length}</h4>`;
+  html += `<table class="data-table"><thead><tr><th>Muerto</th><th>Clave</th><th>Eje</th><th>Ángulo</th><th>Tipo</th><th>TipoConstrucción</th><th>Count</th><th>Muros</th></tr></thead><tbody>`;
+  lista.forEach(l => {
+    html += `<tr><td>${l.muerto}</td><td style="font-family:monospace">${l.key}</td><td>${l.eje}</td><td>${l.ang}</td><td>${l.tipo}</td><td>${l.tipoConst}</td><td>${l.count}</td><td>${l.muros.join(', ')}</td></tr>`;
+  });
+  html += `</tbody></table></div>`;
+
+  out.innerHTML = html;
+  return lista;
+}
+
+/**
+ * Reagrupa muertos usando los valores ACTUALES de la tabla de viento
+ * (incluyendo ediciones del usuario en ángulo, tipo brace, etc.)
+ */
+function reagruparMuertosConValoresActuales() {
+  console.log('[MUERTOS] Reagrupando con valores actuales de la tabla...');
+  
+  // Buscar en ambas tablas: la unificada antigua y la nueva de braces
+  const rowsUnificada = document.querySelectorAll('#tablaUnificadaBody tr[data-pid]');
+  const rowsBraces = document.querySelectorAll('#tablaBracesBody tr[data-pid]');
+  
+  console.log(`[DEBUG] rowsBraces.length: ${rowsBraces.length}, rowsUnificada.length: ${rowsUnificada.length}`);
+  
+  // También intentar otros posibles IDs de tabla de braces
+  const rowsAlt1 = document.querySelectorAll('#tablaBraces tr[data-pid]');
+  const rowsAlt2 = document.querySelectorAll('#tablaResultados tr[data-pid]');
+  const rowsAlt3 = document.querySelectorAll('#tabla-braces tr[data-pid]');
+  
+  console.log(`[DEBUG] Alternativas: rowsAlt1=${rowsAlt1.length}, rowsAlt2=${rowsAlt2.length}, rowsAlt3=${rowsAlt3.length}`);
+  
+  // Usar la tabla que tenga datos, priorizando la de braces
+  let rows = rowsUnificada;
+  let isTablaUnificada = true;
+  let tipoTabla = 'tabla unificada';
+  
+  if (rowsBraces.length > 0) {
+    rows = rowsBraces;
+    isTablaUnificada = false;
+    tipoTabla = 'tabla braces (tablaBracesBody)';
+  } else if (rowsAlt1.length > 0) {
+    rows = rowsAlt1;
+    isTablaUnificada = false;
+    tipoTabla = 'tabla braces (tablaBraces)';
+  } else if (rowsAlt2.length > 0) {
+    rows = rowsAlt2;
+    isTablaUnificada = false;
+    tipoTabla = 'tabla braces (tablaResultados)';
+  } else if (rowsAlt3.length > 0) {
+    rows = rowsAlt3;
+    isTablaUnificada = false;
+    tipoTabla = 'tabla braces (tabla-braces)';
+  }
+  
+  console.log(`[MUERTOS] Reagrupando desde ${tipoTabla}, ${rows.length} filas`);
+  
+  if (rows.length === 0) {
+    console.warn('[MUERTOS] No se encontraron filas en ninguna tabla');
+    if (mostrarNotificacion) {
+      mostrarNotificacion('No hay datos en las tablas para reagrupar.', 'warning');
+    }
+    return;
+  }
+
+  // Extraer valores actuales de cada fila (incluyendo ediciones del usuario)
+  const resultadosActualizados = [];
+  
+  rows.forEach((row, index) => {
+    const pid = row.dataset.pid;
+    
+    let tipoSelect, anguloInput, nptInput, ejeInput, xBracesInput;
+    let muroCell, alturaCell;
+    
+    if (isTablaUnificada) {
+      // Selectores para tabla unificada antigua
+      tipoSelect = row.querySelector('[data-field="tipo_brace"]');
+      anguloInput = row.querySelector('[data-field="angulo"]');
+      nptInput = row.querySelector('[data-field="npt"]');
+      ejeInput = row.querySelector('[data-field="eje"]');
+      muroCell = row.cells[0]; // Primera columna (ID muro)
+      alturaCell = row.cells[3]; // Columna de altura
+    } else {
+      // Selectores para nueva tabla de braces
+      tipoSelect = row.querySelector('[data-field="tipo_brace_seleccionado"]');
+      anguloInput = row.querySelector('[data-field="angulo_brace"]');
+      nptInput = row.querySelector('[data-field="npt"]');
+      ejeInput = row.querySelector('[data-field="eje"]');
+      xBracesInput = row.querySelector('[data-field="x_braces"]');
+      
+      // Buscar columnas por índice o contenido
+      muroCell = row.querySelector('.muro-cell') || row.cells[0];
+      alturaCell = row.querySelector('.altura-cell') || row.cells[3];
+    }
+    
+    // Verificar que tenemos los elementos necesarios
+    if (!tipoSelect || !anguloInput || !nptInput) {
+      console.warn(`[MUERTOS] Fila ${index + 1} (PID ${pid}): elementos faltantes`);
+      return;
+    }
+    
+    // Obtener cantidad de braces según la tabla
+    let cantidadBraces;
+    if (isTablaUnificada) {
+      const cantidadCell = row.querySelector('.valor-cantidad');
+      cantidadBraces = cantidadCell ? parseInt(cantidadCell.textContent) || 2 : 2;
+    } else {
+      // En la nueva tabla, usar x_braces input o buscar en las celdas de cantidad
+      if (xBracesInput) {
+        cantidadBraces = parseInt(xBracesInput.value) || 2;
+      } else {
+        // Buscar en celdas con clase cantidad o por posición
+        const cantidadCell = row.querySelector('.valor-x-braces, .cantidad-cell') || 
+                            [...row.cells].find(cell => cell.textContent.match(/^\d+$/));
+        cantidadBraces = cantidadCell ? parseInt(cantidadCell.textContent) || 2 : 2;
+      }
+    }
+    
+    // Construir objeto similar a los resultados originales
+    const resultado = {
+      id_muro: muroCell ? muroCell.textContent.trim() : `Muro_${index + 1}`,
+      pid: pid,
+      altura_z_m: alturaCell ? parseFloat(alturaCell.textContent) || 0 : 0,
+      
+      // Valores editables actuales
+      tipo_brace_seleccionado: tipoSelect ? tipoSelect.value : 'B12',
+      angulo_brace: anguloInput ? parseFloat(anguloInput.value) || 55 : 55,
+      npt: nptInput ? parseFloat(nptInput.value) || 0.35 : 0.35,
+      
+      // Cantidad actual (calculada o manual)
+      x_braces: cantidadBraces,
+      total_braces: cantidadBraces,
+      
+      // Obtener eje directamente del input actualizado
+      eje: ejeInput ? ejeInput.value.trim() : (row.dataset.eje || `Eje_${index + 1}`),
+      tipo_construccion: row.dataset.tipoConst || 'TILT-UP'
+    };
+    
+    console.log(`[MUERTOS] Fila ${index + 1} - EJE: "${resultado.eje}" (PID: ${pid})`);
+    resultadosActualizados.push(resultado);
+  });
+
+  console.log(`[MUERTOS] Procesando ${resultadosActualizados.length} muros con valores actuales`);
+  
+  // Mostrar muestra de ejes leídos para verificar
+  const muestraEjes = resultadosActualizados.slice(0, 10).map(r => ({
+    muro: r.id_muro,
+    eje: r.eje,
+    pid: r.pid
+  }));
+  console.log('[MUERTOS] 🎯 Muestra de ejes leídos desde tabla:', muestraEjes);
+  
+  // Mostrar ejes únicos
+  const ejesUnicos = [...new Set(resultadosActualizados.map(r => r.eje))];
+  console.log('[MUERTOS] 🔍 Ejes únicos encontrados:', ejesUnicos);
+  
+  // Reagrupar usando los valores actualizados
+  const gruposNuevos = buildGruposMuertosSequential(resultadosActualizados, 39);
+  
+  // Actualizar la tabla de muertos con los nuevos grupos
+  const cont = document.getElementById('tablaMuertos');
+  if (!cont) return;
+
+  let html = `
+    <div class="braces-table-container">
+      <h3>Resumen por Muertos (Reagrupado desde Tabla)</h3>
+      <table class="wind-results-table unified-table" id="tablaMuertosTable">
+        <thead>
+          <tr>
+            <th style="background: var(--primary); color: white;">#</th>
+            <th style="background: var(--primary); color: white;">Muerto</th>
+            <th style="background: var(--primary); color: white;">X (braces)</th>
+            <th style="background: var(--primary); color: white;">Ángulo</th>
+            <th style="background: var(--primary); color: white;">Eje</th>
+            <th style="background: var(--primary); color: white;">Tipo Construcción</th>
+            <th style="background: var(--primary); color: white;">Cant. Muros</th>
+            <th style="background: var(--primary); color: white;">Muros</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+
+  Object.values(gruposNuevos).forEach((g, index) => {
+    const rowClass = index % 2 === 0 ? 'even-row' : 'odd-row';
+    const murosText = g.muros.length > 10 ? 
+      g.muros.slice(0, 10).join(', ') + ` ... (+${g.muros.length - 10} más)` :
+      g.muros.join(', ');
+      
+    html += `
+      <tr class="${rowClass}">
+        <td>${index + 1}</td>
+        <td><strong>M${g.muerto}</strong></td>
+        <td style="text-align: center; font-weight: bold;">${g.x || 'No def.'}</td>
+        <td><strong>${g.ang}°</strong></td>
+        <td style="font-weight: bold; color: #28a745; background: #f8fff9; text-align: center;">${g.eje || 'Sin asignar'}</td>
+        <td style="text-align: center; color: #6f42c1; font-weight: bold;">${g.tipoConst || 'No def.'}</td>
+        <td><strong>${g.cantidadMuros}</strong></td>
+        <td style="font-family: monospace; font-size: 0.85em;">${murosText}</td>
+      </tr>
+    `;
+  });
+
+  html += `</tbody></table></div>`;
+  cont.innerHTML = html;
+
+  // Actualizar también el debug output
+  window.lastGruposMuertos = gruposNuevos;
+}
+
+/**
+ * Actualiza inmediatamente los campos EJE en la tabla visible sin refrescar toda la tabla
+ */
+function actualizarCamposEjeEnTabla(actualizaciones) {
+  console.log(`[EJES-UI] Actualizando ${actualizaciones.length} campos EJE en la tabla visible...`);
+  
+  let camposActualizados = 0;
+  
+  actualizaciones.forEach(update => {
+    // Buscar el input de EJE por PID
+    const inputEje = document.querySelector(`input[data-pid="${update.pid}"][data-field="eje"]`);
+    
+    if (inputEje) {
+      // Actualizar el valor del input
+      inputEje.value = update.eje;
+      
+      // Agregar efecto visual para mostrar que se actualizó
+      inputEje.style.background = '#d4edda';
+      inputEje.style.border = '2px solid #28a745';
+      
+      // Remover el efecto después de 2 segundos
+      setTimeout(() => {
+        inputEje.style.background = '';
+        inputEje.style.border = '';
+      }, 2000);
+      
+      // Actualizar también el dataset del row para futuros usos
+      const row = inputEje.closest('tr');
+      if (row) {
+        row.dataset.eje = update.eje;
+      }
+      
+      camposActualizados++;
+      console.log(`[EJES-UI] ✅ Campo EJE actualizado: PID ${update.pid} → "${update.eje}"`);
+    } else {
+      console.warn(`[EJES-UI] ⚠️ No se encontró input EJE para PID ${update.pid}`);
+    }
+  });
+  
+  console.log(`[EJES-UI] 🎯 ${camposActualizados} campos EJE actualizados en la tabla`);
+  
+  if (camposActualizados > 0) {
+    // Mostrar notificación temporal
+    mostrarNotificacionTemporal(`✅ ${camposActualizados} ejes actualizados en la tabla`, 'success');
+  }
+}
+
+/**
+ * Muestra una notificación temporal en la esquina superior derecha
+ */
+function mostrarNotificacionTemporal(mensaje, tipo = 'info') {
+  // Crear elemento de notificación
+  const notificacion = document.createElement('div');
+  notificacion.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10000;
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-weight: bold;
+    color: white;
+    max-width: 350px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transform: translateX(100%);
+    transition: transform 0.3s ease-in-out;
+  `;
+  
+  // Establecer color según tipo
+  switch (tipo) {
+    case 'success':
+      notificacion.style.background = '#28a745';
+      break;
+    case 'warning':
+      notificacion.style.background = '#ffc107';
+      notificacion.style.color = '#212529';
+      break;
+    case 'error':
+      notificacion.style.background = '#dc3545';
+      break;
+    default:
+      notificacion.style.background = '#007bff';
+  }
+  
+  notificacion.textContent = mensaje;
+  document.body.appendChild(notificacion);
+  
+  // Animar entrada
+  setTimeout(() => {
+    notificacion.style.transform = 'translateX(0)';
+  }, 100);
+  
+  // Animar salida y remover
+  setTimeout(() => {
+    notificacion.style.transform = 'translateX(100%)';
+    setTimeout(() => {
+      if (notificacion.parentNode) {
+        notificacion.parentNode.removeChild(notificacion);
+      }
+    }, 300);
+  }, 3000);
+}
+
+// ===== FUNCIONES PARA ASIGNACIÓN DE EJES POR RANGOS =====
+
+let contadorRangos = 1;
+
+/**
+ * Agregar un nuevo rango de ejes
+ */
+function agregarNuevoRango() {
+  contadorRangos++;
+  const container = document.getElementById('rangosContainer');
+  
+  const nuevoRango = document.createElement('div');
+  nuevoRango.className = 'rango-item';
+  nuevoRango.setAttribute('data-rango', contadorRangos);
+  
+  nuevoRango.innerHTML = `
+    <div class="form-row">
+      <label>Desde Muro:</label>
+      <input type="number" class="rango-desde" min="1" value="" placeholder="Ej: 41">
+      <label>Hasta Muro:</label>
+      <input type="number" class="rango-hasta" min="1" value="" placeholder="Ej: 80">
+      <label>Eje:</label>
+      <input type="text" class="rango-eje" value="" placeholder="Ej: B" maxlength="10">
+      <button type="button" class="btn-small btn--danger" onclick="eliminarRango(${contadorRangos})">Eliminar</button>
+    </div>
+  `;
+  
+  container.appendChild(nuevoRango);
+  actualizarVistaPrevia();
+}
+
+/**
+ * Eliminar un rango específico
+ */
+function eliminarRango(rangoId) {
+  const rango = document.querySelector(`[data-rango="${rangoId}"]`);
+  if (rango) {
+    rango.remove();
+    actualizarVistaPrevia();
+  }
+}
+
+/**
+ * Inicializar configuración de rangos (limpiar y mostrar información)
+ */
+function autoGenerarRangos() {
+  // Obtener la cantidad total de muros
+  const totalMuros = window.globalVars?.panelesActuales?.length || 0;
+  
+  if (totalMuros === 0) {
+    alert('No hay muros cargados. Primero importa los datos de muros.');
+    return;
+  }
+  
+  const container = document.getElementById('rangosContainer');
+  container.innerHTML = ''; // Limpiar rangos existentes
+  
+  contadorRangos = 0;
+  
+  // Mostrar información al usuario
+  alert(`Tienes ${totalMuros} muros cargados.\n\nAhora puedes definir manualmente los rangos de ejes.\nEjemplo:\n- Rango 1: Muros 1-40 → Eje A\n- Rango 2: Muros 41-80 → Eje B\n- etc.\n\nUsa el botón "Agregar Rango" para crear cada rango.`);
+  
+  // Agregar automáticamente el primer rango vacío para que el usuario empiece
+  agregarNuevoRango();
+  
+  console.log(`[EJES] Configuración iniciada para ${totalMuros} muros - Define rangos manualmente`);
+}
+
+/**
+ * Actualizar la vista previa de asignación
+ */
+function actualizarVistaPrevia() {
+  const rangos = obtenerRangosValidos();
+  const vistaPrevia = document.getElementById('vistaPrevia');
+  const contenido = document.getElementById('vistaPreviaContenido');
+  
+  if (rangos.length === 0) {
+    vistaPrevia.style.display = 'none';
+    return;
+  }
+  
+  let previewText = '';
+  rangos.forEach(rango => {
+    previewText += `Muros ${rango.desde}-${rango.hasta} → Eje "${rango.eje}" (${rango.hasta - rango.desde + 1} muros)\n`;
+  });
+  
+  contenido.textContent = previewText;
+  vistaPrevia.style.display = 'block';
+}
+
+/**
+ * Obtener rangos válidos del formulario
+ */
+function obtenerRangosValidos() {
+  const rangoItems = document.querySelectorAll('.rango-item');
+  const rangos = [];
+  
+  rangoItems.forEach(item => {
+    const desde = parseInt(item.querySelector('.rango-desde').value);
+    const hasta = parseInt(item.querySelector('.rango-hasta').value);
+    const eje = item.querySelector('.rango-eje').value.trim();
+    
+    if (desde && hasta && eje && desde <= hasta) {
+      rangos.push({ desde, hasta, eje });
+    }
+  });
+  
+  // Ordenar por rango inicial
+  rangos.sort((a, b) => a.desde - b.desde);
+  
+  return rangos;
+}
+
+/**
+ * Crear registros de muros en la base de datos antes de asignar ejes
+ */
+async function crearRegistrosMurosEnDB() {
+  const muros = window.globalVars?.panelesActuales;
+  if (!muros || muros.length === 0) {
+    alert('No hay muros cargados. Primero ejecuta el cálculo de viento.');
+    return false;
+  }
+  
+  console.log(`[EJES] Creando ${muros.length} registros en la base de datos...`);
+  
+  try {
+    // Preparar datos para crear registros
+    const murosParaCrear = muros.map(muro => ({
+      // Datos básicos del muro
+      num: muro.num,
+      area: muro.area,
+      peso: muro.peso,
+      altura: muro.altura,
+      ycg: muro.ycg,
+      nft: muro.nft,
+      // Datos de viento
+      vd: muro.vd,
+      qz: muro.qz,
+      presion: muro.presion,
+      fuerza: muro.fuerza,
+      // Campos editables con valores por defecto
+      tipo_brace: muro.tipo_brace || 'Tensor',
+      angulo: muro.angulo || 55,
+      npt: muro.npt || 0.350,
+      eje: muro.eje || null,
+      factor_w2: muro.factor_w2 || 0.6,
+      // Datos calculados
+      coordenada_x: muro.coordenada_x,
+      coordenada_y: muro.coordenada_y,
+      longitud: muro.longitud,
+      fuerza_axial: muro.fuerza_axial,
+      esfuerzo: muro.esfuerzo,
+      cantidad: muro.cantidad
+    }));
+    
+    const response = await fetch(`http://localhost:4008/api/calculos/crear-muros-batch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ muros: murosParaCrear })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Error HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const resultado = await response.json();
+    console.log(`[EJES] ✅ ${resultado.murosCreados || 0} registros creados/actualizados en la base de datos`);
+    
+    // Actualizar los PIDs en los datos locales si la respuesta los incluye
+    if (resultado.muros && Array.isArray(resultado.muros)) {
+      resultado.muros.forEach((muroCreado, index) => {
+        if (muros[index] && muroCreado.pid) {
+          muros[index].pid = muroCreado.pid;
+        }
+      });
+    }
+    
+    return true;
+    
+  } catch (error) {
+    console.error('[EJES] ❌ Error creando registros en la base de datos:', error);
+    
+    // Si el endpoint no existe, intentar con un endpoint alternativo
+    if (error.message.includes('404')) {
+      console.warn('[EJES] Endpoint de creación batch no encontrado, intentando método alternativo...');
+      return await crearRegistrosIndividuales();
+    }
+    
+    alert(`Error creando registros en la base de datos: ${error.message}\n\nVerifica que el backend esté funcionando correctamente.`);
+    return false;
+  }
+}
+
+/**
+ * Método alternativo: crear registros individuales
+ */
+async function crearRegistrosIndividuales() {
+  const muros = window.globalVars?.panelesActuales;
+  let creados = 0;
+  let errores = 0;
+  
+  console.log('[EJES] Intentando crear registros individuales...');
+  
+  for (let i = 0; i < Math.min(muros.length, 5); i++) { // Probar solo con los primeros 5
+    const muro = muros[i];
+    try {
+      const response = await fetch(`http://localhost:4008/api/calculos/crear-muro`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(muro)
+      });
+      
+      if (response.ok) {
+        const resultado = await response.json();
+        if (resultado.pid) {
+          muro.pid = resultado.pid;
+          creados++;
+        }
+      } else {
+        errores++;
+      }
+    } catch (error) {
+      errores++;
+    }
+  }
+  
+  if (creados > 0) {
+    console.log(`[EJES] ✅ ${creados} registros de prueba creados exitosamente`);
+    return true;
+  } else {
+    console.error(`[EJES] ❌ No se pudieron crear registros (${errores} errores)`);
+    return false;
+  }
+}
+
+/**
+ * Aplicar los ejes por rangos a los muros (versión mejorada)
+ */
+async function aplicarEjesPorRango() {
+  const rangos = obtenerRangosValidos();
+  
+  if (rangos.length === 0) {
+    alert('No hay rangos válidos configurados. Por favor, define al menos un rango.');
+    return;
+  }
+  
+  // Validar que no haya solapamientos
+  for (let i = 0; i < rangos.length - 1; i++) {
+    if (rangos[i].hasta >= rangos[i + 1].desde) {
+      alert(`Error: Los rangos se solapan. Rango ${i + 1} (${rangos[i].desde}-${rangos[i].hasta}) con Rango ${i + 2} (${rangos[i + 1].desde}-${rangos[i + 1].hasta})`);
+      return;
+    }
+  }
+  
+  // Obtener muros actuales
+  const muros = window.globalVars?.panelesActuales;
+  if (!muros || muros.length === 0) {
+    alert('No hay muros cargados. Primero importa los datos de muros.');
+    return;
+  }
+  
+  // Verificar si los muros tienen PIDs válidos
+  console.log(`[EJES] Verificando validez de PIDs...`);
+  
+  // Primero verificar muros sin PID
+  const murosSinPid = muros.filter(m => !m.pid);
+  if (murosSinPid.length > 0) {
+    console.warn(`[EJES] ${murosSinPid.length} muros sin PID detectados.`);
+  }
+  
+  // Luego verificar si los PIDs existentes son válidos haciendo una prueba con los primeros muros
+  let pidsInvalidos = false;
+  if (murosSinPid.length === 0 && muros.length > 0) {
+    console.log(`[EJES] Verificando si los PIDs son válidos en la DB...`);
+    
+    // Probar con los primeros 3 muros
+    const murosParaProbar = muros.slice(0, 3);
+    let erroresPrueba = 0;
+    
+    for (const muro of murosParaProbar) {
+      try {
+        const response = await fetch(`http://localhost:4008/api/calculos/muros/${muro.pid}/editable`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ _test: true }) // Envío de prueba
+        });
+        if (response.status === 404) {
+          erroresPrueba++;
+        }
+      } catch (error) {
+        erroresPrueba++;
+      }
+    }
+    
+    if (erroresPrueba === murosParaProbar.length) {
+      pidsInvalidos = true;
+      console.warn(`[EJES] Todos los PIDs probados (${murosParaProbar.length}) son inválidos en la DB.`);
+    }
+  }
+  
+  // Si hay muros sin PID o PIDs inválidos, ofrecer crear registros
+  if (murosSinPid.length > 0 || pidsInvalidos) {
+    const razon = murosSinPid.length > 0 
+      ? `${murosSinPid.length} muros sin PID` 
+      : `PIDs inválidos en la base de datos`;
+      
+    console.warn(`[EJES] Problema detectado: ${razon}. Intentando crear registros en la DB...`);
+    
+    const confirmacion = confirm(
+      `⚠️ Problema detectado: ${razon}\n\n` +
+      `Los muros no se pueden actualizar porque no existen en la base de datos.\n\n` +
+      `¿Deseas crear los registros automáticamente?\n\n` +
+      `Esto guardará todos los muros en la base de datos para poder asignar ejes.`
+    );
+    
+    if (confirmacion) {
+      const exito = await crearRegistrosMurosEnDB();
+      if (!exito) {
+        return; // Salir si no se pudieron crear los registros
+      }
+    } else {
+      alert('No se pueden asignar ejes sin registros válidos en la DB. Operación cancelada.');
+      return;
+    }
+  }
+  
+  console.log(`[EJES] Aplicando ${rangos.length} rangos a ${muros.length} muros`);
+  
+  // Debug: Mostrar algunos muros de ejemplo
+  console.log('[EJES] Muestra de muros disponibles:', muros.slice(0, 3).map(m => ({ num: m.num, pid: m.pid, id: m.id })));
+  
+  // Crear objeto de actualización masiva
+  const actualizaciones = [];
+  const murosNoEncontrados = [];
+  
+  rangos.forEach(rango => {
+    for (let numMuro = rango.desde; numMuro <= rango.hasta; numMuro++) {
+      // Buscar el muro por número
+      const muro = muros.find(m => m.num === numMuro);
+      if (muro && muro.pid) {
+        actualizaciones.push({
+          pid: muro.pid,
+          eje: rango.eje,
+          num: numMuro
+        });
+      } else {
+        murosNoEncontrados.push(numMuro);
+      }
+    }
+  });
+  
+  if (actualizaciones.length === 0) {
+    alert('No se encontraron muros válidos para actualizar.');
+    return;
+  }
+  
+  if (murosNoEncontrados.length > 0) {
+    console.warn(`[EJES] Muros no encontrados: ${murosNoEncontrados.slice(0, 10).join(', ')}${murosNoEncontrados.length > 10 ? '...' : ''} (Total: ${murosNoEncontrados.length})`);
+  }
+  
+  console.log(`[EJES] Preparando ${actualizaciones.length} actualizaciones de ${rangos.length} rangos`);
+  console.log('[EJES] Primera actualización de ejemplo:', actualizaciones[0]);
+  
+  // Enviar actualizaciones al backend
+  try {
+    let actualizacionesExitosas = 0;
+    let errores = [];
+    
+    const promises = actualizaciones.map(async (update) => {
+      try {
+        const response = await fetch(`http://localhost:4008/api/calculos/muros/${update.pid}/editable`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ eje: update.eje })
+        });
+        
+        if (!response.ok) {
+          if (response.status === 404) {
+            errores.push(`Muro ${update.num} (PID: ${update.pid}) no encontrado en DB`);
+            return null;
+          }
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        actualizacionesExitosas++;
+        return await response.json();
+      } catch (error) {
+        errores.push(`Muro ${update.num} (PID: ${update.pid}): ${error.message}`);
+        return null;
+      }
+    });
+    
+    const resultados = await Promise.all(promises);
+    const exitosos = resultados.filter(r => r !== null);
+    
+    console.log(`[EJES] ✅ ${actualizacionesExitosas} muros actualizados correctamente`);
+    
+    if (errores.length > 0) {
+      console.warn(`[EJES] ⚠️ ${errores.length} errores encontrados:`, errores.slice(0, 5));
+    }
+    
+    // Actualizar los datos locales solo para los exitosos
+    actualizaciones.forEach(update => {
+      const muro = muros.find(m => m.pid === update.pid);
+      if (muro && !errores.some(e => e.includes(update.pid))) {
+        muro.eje = update.eje;
+        console.log(`[EJES] ✅ Actualizado localmente: Muro ${update.num} → Eje "${update.eje}"`);
+      }
+    });
+    
+    // Actualizar inmediatamente los campos EJE en la tabla visible
+    console.log('[EJES] Actualizando campos EJE en la tabla...');
+    actualizarCamposEjeEnTabla(actualizaciones);
+    
+    // NO refrescar toda la tabla para evitar perder los datos de viento calculados
+    // En su lugar, solo actualizar los campos EJE y mantener los datos existentes
+    console.log('[EJES] Manteniendo datos de viento existentes, solo actualizando ejes...');
+    
+    // Mostrar mensaje de éxito con detalles
+    let mensaje = `✅ Ejes asignados correctamente!\n\n`;
+    mensaje += `• ${actualizacionesExitosas} muros actualizados exitosamente\n`;
+    
+    if (errores.length > 0) {
+      mensaje += `• ${errores.length} muros con errores (probablemente no existen en la DB)\n`;
+      mensaje += `\nPrimeros errores:\n${errores.slice(0, 3).join('\n')}`;
+      if (errores.length > 3) {
+        mensaje += `\n... y ${errores.length - 3} errores más (ver consola para detalles)`;
+      }
+    }
+    
+    mensaje += `\n\nLa tabla se ha refrescado automáticamente para mostrar los cambios.`;
+    mensaje += `\nTambién puedes usar "Reagrupar Muertos" para ver la nueva agrupación.`;
+    
+    alert(mensaje);
+    
+    // Reagrupar automáticamente después de asignar ejes para mostrar la nueva agrupación
+    console.log('[EJES] Reagrupando automáticamente después de asignar ejes...');
+    try {
+      // En lugar de reagrupar desde BD (que puede no tener los ejes actualizados),
+      // reagrupar desde la tabla actual que SÍ tiene los ejes actualizados
+      console.log('[EJES] Usando reagrupación desde tabla actual (con ejes actualizados)...');
+      reagruparMuertosConValoresActuales();
+      console.log('[EJES] ✅ Reagrupación automática completada desde tabla');
+    } catch (error) {
+      console.warn('[EJES] ⚠️ Error en reagrupación automática:', error);
+    }
+    
+    // Mostrar el botón de guardar en DB
+    const btnGuardar = document.getElementById('btnGuardarEjes');
+    if (btnGuardar) {
+      btnGuardar.style.display = 'inline-block';
+    }
+    
+    // Si hay una tabla visible, NO ocultar los paneles para permitir guardar
+    // const ejesPanel = document.getElementById('ejesRangoPanel');
+    // const bracesPanel = document.getElementById('bracesConfigPanel');
+    // if (ejesPanel) ejesPanel.style.display = 'none';
+    // if (bracesPanel) bracesPanel.style.display = 'none';
+    
+  } catch (error) {
+    console.error('[EJES] ❌ Error aplicando ejes por rangos:', error);
+    alert(`Error aplicando ejes: ${error.message}`);
+  }
+}
+
+/**
+ * Mostrar panel de asignación de ejes arriba de los resultados de viento
+ */
+function mostrarPanelAsignacionEjes() {
+  // Buscar si ya existe el panel
+  let panelExistente = document.getElementById('ejesRangoPanel');
+  
+  if (panelExistente) {
+    panelExistente.style.display = 'block';
+    return;
+  }
+
+  // Crear el panel si no existe
+  const resultadosViento = document.getElementById('resultadosViento');
+  const tablaResultados = document.getElementById('tablaResultadosViento');
+  
+  const panelHTML = `
+    <div id="ejesRangoPanel" class="panel" style="margin-bottom: 2rem; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 0.5rem; padding: 1.5rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3 style="margin: 0; color: #333;">🎯 Asignación de Ejes por Rangos</h3>
+        <div style="display: flex; gap: 0.5rem;">
+          <button id="btnGuardarEjes" class="btn btn--success" style="display: none;">💾 Guardar en DB</button>
+          <button id="btnCerrarEjesPanel" class="btn btn--ghost" style="padding: 0.25rem 0.5rem;">✕</button>
+        </div>
+      </div>
+      
+      <!-- Instrucciones de uso -->
+      <div style="margin-bottom: 1rem; padding: 0.75rem; background: #e8f4fd; border-left: 4px solid #0066cc; border-radius: 0.25rem;">
+        <p style="margin: 0; font-size: 0.9rem; color: #0066cc;">
+          <strong>Instrucciones:</strong> Define manualmente los rangos de muros para cada eje. 
+          Ejemplo: Muros 1-40 → Eje A, Muros 41-80 → Eje B, etc.
+        </p>
+      </div>
+      
+      <!-- Container para los rangos -->
+      <div id="rangosContainer" style="margin-bottom: 1rem;">
+        <!-- Los rangos se generan dinámicamente aquí -->
+      </div>
+      
+      <!-- Botones de gestión de rangos -->
+      <div class="actions" style="margin-bottom: 1rem; gap: 0.5rem; display: flex; flex-wrap: wrap;">
+        <button id="btnAgregarRango" class="btn btn--ghost">+ Agregar Rango</button>
+        <button id="btnAutoGenerarRangos" class="btn btn--secondary">Iniciar Configuración</button>
+        <button id="btnCrearRegistros" class="btn btn--tertiary">💾 Crear Registros en DB</button>
+        <button id="btnAplicarEjesRango" class="btn btn--primary">Aplicar Ejes por Rangos</button>
+        <button id="btnRefrescarTabla" class="btn btn--secondary" style="font-size: 0.9rem;">🔄 Refrescar Tabla</button>
+        <button id="btnDebugMuros" class="btn btn--tertiary" style="font-size: 0.8rem;">🔍 Debug Muros</button>
+      </div>
+      
+      <!-- Vista previa de la asignación -->
+      <div id="vistaPrevia" style="margin-top: 1rem; padding: 1rem; background: #ffffff; border: 1px solid #dee2e6; border-radius: 0.5rem; display: none;">
+        <h4 style="margin: 0 0 0.5rem 0; color: #666;">Vista Previa:</h4>
+        <pre id="vistaPreviaContenido" style="margin: 0; font-family: 'Courier New', monospace; font-size: 0.9rem; color: #333; white-space: pre-wrap;"></pre>
+      </div>
+    </div>
+  `;
+  
+  // Insertar el panel antes de la tabla de resultados
+  tablaResultados.insertAdjacentHTML('beforebegin', panelHTML);
+  
+  // Configurar event listeners para el panel
+  configurarEventListenersEjes();
+}
+
+/**
+ * Configurar event listeners para el panel de ejes
+ */
+function configurarEventListenersEjes() {
+  // Botón para cerrar el panel
+  const btnCerrar = document.getElementById('btnCerrarEjesPanel');
+  if (btnCerrar) {
+    btnCerrar.addEventListener('click', () => {
+      document.getElementById('ejesRangoPanel').style.display = 'none';
+    });
+  }
+  
+  // Botón para guardar en DB
+  const btnGuardar = document.getElementById('btnGuardarEjes');
+  if (btnGuardar) {
+    btnGuardar.addEventListener('click', guardarEjesEnDB);
+  }
+  
+  // Otros botones (reutilizando las funciones existentes)
+  const btnAgregar = document.getElementById('btnAgregarRango');
+  const btnIniciar = document.getElementById('btnAutoGenerarRangos');
+  const btnCrear = document.getElementById('btnCrearRegistros');
+  const btnAplicar = document.getElementById('btnAplicarEjesRango');
+  const btnRefrescar = document.getElementById('btnRefrescarTabla');
+  const btnDebug = document.getElementById('btnDebugMuros');
+  
+  if (btnAgregar) btnAgregar.addEventListener('click', agregarNuevoRango);
+  if (btnIniciar) btnIniciar.addEventListener('click', autoGenerarRangos);
+  if (btnCrear) btnCrear.addEventListener('click', crearRegistrosMurosEnDB);
+  if (btnAplicar) btnAplicar.addEventListener('click', aplicarEjesPorRango);
+  if (btnRefrescar) btnRefrescar.addEventListener('click', refrescarTablaResultados);
+  if (btnDebug) btnDebug.addEventListener('click', debugMostrarMuros);
+}
+
+/**
+ * Guardar ejes asignados en la base de datos
+ */
+async function guardarEjesEnDB() {
+  const muros = window.globalVars?.panelesActuales;
+  if (!muros || muros.length === 0) {
+    alert('No hay muros cargados para guardar.');
+    return;
+  }
+  
+  // Filtrar solo muros que tienen eje asignado
+  const murosConEje = muros.filter(muro => muro.eje && muro.eje.trim() !== '');
+  
+  if (murosConEje.length === 0) {
+    alert('No hay muros con ejes asignados para guardar.');
+    return;
+  }
+  
+  console.log(`[EJES] Guardando ${murosConEje.length} muros con ejes en la base de datos`);
+  
+  try {
+    const promises = murosConEje.map(async (muro) => {
+      if (!muro.pid) {
+        console.warn(`[EJES] Muro ${muro.num} no tiene PID, omitiendo...`);
+        return null;
+      }
+      
+        const response = await fetch(`http://localhost:4008/api/calculos/muros/${muro.pid}/editable`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ eje: muro.eje })
+        });      if (!response.ok) {
+        throw new Error(`Error guardando muro PID ${muro.pid}: ${response.statusText}`);
+      }
+      
+      return await response.json();
+    });
+    
+    const resultados = await Promise.all(promises);
+    const exitosos = resultados.filter(r => r !== null).length;
+    
+    console.log(`[EJES] ✅ ${exitosos} muros guardados correctamente en la base de datos`);
+    
+    // Mostrar mensaje de éxito
+    alert(`✅ Ejes guardados correctamente en la base de datos!\n\n${exitosos} muros actualizados exitosamente.`);
+    
+    // Ocultar el botón de guardar temporalmente
+    const btnGuardar = document.getElementById('btnGuardarEjes');
+    if (btnGuardar) {
+      btnGuardar.style.display = 'none';
+      setTimeout(() => {
+        if (btnGuardar) btnGuardar.style.display = 'inline-block';
+      }, 3000);
+    }
+    
+  } catch (error) {
+    console.error('[EJES] ❌ Error guardando ejes en la base de datos:', error);
+    alert(`Error guardando ejes en la base de datos: ${error.message}`);
+  }
+}
+
+/**
+ * Función de debug para mostrar información de los muros
+ */
+function debugMostrarMuros() {
+  const muros = window.globalVars?.panelesActuales;
+  if (!muros || muros.length === 0) {
+    alert('No hay muros cargados.');
+    return;
+  }
+  
+  console.log(`[DEBUG] Total de muros cargados: ${muros.length}`);
+  
+  // Mostrar estructura de un muro de ejemplo
+  console.log('[DEBUG] Estructura de muro de ejemplo:', muros[0]);
+  
+  // Mostrar algunos muros con sus PIDs
+  const muestaMuros = muros.slice(0, 10).map(m => ({
+    num: m.num,
+    pid: m.pid,
+    id: m.id,
+    eje: m.eje || 'Sin eje'
+  }));
+  console.table(muestaMuros);
+  
+  // Verificar si hay PIDs faltantes
+  const sinPid = muros.filter(m => !m.pid);
+  if (sinPid.length > 0) {
+    console.warn(`[DEBUG] ${sinPid.length} muros sin PID:`, sinPid.slice(0, 5).map(m => m.num));
+  }
+  
+  // Rango de números de muros
+  const numeros = muros.map(m => m.num).sort((a, b) => a - b);
+  const minNum = Math.min(...numeros);
+  const maxNum = Math.max(...numeros);
+  
+  // Rango de PIDs
+  const pids = muros.filter(m => m.pid).map(m => m.pid).sort((a, b) => a - b);
+  const minPid = pids.length > 0 ? Math.min(...pids) : 'N/A';
+  const maxPid = pids.length > 0 ? Math.max(...pids) : 'N/A';
+  
+  const info = `🔍 DEBUG - Información de Muros\n\n` +
+    `📊 Total de muros: ${muros.length}\n` +
+    `📝 Muros con PID: ${muros.filter(m => m.pid).length}\n` +
+    `❌ Muros sin PID: ${sinPid.length}\n\n` +
+    `🔢 Rango de números: ${minNum} - ${maxNum}\n` +
+    `🆔 Rango de PIDs: ${minPid} - ${maxPid}\n\n` +
+    `⚠️ NOTA: Los PIDs pueden existir pero no estar guardados en la DB.\n` +
+    `Usa "Crear Registros en DB" si sigues teniendo errores 404.\n\n` +
+    `Ver consola (F12) para más detalles.`;
+  
+  alert(info);
+}
+
+/**
+ * Refrescar la tabla de resultados con los datos actuales
+ */
+async function refrescarTablaResultados() {
+  const muros = window.globalVars?.panelesActuales;
+  if (!muros || muros.length === 0) {
+    alert('No hay datos de muros para refrescar. Ejecuta primero el cálculo de viento.');
+    return;
+  }
+  
+  console.log('[EJES] Refrescando tabla de resultados manualmente...');
+  
+  try {
+    await mostrarResultadosViento(muros);
+    console.log('[EJES] ✅ Tabla refrescada exitosamente');
+    
+    // Mostrar notificación temporal
+    const mensaje = document.createElement('div');
+    mensaje.innerHTML = '✅ Tabla refrescada';
+    mensaje.style.cssText = `
+      position: fixed; top: 20px; right: 20px; z-index: 9999;
+      background: #28a745; color: white; padding: 8px 16px;
+      border-radius: 4px; font-weight: bold;
+      animation: fadeOut 2s ease-in-out forwards;
+    `;
+    
+    // Agregar animación CSS si no existe
+    if (!document.querySelector('#fadeOutStyle')) {
+      const style = document.createElement('style');
+      style.id = 'fadeOutStyle';
+      style.textContent = `
+        @keyframes fadeOut {
+          0% { opacity: 1; transform: translateX(0); }
+          70% { opacity: 1; transform: translateX(0); }
+          100% { opacity: 0; transform: translateX(100px); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    
+    document.body.appendChild(mensaje);
+    setTimeout(() => mensaje.remove(), 2000);
+    
+  } catch (error) {
+    console.error('[EJES] ❌ Error refrescando tabla:', error);
+    alert(`Error refrescando la tabla: ${error.message}`);
+  }
+}
+
+// Agregar event listeners para actualizar vista previa
+document.addEventListener('DOMContentLoaded', () => {
+  // Event listeners para inputs de rangos (delegación de eventos)
+  document.addEventListener('input', (e) => {
+    if (e.target.matches('.rango-desde, .rango-hasta, .rango-eje')) {
+      actualizarVistaPrevia();
+    }
+  });
+});

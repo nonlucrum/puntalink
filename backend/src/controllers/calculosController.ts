@@ -183,10 +183,10 @@ export const calculoVientoMuros = async (req: Request, res: Response) => {
 export const actualizarCamposEditables = async (req: Request, res: Response) => {
   try {
     const { pid } = req.params;
-    const { angulo_brace, npt, x_braces, tipo_construccion, tipo_brace_seleccionado } = req.body;
+    const { angulo_brace, npt, x_braces, tipo_construccion, tipo_brace_seleccionado, eje } = req.body;
 
     console.log(`[CALCULOS] Actualizando campos editables del muro PID: ${pid}`);
-    console.log('[CALCULOS] Valores:', { angulo_brace, npt, x_braces, tipo_construccion, tipo_brace_seleccionado });
+    console.log('[CALCULOS] Valores:', { angulo_brace, npt, x_braces, tipo_construccion, tipo_brace_seleccionado, eje });
 
     // Validaciones
     if (!pid || isNaN(parseInt(pid))) {
@@ -200,7 +200,8 @@ export const actualizarCamposEditables = async (req: Request, res: Response) => 
       npt,
       x_braces,
       tipo_construccion,
-      tipo_brace_seleccionado
+      tipo_brace_seleccionado,
+      eje
     );
 
     if (!muroActualizado) {
@@ -493,7 +494,9 @@ export const aplicarValoresGlobales = async (req: Request, res: Response) => {
           angulo_brace !== undefined ? angulo_brace : muro.angulo_brace,
           npt !== undefined ? npt : muro.npt,
           muro.x_braces,
-          muro.tipo_construccion
+          muro.tipo_construccion,
+          muro.tipo_brace_seleccionado,
+          muro.eje
         )
       )
     );
