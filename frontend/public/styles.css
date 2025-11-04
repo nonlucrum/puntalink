@@ -2210,3 +2210,147 @@ pre{
     grid-template-columns: 1fr !important;
   }
 }
+
+/* ===== ESTILOS PARA ELIMINACIÓN DE MUROS ===== */
+.eliminar-muros-container {
+  padding: 1rem;
+}
+
+.rangos-container {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1rem;
+  background: var(--card);
+}
+
+.rango-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  background: rgba(31, 111, 235, 0.05);
+  border: 1px solid rgba(31, 111, 235, 0.2);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.rango-item:hover {
+  background: rgba(31, 111, 235, 0.1);
+  border-color: rgba(31, 111, 235, 0.3);
+}
+
+.rango-inputs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.rango-inputs input {
+  width: 80px;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.rango-info {
+  font-size: 0.85rem;
+  color: var(--muted);
+  min-width: 120px;
+}
+
+.btn-eliminar-rango {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background-color 0.2s ease;
+}
+
+.btn-eliminar-rango:hover {
+  background: #c82333;
+}
+
+.preview-eliminacion {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.preview-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.preview-stat {
+  text-align: center;
+  padding: 0.75rem;
+  background: rgba(31, 111, 235, 0.1);
+  border-radius: 4px;
+}
+
+.preview-stat .number {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: var(--primary);
+}
+
+.preview-stat .label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 0.25rem;
+}
+
+.muros-eliminados-list {
+  max-height: 200px;
+  overflow-y: auto;
+  background: rgba(220, 53, 69, 0.05);
+  border: 1px solid rgba(220, 53, 69, 0.2);
+  border-radius: 4px;
+  padding: 0.75rem;
+  font-family: monospace;
+  font-size: 0.85rem;
+}
+
+.actions-finales {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+
+/* Responsive para eliminación de muros */
+@media (max-width: 768px) {
+  .rango-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+  
+  .rango-inputs {
+    justify-content: space-between;
+  }
+  
+  .rango-inputs input {
+    width: 60px;
+  }
+  
+  .actions-finales {
+    flex-direction: column;
+  }
+  
+  .preview-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+}

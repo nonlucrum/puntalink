@@ -338,7 +338,7 @@ export function calcularMuertosMuro(muro, parametros = {}) {
     seleccionado: {
       diametroIn: mejorCombinacion.diametro,
       diametroMm: Math.round(diametroMm),
-      alturaFt: mejorCombinacion.altura,
+      alturaFt: mejorCombinacion.altura || 'N/A',
       alturaMm: Math.round(alturaMm),
       pesoTablaLb: mejorCombinacion.pesoTabla
     },
@@ -364,7 +364,7 @@ export function calcularMuertosMuro(muro, parametros = {}) {
     alternativas: combinaciones.slice(0, 5).map(comb => ({
       diametroIn: comb.diametro,
       diametroMm: Math.round(comb.diametro * CONSTANTES.conversionInMm),
-      alturaFt: comb.altura,
+      alturaFt: comb.altura || 'N/A',
       alturaMm: Math.round(convertirAlturaAMm(comb.altura)),
       pesoTablaLb: comb.pesoTabla
     })),
@@ -514,7 +514,7 @@ export function calcularMuertosGrupos(grupos, parametros = {}) {
         seleccionado: {
           diametroIn: seleccionado.diametro,
           diametroMm: Math.round(diametroMm),
-          alturaFt: seleccionado.altura,
+          alturaFt: seleccionado.altura || 'N/A',
           alturaMm: Math.round(alturaMm),
           pesoTablaLb: seleccionado.pesoTabla
         },
@@ -666,7 +666,7 @@ export function generarTablaResultados(resultados) {
           <td>${resultado.fmc.fmcKn.toFixed(2)}</td>
           <td>${resultado.fmc.fmcLb.toFixed(0)}</td>
           <td>${resultado.seleccionado.diametroMm} mm<br><small>(${resultado.seleccionado.diametroIn}")</small></td>
-          <td>${resultado.seleccionado.alturaMm} mm<br><small>(${resultado.seleccionado.alturaFt.replace('-', '\'-')}\")</small></td>
+          <td>${resultado.seleccionado.alturaMm} mm<br><small>(${resultado.seleccionado.alturaFt ? resultado.seleccionado.alturaFt.replace('-', '\'-') : 'N/A'}\")</small></td>
           <td>${resultado.materiales.concreto.pesoTon}</td>
           <td>${resultado.materiales.varillas.pesoKg}</td>
           <td>${resultado.materiales.anillos.pesoKg}</td>
@@ -785,7 +785,7 @@ export function generarTablaResultadosGrupos(resultados) {
           <td style="text-align: center; font-weight: bold;">${resultado.angulo}°</td>
           <td style="text-align: center; font-weight: bold; color: #28a745;">${resultado.eje || 'Sin asignar'}</td>
           <td>${resultado.seleccionado.diametroMm} mm<br><small>(${resultado.seleccionado.diametroIn}")</small></td>
-          <td>${resultado.seleccionado.alturaMm} mm<br><small>(${resultado.seleccionado.alturaFt.replace('-', '\'-')}\")</small></td>
+          <td>${resultado.seleccionado.alturaMm} mm<br><small>(${resultado.seleccionado.alturaFt ? resultado.seleccionado.alturaFt.replace('-', '\'-') : 'N/A'}\")</small></td>
           <td style="font-weight: bold; color: #1f6feb;">${resultado.totales.concretoTon}</td>
           <td style="font-weight: bold; color: #1f6feb;">${resultado.totales.varillasKg}</td>
           <td style="font-weight: bold; color: #1f6feb;">${resultado.totales.anillosKg}</td>

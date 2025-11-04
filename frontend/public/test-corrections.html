@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test - Correcciones JavaScript</title>
+</head>
+<body>
+    <h1>Test de Correcciones JavaScript</h1>
+    <div id="test-results"></div>
+    
+    <script type="module">
+        // Test básico para verificar que las funciones no generen errores
+        const testResults = document.getElementById('test-results');
+        
+        try {
+            // Mock de elementos
+            const mockElements = {
+                tablaPaneles: { innerHTML: '' },
+                tablaAccordion: { style: { display: 'none' }, classList: { add: () => {}, remove: () => {} } },
+                panelesInfo: { innerHTML: '' },
+                btnCalcular: { style: { display: 'none' } }
+            };
+            
+            // Mock de callbacks
+            const mockCallbacks = {
+                openSection: () => {}
+            };
+            
+            // Mock de paneles
+            const mockPaneles = [
+                {
+                    id_muro: 'M01',
+                    grosor: '210.00',
+                    area: '100.5',
+                    peso: '2500',
+                    volumen: '21.0',
+                    overall_height: '3000'
+                }
+            ];
+            
+            // Importar y probar updatePanelesDisplay
+            import('./js/dashboard.js').then(module => {
+                console.log('✅ Módulo dashboard.js importado correctamente');
+                
+                // Test updatePanelesDisplay con parámetros correctos
+                module.updatePanelesDisplay(mockPaneles, mockElements, mockCallbacks);
+                console.log('✅ updatePanelesDisplay ejecutado sin errores');
+                
+                testResults.innerHTML = `
+                    <p style="color: green;">✅ Módulo dashboard.js importado correctamente</p>
+                    <p style="color: green;">✅ updatePanelesDisplay ejecutado sin errores</p>
+                    <p style="color: blue;">🔧 Las correcciones de JavaScript están funcionando</p>
+                `;
+            }).catch(error => {
+                console.error('❌ Error en dashboard.js:', error);
+                testResults.innerHTML = `
+                    <p style="color: red;">❌ Error en dashboard.js: ${error.message}</p>
+                `;
+            });
+            
+            // Test de muertos.js
+            import('./js/muertos.js').then(module => {
+                console.log('✅ Módulo muertos.js importado correctamente');
+                
+                // Test de función con altura undefined
+                const mockMuro = {
+                    nombre_muro: 'M01',
+                    fbx: 1000,
+                    x_braces: 2,
+                    angulo_brace: 45
+                };
+                
+                const resultado = module.calcularMuertosMuro(mockMuro);
+                console.log('✅ calcularMuertosMuro ejecutado:', resultado);
+                
+                testResults.innerHTML += `
+                    <p style="color: green;">✅ Módulo muertos.js importado correctamente</p>
+                    <p style="color: green;">✅ calcularMuertosMuro ejecutado sin errores</p>
+                `;
+            }).catch(error => {
+                console.error('❌ Error en muertos.js:', error);
+                testResults.innerHTML += `
+                    <p style="color: red;">❌ Error en muertos.js: ${error.message}</p>
+                `;
+            });
+            
+        } catch (error) {
+            console.error('❌ Error general:', error);
+            testResults.innerHTML = `
+                <p style="color: red;">❌ Error general: ${error.message}</p>
+            `;
+        }
+    </script>
+</body>
+</html>

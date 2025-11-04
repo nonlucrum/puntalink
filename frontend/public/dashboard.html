@@ -115,6 +115,45 @@
               <div id="tablaPaneles"></div>
             </div>
           </div>
+
+          <!-- Sub-acordeón para eliminar muros -->
+          <div class="sub-accordion-item" id="eliminarMurosAccordion" style="display: none;">
+            <div class="sub-accordion-header" data-target="eliminar-muros-section">
+              <h3 class="sub-accordion-title">
+                🗑️ Eliminar Muros por Rangos
+              </h3>
+              <span class="sub-accordion-toggle">▼</span>
+            </div>
+            <div class="sub-accordion-content" id="eliminar-muros-section">
+              <div class="eliminar-muros-container">
+                <div class="info-panel" style="margin-bottom: 1.5rem; padding: 1rem; background: rgba(255, 193, 7, 0.1); border-left: 4px solid #ffc107; border-radius: 4px;">
+                  <h4 style="margin: 0 0 0.5rem 0; color: #856404;">💡 Filtrar Muros antes de Importar</h4>
+                  <p style="margin: 0; font-size: 0.9rem; color: #856404;">
+                    Puedes eliminar rangos de muros antes de subirlos definitivamente. 
+                    <strong>Total detectado:</strong> <span id="totalMurosDetectados">0</span> muros
+                  </p>
+                </div>
+                
+                <div id="rangosEliminar" class="rangos-container">
+                  <!-- Los rangos se agregarán dinámicamente aquí -->
+                </div>
+                
+                <div class="actions" style="margin-top: 1rem;">
+                  <button id="btnAgregarRango" class="btn btn--secondary">➕ Agregar Rango</button>
+                  <button id="btnPrevisualizarEliminacion" class="btn btn--primary" style="margin-left: 0.5rem;">👁️ Previsualizar</button>
+                </div>
+                
+                <div id="previsualizacionEliminacion" style="display: none; margin-top: 1.5rem;">
+                  <!-- Preview de eliminación se mostrará aquí -->
+                </div>
+                
+                <div class="actions-finales" style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                  <button id="btnConfirmarImportacion" class="btn btn--primary">✅ Confirmar e Importar Muros Filtrados</button>
+                  <button id="btnCancelarEliminacion" class="btn btn--ghost" style="margin-left: 0.5rem;">❌ Cancelar</button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -266,17 +305,7 @@
                 
                 <!-- Contenedor dinámico para los rangos -->
                 <div id="rangosContainer">
-                  <div class="rango-item" data-rango="1">
-                    <div class="form-row">
-                      <label>Desde Muro:</label>
-                      <input type="number" class="rango-desde" min="1" value="1" placeholder="1">
-                      <label>Hasta Muro:</label>
-                      <input type="number" class="rango-hasta" min="1" value="40" placeholder="40">
-                      <label>Eje:</label>
-                      <input type="text" class="rango-eje" value="A" placeholder="A" maxlength="10">
-                      <button type="button" class="btn-small btn--danger" onclick="eliminarRango(1)">Eliminar</button>
-                    </div>
-                  </div>
+                  <!-- Los rangos se agregarán dinámicamente aquí -->
                 </div>
                 
                 <!-- Instrucciones de uso -->

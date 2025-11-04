@@ -8,22 +8,47 @@ const path_1 = __importDefault(require("path"));
 const cors_1 = __importDefault(require("cors"));
 const morgan_1 = __importDefault(require("morgan"));
 const body_parser_1 = __importDefault(require("body-parser"));
+const cookie_parser_1 = __importDefault(require("cookie-parser"));
 const index_1 = __importDefault(require("./routes/index"));
 const import_1 = __importDefault(require("./routes/import"));
 const calculosRoutes_1 = __importDefault(require("./routes/calculosRoutes"));
 const panelesRoutes_1 = __importDefault(require("./routes/panelesRoutes"));
 const projectRoutes_1 = __importDefault(require("./routes/projectRoutes"));
+const authRoutes_1 = __importDefault(require("./routes/authRoutes")); // 👈 NUEVO
 const app = (0, express_1.default)();
+const ALLOWED = (process.env.ALLOWED_ORIGINS ?? '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+// (Opcional pero útil si alguna vez vas detrás de proxy/ingress y usas cookies SameSite=None)
+if (process.env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+}
 // ===== Logger simple =====
 app.use((req, _res, next) => {
     console.log(`[${req.method}] ${req.url}`);
     next();
 });
-// ===== Middlewares =====
-app.use((0, cors_1.default)());
+// ===== CORS (con credenciales) =====
+const corsOptions = {
+    origin: (origin, cb) => {
+        if (!origin)
+            return cb(null, true); // curl/postman
+        if (ALLOWED.includes(origin))
+            return cb(null, true);
+        return cb(new Error(`Origen no permitido: ${origin}`));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id'],
+};
+app.use((0, cors_1.default)(corsOptions));
+app.options('*', (0, cors_1.default)(corsOptions)); // preflight
+// ===== Parsers =====
+app.use((0, cookie_parser_1.default)()); // 👈 NECESARIO para leer/setear cookie 'session'
 app.use((0, morgan_1.default)('dev'));
-app.use(body_parser_1.default.json());
-app.use(body_parser_1.default.urlencoded({ extended: true }));
+app.use(body_parser_1.default.json({ limit: '10mb' }));
+app.use(body_parser_1.default.urlencoded({ extended: true, limit: '10mb' }));
 // ===== Static & views =====
 app.set('views', path_1.default.join(__dirname, '..', 'views'));
 app.set('view engine', 'html');
@@ -33,6 +58,8 @@ app.get('/health', (_req, res) => {
 });
 // ===== Rutas base =====
 app.use('/', index_1.default);
+// ===== AUTH primero que el resto (para que CORS/cookies apliquen bien) =====
+app.use('/api/auth', authRoutes_1.default); // 👈 NUEVO
 // ===== Importación TXT (RCSM) =====
 app.use('/api/importar-muros', import_1.default);
 // ===== Cancelación TXT (RCSM) =====
@@ -44,11 +71,11 @@ app.use('/api/paneles', panelesRoutes_1.default);
 // ===== Proyecto =====
 app.use('/api/proyecto', projectRoutes_1.default);
 // ===== 404 para APIs =====
-app.use('/api', (req, res) => {
+app.use('/api', (_req, res) => {
     res.status(404).json({ ok: false, error: 'Recurso API no encontrado' });
 });
 // ===== 404 general (páginas) =====
-app.use((req, res) => {
+app.use((_req, res) => {
     res.status(404).send('Página no encontrada');
 });
 // ===== Error handler =====

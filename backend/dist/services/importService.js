@@ -4,7 +4,7 @@ exports.parseTxtRobusto = parseTxtRobusto;
 exports.removeTXT = removeTXT;
 const Muro_1 = require("../models/Muro");
 const Muro_2 = require("../models/Muro");
-async function parseTxtRobusto(txt) {
+async function parseTxtRobusto(pk_proyecto, txt) {
     console.log('[service - importService] parseTxtRobusto - Inicio');
     console.log('[service - importService] Tamaño del archivo:', txt.length, 'caracteres');
     const raw = txt.trim();
@@ -13,7 +13,7 @@ async function parseTxtRobusto(txt) {
         throw new Error('El archivo está vacío o no contiene datos válidos.');
     }
     console.log('[service - importService] Ejecutando overrideMuros(1)');
-    await (0, Muro_2.overrideMuros)(1); // pk_proyecto fijo por ahora
+    await (0, Muro_2.overrideMuros)(pk_proyecto); // Limpiar muros del proyecto antes de importar nuevos
     const lines = raw.split(/\r?\n/);
     console.log('[service - importService] Número de líneas encontradas:', lines.length);
     const paneles = [];
@@ -101,7 +101,7 @@ async function parseTxtRobusto(txt) {
             console.log(`[service - importService] grosor:${grosorNum}, area:${areaNum}, peso:${pesoNum}, volumen:${volumenNum}`);
             continue;
         }
-        console.log(`[service - importService] ✅ Panel ${num} procesado: ${panelName}`);
+        console.log(`[service - importService] PROCESADO: Panel ${num} procesado: ${panelName}`);
         console.log(`[service - importService]    Valores exactos: grosor=${grosorNum}, area=${areaNum}, peso=${pesoNum}, volumen=${volumenNum}`);
         console.log(`[service - importService]    Overall Height: "${overallHeightValue}"`);
         // Agregar número del panel al array de conteo
@@ -115,7 +115,7 @@ async function parseTxtRobusto(txt) {
             volumen: volumenNum,
             overall_height: overallHeightValue,
         });
-        const nuevoMuro = await (0, Muro_1.addMuro)(1, // pk_proyecto
+        const nuevoMuro = await (0, Muro_1.addMuro)(pk_proyecto, // pk_proyecto
         num, // número secuencial del panel
         panelName, // id_muro
         grosorNum, areaNum, pesoNum, volumenNum, overallHeightValue);
@@ -138,7 +138,7 @@ async function parseTxtRobusto(txt) {
             console.log(`[service - importService] Paneles faltantes: ${missingPanels.slice(0, 10).join(', ')}${missingPanels.length > 10 ? ' y ' + (missingPanels.length - 10) + ' más...' : ''}`);
         }
         else {
-            console.log(`[service - importService] ✅ Todos los paneles fueron procesados correctamente!`);
+            console.log(`[service - importService] COMPLETADO: Todos los paneles fueron procesados correctamente!`);
         }
     }
     if (paneles.length === 0) {
@@ -153,10 +153,10 @@ async function parseTxtRobusto(txt) {
     return paneles;
 }
 // Función para resetear muros de un proyecto - Funcionalidad útil para futuro
-function removeTXT() {
+function removeTXT(pk_proyecto) {
     console.log('[service - importService] removeTXT - Inicio');
-    console.log('[service - importService] Ejecutando overrideMuros(1)');
-    const resultado = (0, Muro_2.overrideMuros)(1); // pk_proyecto fijo por ahora
+    console.log('[service - importService] Ejecutando overrideMuros()');
+    const resultado = (0, Muro_2.overrideMuros)(pk_proyecto);
     console.log('[service - importService] removeTXT completado');
     return resultado;
 }

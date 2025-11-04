@@ -12,7 +12,11 @@ import {
   handleCalcularMuertos,
   handleExportarMuertosCSV,
   handleMostrarAlternativas,
-  handleTablaDetallada
+  handleTablaDetallada,
+  agregarRangoEliminacion,
+  previsualizarEliminacion,
+  confirmarImportacionFiltrada,
+  cancelarEliminacion
 } from './js/dashboard.js';
 
 import { 
@@ -415,6 +419,28 @@ document.addEventListener('DOMContentLoaded', () => {
     btnTablaDetallada.addEventListener('click', () => {
       handleTablaDetallada(globalVars);
     });
+  }
+
+  // Event listeners para eliminación de muros
+  const btnAgregarRangoElim = document.getElementById('btnAgregarRango');
+  const btnPrevisualizarEliminacion = document.getElementById('btnPrevisualizarEliminacion');
+  const btnConfirmarImportacion = document.getElementById('btnConfirmarImportacion');
+  const btnCancelarEliminacion = document.getElementById('btnCancelarEliminacion');
+
+  if (btnAgregarRangoElim) {
+    btnAgregarRangoElim.addEventListener('click', agregarRangoEliminacion);
+  }
+
+  if (btnPrevisualizarEliminacion) {
+    btnPrevisualizarEliminacion.addEventListener('click', previsualizarEliminacion);
+  }
+
+  if (btnConfirmarImportacion) {
+    btnConfirmarImportacion.addEventListener('click', confirmarImportacionFiltrada);
+  }
+
+  if (btnCancelarEliminacion) {
+    btnCancelarEliminacion.addEventListener('click', cancelarEliminacion);
   }
 
   if (btnProjectSubmit) {
@@ -2968,7 +2994,7 @@ function actualizarVistaPrevia() {
   
   let previewText = '';
   rangos.forEach(rango => {
-    previewText += `Muros ${rango.desde}-${rango.hasta} → Eje "${rango.eje}" (${rango.hasta - rango.desde + 1} muros)\n`;
+    previewText += `Muros ${rango.desde}-${rango.hasta} (${rango.hasta - rango.desde + 1} muros a eliminar)\n`;
   });
   
   contenido.textContent = previewText;
@@ -2983,12 +3009,16 @@ function obtenerRangosValidos() {
   const rangos = [];
   
   rangoItems.forEach(item => {
-    const desde = parseInt(item.querySelector('.rango-desde').value);
-    const hasta = parseInt(item.querySelector('.rango-hasta').value);
-    const eje = item.querySelector('.rango-eje').value.trim();
+    const desdeInput = item.querySelector('.rango-desde');
+    const hastaInput = item.querySelector('.rango-hasta');
     
-    if (desde && hasta && eje && desde <= hasta) {
-      rangos.push({ desde, hasta, eje });
+    if (desdeInput && hastaInput) {
+      const desde = parseInt(desdeInput.value);
+      const hasta = parseInt(hastaInput.value);
+      
+      if (desde && hasta && desde <= hasta) {
+        rangos.push({ desde, hasta });
+      }
     }
   });
   

@@ -16,8 +16,9 @@ async function importarMuros(req, res) {
             return res.status(400).json({ ok: false, error: 'No se recibió archivo.' });
         }
         console.log('[controller - importController] Procesando archivo con parseTxtRobusto');
+        const pk_proyecto = parseInt(req.body.pk_proyecto);
         const txt = req.file.buffer.toString('utf-8');
-        const paneles = await (0, importService_1.parseTxtRobusto)(txt);
+        const paneles = await (0, importService_1.parseTxtRobusto)(pk_proyecto, txt);
         console.log('[controller - importController] Paneles procesados:', paneles.length);
         console.log('[controller - importController] Respuesta exitosa enviada');
         return res.json({

@@ -6,7 +6,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.addProject = addProject;
 exports.updateProject = updateProject;
 exports.getProjectById = getProjectById;
-const db_1 = __importDefault(require("../config/db"));
+exports.getProjectsByUser = getProjectsByUser;
+const db_1 = __importDefault(require("../services/config/db"));
 async function addProject(pk_usuario, nombre, empresa, tipo_muerto, vel_viento, temp_promedio, presion_atmo) {
     const query = `
     INSERT INTO proyecto (pk_usuario, nombre, empresa, tipo_muerto, vel_viento, temp_promedio, presion_atmo, texto_entrada)
@@ -52,6 +53,21 @@ async function getProjectById(pid, pk_usuario) {
     }
     catch (error) {
         console.error("Error fetching project by ID:", error);
+        throw error;
+    }
+}
+async function getProjectsByUser(pk_usuario) {
+    const query = `
+      SELECT row_to_json(proyecto.*) FROM proyecto
+      WHERE pk_usuario = $1;
+    `;
+    const values = [pk_usuario];
+    try {
+        const result = await db_1.default.query(query, values);
+        return result.rows.map(row => row.row_to_json); // devuelve las filas encontradas
+    }
+    catch (error) {
+        console.error("Error fetching projects by user:", error);
         throw error;
     }
 }

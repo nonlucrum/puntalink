@@ -16,13 +16,16 @@ exports.calculatePressure = calculatePressure;
 exports.calculateForce = calculateForce;
 exports.calculateFactorG = calculateFactorG;
 exports.calculateYCG = calculateYCG;
-exports.calculateNPT = calculateNPT;
+exports.calculateNFT = calculateNFT;
 exports.calculateGradosInclinacionBrace = calculateGradosInclinacionBrace;
 exports.determineTipoBrace = determineTipoBrace;
 exports.calcularVientoMuro = calcularVientoMuro;
 exports.calcularVientoMuros = calcularVientoMuros;
 exports.getParametrosVientoDefecto = getParametrosVientoDefecto;
 exports.calcularDistribucionBraces = calcularDistribucionBraces;
+exports.calcularInsertoCoordinates = calcularInsertoCoordinates;
+exports.determinarTipoBrace = determinarTipoBrace;
+exports.calculateBraceForces = calculateBraceForces;
 /**
  * Tabla 6.5 - Valores de α según categoría de terreno y clase de estructura
  */
@@ -160,9 +163,9 @@ function calculateForce(presion_kPa, area_m2) {
  * Nuevas funciones según Tomo III - Factores faltantes
  */
 // Factor G: Corrección por temperatura y altura según Tomo III
-// ✅ FÓRMULA CORRECTA SEGÚN TOMO III: G = (0.392 × presión_atmo) / (273 + temp_promedio)
+// FORMULA CORRECTA SEGUN TOMO III: G = (0.392 × presión_atmo) / (273 + temp_promedio)
 function calculateFactorG(temperatura_C, presion_mmHg) {
-    // ✅ Fórmula oficial del Tomo III para Factor de Corrección por Temperatura y Altura
+    // FORMULA OFICIAL: Fórmula oficial del Tomo III para Factor de Corrección por Temperatura y Altura
     const numerador = 0.392 * presion_mmHg;
     const denominador = 273 + temperatura_C;
     const G = numerador / denominador;
@@ -170,7 +173,7 @@ function calculateFactorG(temperatura_C, presion_mmHg) {
     console.log(`[CALCULOS] 📊 Entrada: temp=${temperatura_C}°C, presión=${presion_mmHg}mmHg`);
     console.log(`[CALCULOS] 🔢 Fórmula: G = (0.392 × ${presion_mmHg}) / (273 + ${temperatura_C})`);
     console.log(`[CALCULOS] 🔢 Cálculo: ${numerador.toFixed(2)} / ${denominador} = ${G.toFixed(4)}`);
-    console.log(`[CALCULOS] ✅ Factor G (Tomo III): ${G.toFixed(4)}`);
+    console.log(`[CALCULOS] FACTOR G: Factor G (Tomo III): ${G.toFixed(4)}`);
     return G;
 }
 // YCG: Centro de gravedad en Y (altura desde la base)
@@ -185,174 +188,126 @@ function calculateYCG(altura_m, forma = 'rectangular') {
             return altura_m / 2; // Default rectangular
     }
 }
-// NPT: Nivel de Piso Terminado según estándares Tilt-Up
-// Basado en preparación del terreno + losa de concreto + acabados
-function calculateNPT(nivel_natural_terreno_m = 0, ajuste_excavacion_relleno_m = 0, espesor_losa_concreto_m = 0.127, // 5 pulgadas por defecto (0.127m)
-acabado_superficial_m = 0.013 // ~0.5 pulgadas acabados (0.013m)
+// NFT: Nivel de Piso Terminado (Cálculo físico de elevación)
+// NFT = NNT - Excavación + Espesor_Losa + Acabado_Superficial
+function calculateNFT(nivel_natural_terreno_m = 0.0, // NNT (referencia relativa)
+excavacion_m = 0.0, // Excavación (0.0 o 0.30m si hay nivelación)
+espesor_losa_m = 0.140, // 140mm (5.5") - alineado con Insert Capacity
+acabado_superficial_m = 0.020 // 20mm acabado estándar
 ) {
     const observaciones = [];
-    // Cálculo paso a paso del NPT
-    const nivel_base = nivel_natural_terreno_m + ajuste_excavacion_relleno_m;
-    const nivel_con_losa = nivel_base + espesor_losa_concreto_m;
-    const npt_final = nivel_con_losa + acabado_superficial_m;
-    // Validaciones según estándares
-    if (espesor_losa_concreto_m < 0.102) { // < 4 pulgadas
-        observaciones.push('⚠️ Espesor de losa < 4" - Verificar resistencia mínima 2,500 psi');
+    const recomendaciones = [];
+    // Fórmula principal: NFT = NNT - Excavación + Espesor_Losa + Acabado
+    const nft_final = nivel_natural_terreno_m - excavacion_m + espesor_losa_m + acabado_superficial_m;
+    console.log(`[CALCULOS] CALCULO NFT (Nivel de Piso Terminado):`);
+    console.log(`[CALCULOS] Nivel Natural Terreno (NNT): ${nivel_natural_terreno_m.toFixed(3)}m`);
+    console.log(`[CALCULOS] Excavacion: ${excavacion_m.toFixed(3)}m`);
+    console.log(`[CALCULOS] Espesor losa: ${espesor_losa_m.toFixed(3)}m (${(espesor_losa_m * 39.37).toFixed(1)}")`);
+    console.log(`[CALCULOS] Acabado superficial: ${acabado_superficial_m.toFixed(3)}m`);
+    console.log(`[CALCULOS] NFT = ${nivel_natural_terreno_m} - ${excavacion_m} + ${espesor_losa_m} + ${acabado_superficial_m} = ${nft_final.toFixed(3)}m`);
+    // Validaciones según especificaciones
+    if (espesor_losa_m < 0.127) { // < 5"
+        observaciones.push('CORTO: Brace corto - Verificar estabilidad lateral');
     }
-    if (espesor_losa_concreto_m > 0.152) { // > 6 pulgadas  
-        observaciones.push('✅ Losa robusta > 6" - Buena base para anclajes pesados');
+    else if (espesor_losa_m >= 0.140) { // >= 5.5"
+        observaciones.push('ESPESOR: Espesor óptimo ≥ 5.5" - Compatible con Insert Capacity 8,470 lb');
     }
-    if (Math.abs(ajuste_excavacion_relleno_m) > 0.5) {
-        observaciones.push(`📏 Ajuste terreno significativo: ${ajuste_excavacion_relleno_m > 0 ? 'relleno' : 'excavación'} ${Math.abs(ajuste_excavacion_relleno_m).toFixed(2)}m`);
+    if (excavacion_m > 0.3) {
+        observaciones.push(`📏 Excavación significativa: ${excavacion_m.toFixed(2)}m - Verificar compactación`);
     }
-    observaciones.push(`🎯 NPT establecido como referencia z=0 para cálculos de altura`);
-    observaciones.push(`🔧 Verificar nivel consistente en todo el sitio para estabilidad braces`);
-    console.log(`[CALCULOS] 🏗️ CÁLCULO NPT DETALLADO:`);
-    console.log(`[CALCULOS] 🌍 Nivel natural terreno: ${nivel_natural_terreno_m.toFixed(3)}m`);
-    console.log(`[CALCULOS] ⛏️ Ajuste excavación/relleno: ${ajuste_excavacion_relleno_m >= 0 ? '+' : ''}${ajuste_excavacion_relleno_m.toFixed(3)}m`);
-    console.log(`[CALCULOS] 🧱 Espesor losa concreto: ${espesor_losa_concreto_m.toFixed(3)}m (${(espesor_losa_concreto_m * 39.37).toFixed(1)}")`);
-    console.log(`[CALCULOS] ✨ Acabados superficiales: ${acabado_superficial_m.toFixed(3)}m`);
-    console.log(`[CALCULOS] 🎯 NPT Final: ${npt_final.toFixed(3)}m`);
+    else if (excavacion_m > 0) {
+        observaciones.push(`NIVELACION: Nivelación estándar: ${excavacion_m.toFixed(2)}m`);
+    }
+    if (nft_final < 0.15) {
+        observaciones.push('ADVERTENCIA: NFT bajo - Verificar drenaje y accesibilidad');
+    }
+    else if (nft_final > 0.25) {
+        observaciones.push('📈 NFT elevado - Considerar impacto en accesos');
+    }
+    observaciones.push(`BASE: NFT = ${nft_final.toFixed(3)}m establecido como base para alturas de paneles`);
+    observaciones.push(`� Compatible con datos del Excel - hoja "braces" y "Informe"`);
     return {
-        npt_final,
+        nft_final,
         componentes: {
             nivel_natural: nivel_natural_terreno_m,
-            ajuste_terreno: ajuste_excavacion_relleno_m,
-            losa_concreto: espesor_losa_concreto_m,
-            acabados: acabado_superficial_m
+            excavacion: excavacion_m,
+            espesor_losa: espesor_losa_m,
+            acabado: acabado_superficial_m
         },
         observaciones
     };
 }
 // Grados de inclinación del brace según manual Tilt-Up
 function calculateGradosInclinacionBrace(altura_muro, distancia_horizontal) {
-    // Altura del punto de anclaje = 2/3 de la altura total del panel (estándar Tilt-Up)
-    const altura_anclaje = altura_muro * (2 / 3);
+    // Usar altura completa del muro según especificación del usuario
+    // Ángulo = arctan(altura del muro / distancia horizontal del brace)
     // Si no se proporciona distancia horizontal, calcular para ángulo óptimo de 55°
     if (!distancia_horizontal) {
         // Distancia horizontal para ángulo óptimo de 55° (entre 45° y 60° recomendados)
-        distancia_horizontal = altura_anclaje / Math.tan(55 * Math.PI / 180);
+        distancia_horizontal = altura_muro / Math.tan(55 * Math.PI / 180);
     }
     // Calcular ángulo real basado en geometría del triángulo
-    // Ángulo = arctan(altura_anclaje / distancia_horizontal)
-    const angulo_rad = Math.atan(altura_anclaje / distancia_horizontal);
+    // Ángulo = arctan(altura_muro / distancia_horizontal)
+    const angulo_rad = Math.atan(altura_muro / distancia_horizontal);
     const angulo_grados = (angulo_rad * 180) / Math.PI;
     console.log(`[CALCULOS] 🔧 CÁLCULO BRACE DETALLADO:`);
     console.log(`[CALCULOS] 📏 Altura total muro: ${altura_muro.toFixed(2)}m`);
-    console.log(`[CALCULOS] 📐 Altura punto anclaje (2/3): ${altura_anclaje.toFixed(2)}m`);
     console.log(`[CALCULOS] 📊 Distancia horizontal: ${distancia_horizontal.toFixed(2)}m`);
-    console.log(`[CALCULOS] 📐 Ángulo calculado: ${angulo_grados.toFixed(1)}°`);
+    console.log(`[CALCULOS] Angulo = arctan(${altura_muro}/${distancia_horizontal}) = ${angulo_grados.toFixed(1)}°`);
     // Validar que el ángulo esté en rango seguro (30° - 60°)
     if (angulo_grados < 30) {
-        console.log(`[CALCULOS] ⚠️ ADVERTENCIA: Ángulo ${angulo_grados.toFixed(1)}° < 30° (mínimo seguridad)`);
+        console.log(`[CALCULOS] ADVERTENCIA: ADVERTENCIA: Ángulo ${angulo_grados.toFixed(1)}° < 30° (mínimo seguridad)`);
     }
     else if (angulo_grados > 60) {
-        console.log(`[CALCULOS] ⚠️ ADVERTENCIA: Ángulo ${angulo_grados.toFixed(1)}° > 60° (máximo recomendado)`);
+        console.log(`[CALCULOS] ADVERTENCIA: ADVERTENCIA: Ángulo ${angulo_grados.toFixed(1)}° > 60° (máximo recomendado)`);
     }
     else {
         console.log(`[CALCULOS]  Ángulo ${angulo_grados.toFixed(1)}° en rango óptimo (30°-60°)`);
     }
     return angulo_grados;
 }
-// Determinación del tipo y especificaciones de brace según manual Tilt-Up
+// Determinación del tipo y especificaciones de brace usando lógica calculada
 function determineTipoBrace(altura_m, angulo_grados, configuracion = 'estandar') {
     const altura_anclaje = altura_m * (2 / 3);
     const observaciones = [];
     // Calcular longitud total del brace basado en altura de anclaje y ángulo
     const longitud_estimada_m = altura_anclaje / Math.sin(angulo_grados * Math.PI / 180);
-    const longitud_ft = longitud_estimada_m * 3.28084; // Convertir a pies
-    // Determinar modelo según tabla del manual Tilt-Up (página 72) - SOLO MODELOS REALES
+    const longitud_ft = longitud_estimada_m * 3.28084;
+    // LÓGICA CALCULADA: Determinar modelo basado en capacidad estructural requerida
     let tipo;
     let modelo_sugerido;
-    if (longitud_ft <= 8.83) { // 8 ft-10 in
-        tipo = 'Brace de tubo en obra';
-        modelo_sugerido = 'B1';
-    }
-    else if (longitud_ft <= 14) { // 14 ft-0 in
-        if (longitud_ft >= 10) {
-            tipo = 'Brace de tubo corta';
-            modelo_sugerido = 'B6';
-        }
-        else {
-            tipo = 'Brace de tubo corta';
-            modelo_sugerido = 'B1A';
-        }
-    }
-    else if (longitud_ft <= 20.5) { // 20 ft-6 in
-        tipo = 'Brace de tubo estándar';
-        modelo_sugerido = 'B2';
-    }
-    else if (longitud_ft <= 23.5) { // 23 ft-6 in
-        tipo = 'Brace de tubo eslingar para trabajo pesado';
-        modelo_sugerido = 'B4';
-    }
-    else if (longitud_ft <= 24) { // 24 ft-0 in
-        tipo = 'Brace jumbo corta';
-        modelo_sugerido = 'B7';
-    }
-    else if (longitud_ft <= 29) { // 29 ft-0 in
-        tipo = 'Brace jumbo con extensión de 5 ft';
-        modelo_sugerido = 'B9';
-    }
-    else if (longitud_ft <= 35) { // 35 ft-0 in
-        tipo = 'Brace jumbo B12 con extensión de 5 ft';
-        modelo_sugerido = 'B18';
-    }
-    else if (longitud_ft <= 39) { // 39 ft-0 in
-        if (longitud_ft >= 32) {
-            tipo = 'Brace jumbo con extensión de 10 ft';
-            modelo_sugerido = 'B10';
-        }
-        else {
-            tipo = 'Brace de tubo larga para trabajo pesado';
-            modelo_sugerido = 'B5';
-        }
-    }
-    else if (longitud_ft <= 40) { // 40 ft-0 in
-        tipo = 'Brace jumbo 5-12';
+    // Usar longitud calculada para determinar modelo (no altura arbitraria)
+    if (longitud_ft < 40) {
+        tipo = 'Brace estándar para Tilt-Up';
         modelo_sugerido = 'B12';
-    }
-    else if (longitud_ft <= 44) { // 44 ft-0 in
-        tipo = 'Brace jumbo con extensión de 15 ft';
-        modelo_sugerido = 'B11';
-    }
-    else if (longitud_ft <= 45) { // 45 ft-0 in
-        tipo = 'Brace jumbo B12 con extensión de 15 ft';
-        modelo_sugerido = 'B16';
-    }
-    else if (longitud_ft <= 50.5) { // 50 ft-6 in
-        tipo = 'Brace jumbo B12 con extensión de 10 ft-6 in';
-        modelo_sugerido = 'B14';
-    }
-    else if (longitud_ft <= 60) { // 60 ft-0 in
-        tipo = 'Brace jumbo B12 con extensión de 20 ft';
-        modelo_sugerido = 'B15';
+        observaciones.push(`Longitud ${longitud_ft.toFixed(1)} ft - Brace estándar B12 suficiente`);
     }
     else {
-        tipo = 'Accubrace Sistema Alta Capacidad';
-        modelo_sugerido = 'B52F';
-        observaciones.push('⚠️ Requiere sistema Accubrace de alta capacidad');
-        observaciones.push('⚠️ Consultar ingeniero para verificación estructural');
+        tipo = 'Brace de alta capacidad para Tilt-Up';
+        modelo_sugerido = 'B14';
+        observaciones.push(`Longitud ${longitud_ft.toFixed(1)} ft - Requiere brace reforzado B14`);
     }
-    // Verificaciones según manual
-    if (angulo_grados < 30) {
-        observaciones.push('⚠️ Ángulo menor a 30° - Revisar estabilidad');
+    // Verificaciones de ángulo basadas en eficiencia estructural
+    if (angulo_grados < 45) {
+        observaciones.push(`ANGULO: Ángulo ${angulo_grados}° < 45° - Eficiencia reducida`);
     }
-    if (angulo_grados > 60) {
-        observaciones.push('⚠️ Ángulo mayor a 60° - No recomendado');
+    else if (angulo_grados > 60) {
+        observaciones.push(`⚠️ Ángulo ${angulo_grados}° > 60° - Componente horizontal alta`);
     }
-    if (angulo_grados >= 45 && angulo_grados <= 60) {
-        observaciones.push('✅ Ángulo en rango óptimo (45°-60°)');
+    else {
+        observaciones.push(`✅ Ángulo ${angulo_grados}° en rango óptimo (45°-60°)`);
     }
-    // Consideraciones adicionales
-    if (longitud_ft > 40) {
-        observaciones.push('📏 Brace largo - Verificar disponibilidad en sitio');
+    // Consideraciones de instalación basadas en longitud calculada
+    if (longitud_estimada_m > 10) {
+        observaciones.push('LARGO: Brace largo - Considerar equipos de izaje especiales');
     }
-    if (longitud_ft > 50) {
-        observaciones.push('🏗️ Requiere extensiones especiales - Planificar logística');
+    if (longitud_estimada_m > 15) {
+        observaciones.push(' Longitud considerable - Verificar disponibilidad y transporte');
     }
-    observaciones.push(`Altura anclaje: ${altura_anclaje.toFixed(2)}m (2/3 de altura total)`);
-    observaciones.push('Verificar espacio para maniobra de grúa');
+    // Información técnica calculada
+    observaciones.push(`Altura anclaje: ${altura_anclaje.toFixed(2)}m (2/3 de ${altura_m}m)`);
+    observaciones.push(`Longitud calculada: ${longitud_estimada_m.toFixed(2)}m`);
+    observaciones.push('Selección basada en cálculos estructurales');
     return {
         tipo,
         longitud_estimada_m: +longitud_estimada_m.toFixed(2),
@@ -370,7 +325,7 @@ function calcularVientoMuro(muro, parametros) {
     // ✅ CORREGIDO: Asegurar que area_m2 sea un número válido
     let area_m2 = Number(muro.area) || 0;
     let peso_ton = Number(muro.peso) || 0;
-    console.log(`[CALCULOS] 🔍 DEBUG ÁREA: muro.area=${muro.area} (tipo: ${typeof muro.area}), area_m2=${area_m2} (tipo: ${typeof area_m2})`);
+    console.log(`[CALCULOS] DEBUG: DEBUG ÁREA: muro.area=${muro.area} (tipo: ${typeof muro.area}), area_m2=${area_m2} (tipo: ${typeof area_m2})`);
     // Para altura, usar overall_height del TXT si existe, sino usar estimación
     let altura_z_m = Number(parametros.altura_estimada_m) || 0;
     // Prioridad 1: Usar overall_height del muro importado (ya viene en metros desde el importService)
@@ -386,7 +341,7 @@ function calcularVientoMuro(muro, parametros) {
             altura_z_m = 6; // Altura mínima típica Tilt-Up
         advertencias.push(`Altura estimada como ${altura_z_m.toFixed(1)}m (no se encontró Overall Height en TXT). Para mayor precisión, verifique el archivo de importación.`);
     }
-    console.log(`[CALCULOS] 🔍 DEBUG ALTURA: altura_z_m=${altura_z_m} (tipo: ${typeof altura_z_m})`);
+    console.log(`[CALCULOS] DEBUG: DEBUG ALTURA: altura_z_m=${altura_z_m} (tipo: ${typeof altura_z_m})`);
     // ✅ VERIFICAR: Que tenemos valores numéricos válidos antes de continuar
     if (!area_m2 || area_m2 <= 0) {
         advertencias.push(`Área inválida: ${area_m2} m². Usando valor por defecto de 10 m².`);
@@ -414,23 +369,25 @@ function calcularVientoMuro(muro, parametros) {
     // Factor G según Tomo III - FACTOR DE CORRECCIÓN POR TEMPERATURA Y ALTURA (fórmula específica)
     const G = calculateFactorG(parametros.temperatura_C, parametros.presion_barometrica_mmHg);
     // ✅ VERIFICACIÓN: Mostrar ambos factores (son diferentes según Tomo III)
-    console.log(`[CALCULOS] 🔍 Corrección (densidad aire): ${correccion.toFixed(4)}, Factor G (Tomo III): ${G.toFixed(4)}`);
+    console.log(`[CALCULOS] CORRECION: Corrección (densidad aire): ${correccion.toFixed(4)}, Factor G (Tomo III): ${G.toFixed(4)}`);
     // Presión dinámica según Tomo III: qz = 0.0048 × G × (VD)²
     const qz_kPa = calculateQz(G, Vd_kmh);
     // Fuerza de viento: Fuerza = qz × Área (según especificación)
     const fuerza_kN = qz_kPa * area_m2;
     // ✅ CORREGIDO: Presión = (Fuerza de viento / área) × (9.81/1000)
     const presion_kPa = (fuerza_kN / area_m2) * (9.81 / 1000);
-    console.log(`[CALCULOS] 🔍 VERIFICACIÓN PRESIÓN:`);
+    console.log(`[CALCULOS] VERIFICACION: VERIFICACIÓN PRESIÓN:`);
     console.log(`[CALCULOS] 📊 qz: ${qz_kPa.toFixed(4)} kPa`);
     console.log(`[CALCULOS] 💨 Fuerza viento: ${fuerza_kN.toFixed(2)} kN`);
-    console.log(`[CALCULOS] � Área: ${area_m2.toFixed(2)} m²`);
+    console.log(`[CALCULOS] 📏 Área: ${area_m2.toFixed(2)} m²`);
     console.log(`[CALCULOS] 🧮 Presión = (${fuerza_kN.toFixed(2)} / ${area_m2.toFixed(2)}) × (9.81/1000) = ${presion_kPa.toFixed(4)} kPa`);
     // Cálculos geométricos y estructurales adicionales
     const YCG = calculateYCG(altura_z_m); // Centro de gravedad
-    const nptCalculation = calculateNPT(parametros.nivel_natural_terreno_m || 0.21, // Ajustado para NPT = 0.35m
-    parametros.ajuste_excavacion_relleno_m || 0, parametros.espesor_losa_concreto_m || 0.127, // 5" por defecto
-    parametros.acabado_superficial_m || 0.013 // 0.5" por defecto
+    // NFT: Nivel de Piso Terminado (Cálculo físico de elevación)
+    const nftCalculation = calculateNFT(parametros.nivel_natural_terreno_m || 0.0, // NNT
+    parametros.ajuste_excavacion_relleno_m || 0.0, // Excavación  
+    parametros.espesor_losa_concreto_m || 0.140, // 140mm (5.5")
+    parametros.acabado_superficial_m || 0.020 // 20mm acabado
     );
     const grados_inclinacion_brace = calculateGradosInclinacionBrace(altura_z_m, parametros.distancia_horizontal_brace);
     const especificaciones_brace = determineTipoBrace(altura_z_m, grados_inclinacion_brace);
@@ -438,12 +395,12 @@ function calcularVientoMuro(muro, parametros) {
     const ancho_estimado_m = area_m2 / altura_z_m;
     const distribucion_braces = calcularDistribucionBraces(altura_z_m, ancho_estimado_m, fuerza_kN);
     console.log(`[CALCULOS] 📏 Distribución de Braces:`);
-    console.log(`[CALCULOS] 📐 Ancho estimado: ${ancho_estimado_m.toFixed(2)}m (área/altura)`);
-    console.log(`[CALCULOS] 🔢 Total braces: ${distribucion_braces.total_braces}`);
-    console.log(`[CALCULOS] 📊 Modelo principal: ${distribucion_braces.modelo_principal}`);
+    console.log(`[CALCULOS] ANCHO: Ancho estimado: ${ancho_estimado_m.toFixed(2)}m (área/altura)`);
+    console.log(`[CALCULOS]  Total braces: ${distribucion_braces.total_braces}`);
+    console.log(`[CALCULOS]  Modelo principal: ${distribucion_braces.modelo_principal}`);
     console.log(`[CALCULOS] 📋 Resumen: ${distribucion_braces.resumen_distribucion}`);
-    // Agregar observaciones del NPT a las advertencias generales
-    advertencias.push(...nptCalculation.observaciones);
+    // Agregar observaciones del NFT a las advertencias generales
+    advertencias.push(...nftCalculation.observaciones);
     // Verificaciones según norma
     let requiere_analisis_dinamico = false;
     // Verificar si requiere análisis dinámico (altura > 60m o condiciones especiales)
@@ -460,6 +417,7 @@ function calcularVientoMuro(muro, parametros) {
         advertencias.push(`Presión ${presion_kPa.toFixed(2)} kPa es elevada, verificar cálculos`);
     }
     return {
+        pid: muro.pid || 0,
         id_muro: muro.id_muro || 'N/A',
         area_m2: +parseFloat(area_m2.toString()).toFixed(2),
         peso_ton: +parseFloat(peso_ton.toString()).toFixed(2),
@@ -482,7 +440,8 @@ function calcularVientoMuro(muro, parametros) {
         fuerza_kN: +fuerza_kN.toFixed(2),
         // Parámetros geométricos y estructurales
         YCG: +YCG.toFixed(2),
-        NPT: +nptCalculation.npt_final.toFixed(3),
+        NFT: +nftCalculation.nft_final.toFixed(3),
+        componentes_nft: nftCalculation.componentes,
         grados_inclinacion_brace: +grados_inclinacion_brace.toFixed(1),
         // Especificaciones detalladas del brace
         tipo_brace: especificaciones_brace.tipo,
@@ -520,110 +479,347 @@ function getParametrosVientoDefecto() {
         Cp_ext: 0.8, // Tomo III secc. 8.2.2
         factor_succion: 1.3, // Factor de seguridad
         densidad_concreto_kg_m3: 2400, // Estándar
+        // Parámetros NFT (análisis de fricción y estabilidad)
+        coeficiente_friccion: 0.4, // Concreto sobre concreto
+        factor_seguridad_nft: 1.5, // Factor de seguridad estándar
     };
 }
-// Función para calcular distribución de braces según modelos reales del manual Tilt-Up
-function calcularDistribucionBraces(altura_m, ancho_m, fuerza_kN) {
+// Función para calcular distribución de braces usando lógica calculada, no hardcodeada
+function calcularDistribucionBraces(altura_m, ancho_estimado_m, fuerza_kN) {
     const observaciones = [];
-    // Inicializar distribución con todos los modelos reales del manual
+    // Inicializar distribución con los modelos del proyecto real
     const distribucion = {
-        'B1': 0,
-        'B1A': 0,
-        'B2': 0,
-        'B4': 0,
-        'B5': 0,
-        'B6': 0,
-        'B7': 0,
-        'B9': 0,
-        'B10': 0,
-        'B11': 0,
         'B12': 0,
         'B14': 0,
-        'B15': 0,
-        'B16': 0,
-        'B18': 0
+        'B04': 0, // Columna existe pero generalmente no se usa
+        'B15': 0 // Columna existe pero generalmente no se usa
     };
-    // Calcular altura de anclaje (2/3 de altura total)
+    // Calcular altura de anclaje (2/3 de altura total según estándar Tilt-Up)
     const altura_anclaje = altura_m * (2 / 3);
-    // Calcular longitud de brace necesaria (asumiendo ángulo óptimo de 55°)
-    const angulo_rad = 55 * Math.PI / 180;
+    // Calcular longitud de brace necesaria usando ángulo de los parámetros
+    const angulo_rad = 55 * Math.PI / 180; // Por ahora mantenemos 55° como óptimo
     const longitud_estimada_m = altura_anclaje / Math.sin(angulo_rad);
     const longitud_ft = longitud_estimada_m * 3.28084;
-    // Determinar modelo principal según tabla del manual
+    // LÓGICA CALCULADA: Determinar modelo basado en capacidad estructural
+    // B12: Para estructuras estándar (longitud < 40 ft según manual)
+    // B14: Para estructuras de alta capacidad (longitud >= 40 ft)
     let modelo_principal = '';
-    if (longitud_ft <= 8.83) {
-        modelo_principal = 'B1';
-    }
-    else if (longitud_ft <= 14) {
-        modelo_principal = longitud_ft >= 10 ? 'B6' : 'B1A';
-    }
-    else if (longitud_ft <= 20.5) {
-        modelo_principal = 'B2';
-    }
-    else if (longitud_ft <= 23.5) {
-        modelo_principal = 'B4';
-    }
-    else if (longitud_ft <= 24) {
-        modelo_principal = 'B7';
-    }
-    else if (longitud_ft <= 29) {
-        modelo_principal = 'B9';
-    }
-    else if (longitud_ft <= 35) {
-        modelo_principal = 'B18';
-    }
-    else if (longitud_ft <= 39) {
-        modelo_principal = longitud_ft >= 32 ? 'B10' : 'B5';
-    }
-    else if (longitud_ft <= 40) {
+    if (longitud_ft < 40) {
         modelo_principal = 'B12';
-    }
-    else if (longitud_ft <= 44) {
-        modelo_principal = 'B11';
-    }
-    else if (longitud_ft <= 45) {
-        modelo_principal = 'B16';
-    }
-    else if (longitud_ft <= 50.5) {
-        modelo_principal = 'B14';
-    }
-    else if (longitud_ft <= 60) {
-        modelo_principal = 'B15';
+        observaciones.push(`Longitud ${longitud_ft.toFixed(1)} ft < 40 ft - Modelo B12 seleccionado`);
     }
     else {
-        modelo_principal = 'B15';
-        observaciones.push('⚠️ Longitud muy alta - Revisar con ingeniería');
+        modelo_principal = 'B14';
+        observaciones.push(`Longitud ${longitud_ft.toFixed(1)} ft >= 40 ft - Modelo B14 (alta capacidad)`);
     }
-    // Calcular cantidad de braces necesarios basado en:
-    // - Ancho del muro (1 brace cada 6-8m de ancho según manual)
-    // - Fuerza de viento (distribución de carga)
-    // - Mínimo 2 braces por estabilidad (página 70-71)
-    let cantidad_base = Math.max(2, Math.ceil(ancho_m / 7)); // 1 cada 7m aprox
-    // Ajuste por fuerza de viento (si es muy alta, agregar braces)
-    if (fuerza_kN > 3000) {
-        cantidad_base += 1;
-        observaciones.push('Fuerza alta - Brace adicional agregado');
+    // LÓGICA CALCULADA: Cantidad basada en criterios estructurales
+    let cantidad_base = 2; // Mínimo estándar para estabilidad
+    // Criterio 1: Ancho del muro (1 brace cada 6-8m según normas)
+    const braces_por_ancho = Math.ceil(ancho_estimado_m / 7);
+    cantidad_base = Math.max(cantidad_base, braces_por_ancho);
+    // Criterio 2: Altura estructural (mayor altura = más braces)
+    if (altura_m > 14) {
+        cantidad_base = Math.max(cantidad_base, 3);
+        observaciones.push(`Altura ${altura_m}m > 14m - Mínimo 3 braces por estabilidad`);
     }
-    if (fuerza_kN > 5000) {
-        cantidad_base += 1;
-        observaciones.push('Fuerza muy alta - Brace extra agregado');
+    // Criterio 3: Fuerza de viento (alta fuerza = más braces)
+    const fuerza_critica = 5000; // kN - Umbral de fuerza alta
+    if (fuerza_kN > fuerza_critica) {
+        cantidad_base = Math.max(cantidad_base, 3);
+        observaciones.push(`Fuerza ${fuerza_kN} kN > ${fuerza_critica} kN - Braces adicionales requeridos`);
+    }
+    // Criterio 4: Longitud de brace (braces muy largos necesitan refuerzo)
+    if (longitud_estimada_m > 12) {
+        cantidad_base = Math.max(cantidad_base, 3);
+        observaciones.push(`Longitud brace ${longitud_estimada_m.toFixed(2)}m > 12m - Refuerzo adicional`);
     }
     // Asignar toda la cantidad al modelo principal
     distribucion[modelo_principal] = cantidad_base;
-    // Crear resumen de distribución para mostrar en UI
+    // Crear resumen de distribución
     const modelos_con_cantidad = Object.entries(distribucion)
         .filter(([modelo, cantidad]) => cantidad > 0)
         .map(([modelo, cantidad]) => `${modelo}:${cantidad}`)
         .join(', ');
     const resumen_distribucion = `Total: ${cantidad_base}, ${modelos_con_cantidad}`;
+    // Información técnica calculada
     observaciones.push(`Altura anclaje: ${altura_anclaje.toFixed(2)}m (2/3 de altura)`);
     observaciones.push(`Longitud estimada: ${longitud_estimada_m.toFixed(2)}m (${longitud_ft.toFixed(1)} ft)`);
-    observaciones.push(`Modelo seleccionado: ${modelo_principal}`);
+    observaciones.push(`Ancho estimado: ${ancho_estimado_m.toFixed(2)}m`);
+    observaciones.push(`Criterios aplicados: estructural + fuerza + geometría`);
     return {
         total_braces: cantidad_base,
         distribucion,
         modelo_principal,
         resumen_distribucion,
+        observaciones
+    };
+}
+/**
+ * Calcula las fuerzas de los braces (FBx, FBy, FB) y distribución por tipo
+ * Basado en la cantidad de braces (X), ángulo y fuerza de viento
+ *
+ * @param fuerza_viento_kN - Fuerza de viento calculada (kN)
+ * @param x_braces - Cantidad de braces (manual)
+ * @param angulo_grados - Ángulo de inclinación del brace (manual)
+ * @returns BraceCalculationResult con fuerzas y cantidades por tipo
+ */
+/**
+ * @deprecated - Usar calculateBraceForces con el nuevo método
+ * Calcular coordenadas del inserto del brace según el tipo y ángulo
+ * Fórmulas de Excel:
+ * X = (longitud_brace) * cos(ángulo)
+ * Y = (longitud_brace) * sin(ángulo) + NPT
+ *
+ * Longitudes de braces:
+ * - B04: 4.6 m
+ * - B12: 9.75 m
+ * - B14: 12.75 m
+ * - B15: 15.8 m
+ */
+function calcularInsertoCoordinates(tipo_brace_seleccionado, // Usar el tipo seleccionado por el usuario
+angulo_grados, npt = 0) {
+    // Longitudes según tipo de brace (metros)
+    const LONGITUDES = {
+        B04: 4.6,
+        B12: 9.75,
+        B14: 12.75,
+        B15: 15.8
+    };
+    // Obtener longitud del tipo seleccionado
+    const longitud_brace = LONGITUDES[tipo_brace_seleccionado] || 0;
+    // Si no hay tipo válido, retornar null
+    if (longitud_brace === 0) {
+        return { x_inserto: null, y_inserto: null };
+    }
+    // Convertir ángulo a radianes
+    const angulo_rad = (angulo_grados * Math.PI) / 180;
+    // Fórmulas de Excel
+    const x_inserto = longitud_brace * Math.cos(angulo_rad);
+    const y_inserto = longitud_brace * Math.sin(angulo_rad) + npt;
+    console.log(`[CALCULOS] INSERTO: Tipo=${tipo_brace_seleccionado}, Longitud=${longitud_brace}m, Ángulo=${angulo_grados}°, NPT=${npt}m`);
+    console.log(`[CALCULOS] - X inserto: ${x_inserto.toFixed(3)} m`);
+    console.log(`[CALCULOS] - Y inserto: ${y_inserto.toFixed(3)} m`);
+    return {
+        x_inserto: parseFloat(x_inserto.toFixed(3)),
+        y_inserto: parseFloat(y_inserto.toFixed(3))
+    };
+}
+/**
+ * Determinar tipo de brace según normativa
+ * Usa: (ALTO - NPT) * Factor_W2 vs umbrales con sen(ángulo)
+ *
+ * Longitudes nominales:
+ * - B4:  4.6 m
+ * - B12: 9.75 m (12.76 en algunos contextos)
+ * - B14: 12.75 m
+ * - B15: 15.8 m (15.81 en algunos contextos)
+ *
+ * Capacidades (kN):
+ * - B12: 4100 kN
+ * - B4:  2950 kN
+ * - B14: 2360 kN
+ * - B15: 1723 kN
+ */
+function determinarTipoBrace(alto_m, npt_m, angulo_grados, factor_w2 = 0.6) {
+    // Convertir ángulo a radianes
+    const angulo_rad = (angulo_grados * Math.PI) / 180;
+    const sen_angulo = Math.sin(angulo_rad);
+    // Magnitud base
+    const magnitud = (alto_m - npt_m) * factor_w2;
+    // Longitudes nominales (usar las mismas que para cálculo de X/Y)
+    const L_B4 = 4.6;
+    const L_B12 = 9.75;
+    const L_B14 = 12.75;
+    const L_B15 = 15.8;
+    // Umbrales = Longitud * sen(ángulo)
+    const umbral_B4 = L_B4 * sen_angulo;
+    const umbral_B12 = L_B12 * sen_angulo;
+    const umbral_B14 = L_B14 * sen_angulo;
+    const umbral_B15 = L_B15 * sen_angulo;
+    console.log(`[BRACES] Selección de tipo:`);
+    console.log(`  - Magnitud: (${alto_m} - ${npt_m}) * ${factor_w2} = ${magnitud.toFixed(3)}`);
+    console.log(`  - Ángulo: ${angulo_grados}° → sen = ${sen_angulo.toFixed(4)}`);
+    console.log(`  - Umbrales: B4=${umbral_B4.toFixed(3)}, B12=${umbral_B12.toFixed(3)}, B14=${umbral_B14.toFixed(3)}, B15=${umbral_B15.toFixed(3)}`);
+    // Selección: de mayor a menor longitud
+    if (magnitud >= umbral_B15) {
+        console.log(`  → Seleccionado: B15 (magnitud ≥ ${umbral_B15.toFixed(3)})`);
+        return 'B15';
+    }
+    else if (magnitud >= umbral_B14) {
+        console.log(`  → Seleccionado: B14 (magnitud ≥ ${umbral_B14.toFixed(3)})`);
+        return 'B14';
+    }
+    else if (magnitud >= umbral_B12) {
+        console.log(`  → Seleccionado: B12 (magnitud ≥ ${umbral_B12.toFixed(3)})`);
+        return 'B12';
+    }
+    else {
+        console.log(`  → Seleccionado: B4 (magnitud < ${umbral_B12.toFixed(3)})`);
+        return 'B4';
+    }
+}
+/**
+ * Calcular fuerzas en braces con fórmulas actualizadas
+ *
+ * Flujo:
+ * 1. Determinar TIPO según (ALTO-NPT)*Factor vs umbrales
+ * 2. Calcular X = Longitud_tipo * cos(V)
+ * 3. Calcular Y = NPT + Longitud_tipo * sen(V)
+ * 4. Calcular YCG = ALTO / 2 (Centro de Gravedad)
+ * 5. Calcular FBx = (Fuerza_viento * YCG) / Y
+ * 6. Calcular FB = FBx / cos(V)
+ * 7. Calcular FBy = FB * sen(V)
+ * 8. Calcular CANTIDAD = max(2, ceil(FBx / Capacidad_tipo))
+ */
+function calculateBraceForces(fuerza_viento_kN, presion_kPa, // Nueva: presión de viento
+alto_m, // Nueva: altura del muro
+angulo_grados, npt = 0, factor_w2 = 0.6, tipo_manual // Opcional: tipo especificado manualmente
+) {
+    const observaciones = [];
+    console.log('[CALCULOS] CALCULO DE BRACES (Nuevo método):');
+    console.log(`  - Fuerza viento: ${fuerza_viento_kN.toFixed(2)} kN`);
+    console.log(`  - Presión: ${presion_kPa.toFixed(4)} kPa`);
+    console.log(`  - Alto: ${alto_m.toFixed(2)} m`);
+    console.log(`  - Ángulo: ${angulo_grados}°`);
+    console.log(`  - NPT: ${npt.toFixed(3)} m`);
+    console.log(`  - Factor W2: ${factor_w2}`);
+    // Validaciones
+    if (angulo_grados <= 0 || angulo_grados >= 90) {
+        observaciones.push('ERROR: Ángulo debe estar entre 0° y 90°');
+        return {
+            x_braces: 0,
+            fbx: 0,
+            fby: 0,
+            fb: 0,
+            cant_b14: 0,
+            cant_b12: 0,
+            cant_b04: 0,
+            cant_b15: 0,
+            x_inserto: 0,
+            y_inserto: 0,
+            observaciones
+        };
+    }
+    // Convertir ángulo a radianes
+    const angulo_rad = (angulo_grados * Math.PI) / 180;
+    const cos_angulo = Math.cos(angulo_rad);
+    const sen_angulo = Math.sin(angulo_rad);
+    // 1. Determinar tipo de brace (automático o manual)
+    const tipo_brace = tipo_manual || determinarTipoBrace(alto_m, npt, angulo_grados, factor_w2);
+    observaciones.push(`Tipo de brace: ${tipo_brace}${tipo_manual ? ' (manual)' : ' (automático)'}`);
+    // Longitudes por tipo (metros)
+    const LONGITUDES = {
+        B4: 4.6,
+        B12: 9.75,
+        B14: 12.75,
+        B15: 15.8
+    };
+    // Capacidades por tipo (kN)
+    const CAPACIDADES = {
+        B12: 4100,
+        B4: 2950,
+        B14: 2360,
+        B15: 1723
+    };
+    const longitud_brace = LONGITUDES[tipo_brace] || LONGITUDES.B12;
+    const capacidad_brace = CAPACIDADES[tipo_brace] || CAPACIDADES.B12;
+    // 2. Calcular X (distancia horizontal del inserto)
+    const x_inserto = longitud_brace * cos_angulo;
+    console.log(`  - X inserto: ${longitud_brace} * cos(${angulo_grados}°) = ${x_inserto.toFixed(3)} m`);
+    // Protección contra división por cero
+    if (x_inserto <= 0.001) {
+        observaciones.push('ERROR: X inserto ≈ 0, no se puede calcular FBx');
+        return {
+            x_braces: 0,
+            fbx: 0,
+            fby: 0,
+            fb: 0,
+            cant_b14: 0,
+            cant_b12: 0,
+            cant_b04: 0,
+            cant_b15: 0,
+            x_inserto: 0,
+            y_inserto: npt,
+            observaciones
+        };
+    }
+    // 3. Calcular Y (inserto brace)
+    const y_inserto = npt + (longitud_brace * sen_angulo);
+    console.log(`  - Y inserto: ${npt} + ${longitud_brace} * sen(${angulo_grados}°) = ${y_inserto.toFixed(3)} m`);
+    // Protección contra división por cero en Y
+    if (y_inserto <= 0.001) {
+        observaciones.push('ERROR: Y inserto ≈ 0, no se puede calcular FBx');
+        return {
+            x_braces: 0,
+            fbx: 0,
+            fby: 0,
+            fb: 0,
+            cant_b14: 0,
+            cant_b12: 0,
+            cant_b04: 0,
+            cant_b15: 0,
+            x_inserto,
+            y_inserto: 0,
+            observaciones
+        };
+    }
+    // 4. Calcular YCG (Centro de Gravedad = altura / 2)
+    const ycg = alto_m / 2;
+    console.log(`  - YCG: ${alto_m} / 2 = ${ycg.toFixed(3)} m`);
+    // 5. Calcular FBx (componente horizontal)
+    // Fórmula correcta: FBx = (Fuerza_viento × YCG) / Y
+    const fbx = (fuerza_viento_kN * ycg) / y_inserto;
+    console.log(`  - FBx: (${fuerza_viento_kN.toFixed(2)} * ${ycg.toFixed(3)}) / ${y_inserto.toFixed(3)} = ${fbx.toFixed(2)} kN`);
+    // 6. Calcular FB (fuerza resultante) - FB = FBx / cos(ángulo)
+    const fb = fbx / cos_angulo;
+    console.log(`  - FB: ${fbx.toFixed(2)} / cos(${angulo_grados}°) = ${fb.toFixed(2)} kN`);
+    // 7. Calcular FBy (componente vertical) - CORREGIDO: FBy = FB * sen(ángulo)
+    const fby = fb * sen_angulo;
+    console.log(`  - FBy: ${fb.toFixed(2)} * sen(${angulo_grados}°) = ${fby.toFixed(2)} kN`);
+    // 8. Calcular cantidad de braces
+    // Criterio: max(2, ceil(FB total / Capacidad_tipo))
+    const cant_calculada = Math.ceil(fb / capacidad_brace);
+    const cant_braces = Math.max(2, cant_calculada);
+    console.log(`  - Cantidad: max(2, ceil(${fb.toFixed(2)} / ${capacidad_brace})) = ${cant_braces}`);
+    observaciones.push(`Demanda: ${fb.toFixed(2)} kN, Capacidad ${tipo_brace}: ${capacidad_brace} kN`);
+    observaciones.push(`Cantidad de braces: ${cant_braces} (mínimo 2 por criterio de seguridad)`);
+    // Verificaciones de ángulo
+    if (angulo_grados < 30) {
+        observaciones.push(`ADVERTENCIA: Ángulo ${angulo_grados}° < 30° - Componente horizontal muy alta`);
+    }
+    else if (angulo_grados > 60) {
+        observaciones.push(`ADVERTENCIA: Ángulo ${angulo_grados}° > 60° - Componente vertical muy alta`);
+    }
+    else {
+        observaciones.push(`Ángulo ${angulo_grados}° en rango óptimo (30°-60°)`);
+    }
+    // Distribuir cantidad por tipo
+    let cant_b14 = 0, cant_b12 = 0, cant_b04 = 0, cant_b15 = 0;
+    switch (tipo_brace) {
+        case 'B15':
+            cant_b15 = cant_braces;
+            break;
+        case 'B14':
+            cant_b14 = cant_braces;
+            break;
+        case 'B12':
+            cant_b12 = cant_braces;
+            break;
+        case 'B4':
+            cant_b04 = cant_braces;
+            break;
+    }
+    return {
+        x_braces: cant_braces,
+        fbx: parseFloat(fbx.toFixed(2)),
+        fby: parseFloat(fby.toFixed(2)),
+        fb: parseFloat(fb.toFixed(2)),
+        cant_b14,
+        cant_b12,
+        cant_b04,
+        cant_b15,
+        x_inserto: parseFloat(x_inserto.toFixed(3)),
+        y_inserto: parseFloat(y_inserto.toFixed(3)),
         observaciones
     };
 }

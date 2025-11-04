@@ -13,4 +13,21 @@ const router = (0, express_1.Router)();
 router.get('/viento/parametros-defecto', calculosController_1.parametrosVientoDefecto);
 // Sección 1-2: Calcular cargas de viento en muros (implementa fórmulas del diagrama)
 router.post('/viento/calcular-muros', calculosController_1.calculoVientoMuros);
+// Rutas para gestión de braces
+// Actualizar campos editables de un muro (ángulo, NPT, X, tipo)
+router.put('/muros/:pid/editable', calculosController_1.actualizarCamposEditables);
+// Calcular fuerzas de braces para un muro específico (guarda en BD)
+router.post('/muros/:pid/calcular-braces', calculosController_1.calcularBraces);
+// Calcular braces en tiempo real sin guardar (para UI reactiva)
+router.post('/muros/:pid/calcular-braces-tiempo-real', calculosController_1.calcularBracesTiempoReal);
+// Aplicar valores globales de ángulo y NPT a todos los muros de un proyecto
+router.post('/proyectos/:pk_proyecto/aplicar-globales', calculosController_1.aplicarValoresGlobales);
+// Recalcular automáticamente tipos de brace para todos los muros de un proyecto
+router.post('/proyectos/:proyecto_id/recalcular-tipos-braces', calculosController_1.recalcularTiposBracesMasivo);
+// Recalcular automáticamente tipos de braces (sin parámetros de proyecto)
+router.post('/auto-recalcular-tipos-braces', calculosController_1.autoRecalcularTiposBraces);
+// Actualizar factor W2 en todos los muros
+router.post('/actualizar-factor-w2', calculosController_1.actualizarFactorW2);
+// Actualización masiva de braces (tipo y cantidad)
+router.post('/actualizar-braces-masivo', calculosController_1.actualizarBracesMasivo);
 exports.default = router;

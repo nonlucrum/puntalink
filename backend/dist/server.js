@@ -36,7 +36,7 @@ console.log("PGUSER:", process.env.PGUSER);
 console.log("PGPASSWORD:", process.env.PGPASSWORD);
 // Funcion Prueba Conexion DB
 async function getUsuarios() {
-    const result = await db_1.default.query("SELECT * FROM usuario");
+    const result = await db_1.default.query("SELECT * FROM app_user;");
     return result.rows;
 }
 getUsuarios().then(usuarios => console.log(usuarios));

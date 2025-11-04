@@ -153,7 +153,7 @@ export function updatePanelesDisplay(panelesActuales, elements, callbacks) {
     let html = "<table><thead><tr><th>#</th><th>ID Muro</th><th>Grosor</th><th>Área</th><th>Peso</th><th>Volumen</th><th>Overall Height</th></tr></thead><tbody>";
     panelesActuales.forEach((p, i) => {
       html += `<tr>
-        <td>${i + 1}</td>
+        <td>${p.num}</td>
         <td>${p.id_muro}</td>
         <td>${p.grosor ?? ''}</td>
         <td>${p.area ?? ''}</td>
@@ -319,14 +319,13 @@ export async function handleUploadTxt(file, elements, callbacks, globalVars) {
       console.log('[DASHBOARD] Usando paneles del import response:', globalVars.panelesActuales.length);
     }
     
-    updatePanelesDisplay();
-    console.log('[DASHBOARD] Display de paneles actualizado');
+    // Mostrar sección de eliminación de muros en lugar de proceder directamente
+    console.log('[DASHBOARD] Mostrando sección de eliminación de muros...');
+    mostrarSeccionEliminacion(globalVars.panelesActuales);
     
-    // Cargar tabla de braces después de importar
-    console.log('[DASHBOARD] Cargando tabla de braces...');
-    if (typeof window.cargarTablaBraces === 'function') {
-      await window.cargarTablaBraces();
-    }
+    // Almacenar referencia global para las funciones de eliminación
+    window.globalVars = globalVars;
+    
   } catch (err) {
     console.log('[DASHBOARD] Error de conexión:', err.message);
     tablaPaneles.innerHTML = `<p class="error">Error procesando el TXT: ${err.message}</p>`;
@@ -444,7 +443,11 @@ export async function handleCalcularPaneles(elements, callbacks, globalVars) {
     let html = "<h3>Resultados de cálculo</h3>";
     html += "<div class='kpis'>";
     globalVars.resultadosActuales.forEach((res, i) => {
-      html += `<div class='kpi'><div class='kpi__label'>Panel #${i + 1} (${res.idMuro})</div>
+      // Buscar el número original del panel basado en el ID del muro
+      const panelOriginal = globalVars.panelesActuales.find(p => p.id_muro === res.idMuro);
+      const numeroPanel = panelOriginal ? panelOriginal.num : i + 1;
+      
+      html += `<div class='kpi'><div class='kpi__label'>Panel #${numeroPanel} (${res.idMuro})</div>
         <div class='kpi__val'>Volumen: ${res.volumen_m3} m³</div>
         <div class='kpi__val'>Peso: ${res.peso_kN} kN</div>
         <div class='kpi__val'>Grúa mín: ${res.gruaMin_kN} kN</div>
@@ -1269,6 +1272,319 @@ function exportarTablaDetallada() {
   
   console.log('[DASHBOARD] Tabla detallada exportada a CSV');
 }
+
+// ===== FUNCIONES PARA ELIMINACIÓN DE MUROS =====
+
+// Variables globales para el proceso de eliminación
+let murosOriginales = [];
+let rangosEliminacion = [];
+
+// Función para mostrar la sección de eliminación de muros
+export function mostrarSeccionEliminacion(muros) {
+  console.log('[DASHBOARD] mostrarSeccionEliminacion iniciada');
+  murosOriginales = [...muros];
+  rangosEliminacion = [];
+  
+  const accordion = document.getElementById('eliminarMurosAccordion');
+  const totalElement = document.getElementById('totalMurosDetectados');
+  
+  if (accordion && totalElement) {
+    accordion.style.display = 'block';
+    totalElement.textContent = muros.length;
+    
+    // Limpiar rangos existentes
+    const rangosContainer = document.getElementById('rangosEliminar');
+    console.log('[DASHBOARD] Limpiando rangos. Elementos antes:', rangosContainer.children.length);
+    rangosContainer.innerHTML = '<p class="muted">No hay rangos definidos. Haz clic en "Agregar Rango" para empezar.</p>';
+    console.log('[DASHBOARD] Elementos después de limpiar:', rangosContainer.children.length);
+    
+    // Limpiar preview
+    const preview = document.getElementById('previsualizacionEliminacion');
+    preview.style.display = 'none';
+    
+    console.log('[DASHBOARD] Sección de eliminación mostrada con', muros.length, 'muros');
+  }
+}
+
+// Función para agregar un nuevo rango de eliminación
+export function agregarRangoEliminacion() {
+  const rangosContainer = document.getElementById('rangosEliminar');
+  
+  // Si es el primer rango, limpiar el mensaje
+  if (rangosEliminacion.length === 0) {
+    rangosContainer.innerHTML = '';
+  }
+  
+  const rangoId = Date.now();
+  const rangoDiv = document.createElement('div');
+  rangoDiv.className = 'rango-item';
+  rangoDiv.setAttribute('data-rango-id', rangoId);
+  
+  rangoDiv.innerHTML = `
+    <div class="rango-inputs">
+      <span>Desde muro:</span>
+      <input type="number" class="rango-desde" min="1" max="${murosOriginales.length}" placeholder="Ej: 1">
+      <span>hasta:</span>
+      <input type="number" class="rango-hasta" min="1" max="${murosOriginales.length}" placeholder="Ej: 10">
+    </div>
+    <div class="rango-info">
+      <span class="rango-count">0 muros</span>
+    </div>
+    <button class="btn-eliminar-rango" onclick="eliminarRango(${rangoId})">🗑️ Quitar</button>
+  `;
+  
+  rangosContainer.appendChild(rangoDiv);
+  
+  // Agregar event listeners para actualizar el conteo
+  const inputDesde = rangoDiv.querySelector('.rango-desde');
+  const inputHasta = rangoDiv.querySelector('.rango-hasta');
+  
+  [inputDesde, inputHasta].forEach(input => {
+    input.addEventListener('input', () => actualizarConteoRango(rangoId));
+  });
+  
+  console.log('[DASHBOARD] Nuevo rango agregado:', rangoId);
+}
+
+// Función para actualizar el conteo de muros en un rango
+function actualizarConteoRango(rangoId) {
+  const rangoDiv = document.querySelector(`[data-rango-id="${rangoId}"]`);
+  if (!rangoDiv) return;
+  
+  const desde = parseInt(rangoDiv.querySelector('.rango-desde').value) || 0;
+  const hasta = parseInt(rangoDiv.querySelector('.rango-hasta').value) || 0;
+  const countElement = rangoDiv.querySelector('.rango-count');
+  
+  if (desde > 0 && hasta > 0 && desde <= hasta && hasta <= murosOriginales.length) {
+    const count = hasta - desde + 1;
+    countElement.textContent = `${count} muros`;
+    countElement.style.color = '#dc3545';
+  } else {
+    countElement.textContent = 'Rango inválido';
+    countElement.style.color = '#6c757d';
+  }
+}
+
+// Función para eliminar un rango
+function eliminarRango(rangoId) {
+  const rangoDiv = document.querySelector(`[data-rango-id="${rangoId}"]`);
+  if (rangoDiv) {
+    rangoDiv.remove();
+    rangosEliminacion = rangosEliminacion.filter(r => r.id !== rangoId);
+    
+    // Si no quedan rangos, mostrar mensaje
+    const rangosContainer = document.getElementById('rangosEliminar');
+    if (rangosContainer.children.length === 0) {
+      rangosContainer.innerHTML = '<p class="muted">No hay rangos definidos. Haz clic en "Agregar Rango" para empezar.</p>';
+    }
+    
+    console.log('[DASHBOARD] Rango eliminado:', rangoId);
+  }
+}
+
+// Función para previsualizar la eliminación
+export function previsualizarEliminacion() {
+  console.log('[DASHBOARD] previsualizarEliminacion iniciada');
+  const rangosValidos = obtenerRangosEliminacion();
+  const murosAEliminar = calcularMurosAEliminar(rangosValidos);
+  const murosRestantes = murosOriginales.length - murosAEliminar.length;
+  
+  const preview = document.getElementById('previsualizacionEliminacion');
+  
+  let html = `
+    <div class="preview-eliminacion">
+      <h4>📊 Vista Previa de Eliminación</h4>
+      
+      <div class="preview-stats">
+        <div class="preview-stat">
+          <div class="number">${murosOriginales.length}</div>
+          <div class="label">Muros originales</div>
+        </div>
+        <div class="preview-stat">
+          <div class="number" style="color: #dc3545;">${murosAEliminar.length}</div>
+          <div class="label">A eliminar</div>
+        </div>
+        <div class="preview-stat">
+          <div class="number" style="color: #28a745;">${murosRestantes}</div>
+          <div class="label">Resultantes</div>
+        </div>
+      </div>
+  `;
+  
+  if (murosAEliminar.length > 0) {
+    html += `
+      <h5>🗑️ Muros que serán eliminados:</h5>
+      <div class="muros-eliminados-list">
+        ${murosAEliminar.map(muro => `Muro ${muro.id_muro} (#${muro.num})`).join(', ')}
+      </div>
+    `;
+  } else {
+    html += `<p class="muted">No hay muros marcados para eliminar.</p>`;
+  }
+  
+  html += `</div>`;
+  
+  preview.innerHTML = html;
+  preview.style.display = 'block';
+  
+  console.log('[DASHBOARD] Preview generado:', murosAEliminar.length, 'muros a eliminar');
+}
+
+// Función auxiliar para obtener rangos válidos (eliminación de muros)
+function obtenerRangosEliminacion() {
+  const rangosDiv = document.querySelectorAll('.rango-item');
+  const rangosValidos = [];
+  
+  console.log('[DASHBOARD] Elementos .rango-item encontrados:', rangosDiv.length);
+  
+  rangosDiv.forEach((rangoDiv, index) => {
+    const desdeInput = rangoDiv.querySelector('.rango-desde');
+    const hastaInput = rangoDiv.querySelector('.rango-hasta');
+    
+    console.log(`[DASHBOARD] Rango ${index + 1}:`, {
+      desdeInput: desdeInput?.value,
+      hastaInput: hastaInput?.value,
+      desdeHasValue: desdeInput?.value !== '',
+      hastaHasValue: hastaInput?.value !== ''
+    });
+    
+    if (desdeInput && hastaInput && desdeInput.value !== '' && hastaInput.value !== '') {
+      const desde = parseInt(desdeInput.value);
+      const hasta = parseInt(hastaInput.value);
+      
+      if (desde > 0 && hasta > 0 && desde <= hasta && hasta <= murosOriginales.length) {
+        rangosValidos.push({ desde, hasta });
+        console.log(`[DASHBOARD] Rango válido agregado: ${desde}-${hasta}`);
+      } else {
+        console.log(`[DASHBOARD] Rango inválido: ${desde}-${hasta}`);
+      }
+    } else {
+      console.log(`[DASHBOARD] Rango ${index + 1} sin valores (inputs vacíos)`);
+    }
+  });
+  
+  console.log('[DASHBOARD] Rangos válidos finales:', rangosValidos);
+  return rangosValidos;
+}
+
+// Función auxiliar para calcular muros a eliminar
+function calcularMurosAEliminar(rangos) {
+  const murosAEliminar = [];
+  
+  console.log('[DASHBOARD] Calculando muros a eliminar con rangos:', rangos);
+  console.log('[DASHBOARD] Total muros originales:', murosOriginales.length);
+  
+  rangos.forEach(rango => {
+    console.log(`[DASHBOARD] Procesando rango: ${rango.desde} a ${rango.hasta}`);
+    for (let numeroMuro = rango.desde; numeroMuro <= rango.hasta; numeroMuro++) {
+      // Buscar muro por su número (campo num)
+      const muro = murosOriginales.find(m => m.num === numeroMuro);
+      if (muro && !murosAEliminar.includes(muro)) {
+        murosAEliminar.push(muro);
+        console.log(`[DASHBOARD] Muro agregado para eliminar: ${muro.id_muro} (#${muro.num})`);
+      } else if (!muro) {
+        console.log(`[DASHBOARD] Muro #${numeroMuro} no encontrado`);
+      }
+    }
+  });
+  
+  console.log('[DASHBOARD] Total muros a eliminar:', murosAEliminar.length);
+  return murosAEliminar.sort((a, b) => a.num - b.num);
+}
+
+// Función para confirmar la importación con muros filtrados
+export async function confirmarImportacionFiltrada() {
+  const rangosValidos = obtenerRangosEliminacion();
+  const murosAEliminar = calcularMurosAEliminar(rangosValidos);
+  const murosRestantes = murosOriginales.filter(muro => 
+    !murosAEliminar.some(muroElim => muroElim.pid === muro.pid)
+  );
+  
+  if (murosRestantes.length === 0) {
+    alert('❌ Error: No puedes eliminar todos los muros. Debe quedar al menos uno.');
+    return;
+  }
+  
+  const confirmacion = confirm(
+    `¿Confirmas la importación de ${murosRestantes.length} muros?\n\n` +
+    `• Muros originales: ${murosOriginales.length}\n` +
+    `• Muros a eliminar: ${murosAEliminar.length}\n` +
+    `• Muros resultantes: ${murosRestantes.length}`
+  );
+  
+  if (!confirmacion) return;
+  
+  try {
+    // Actualizar la variable global con los muros filtrados
+    const globalVars = window.globalVars || {};
+    globalVars.panelesActuales = murosRestantes;
+    
+    // Ocultar sección de eliminación
+    document.getElementById('eliminarMurosAccordion').style.display = 'none';
+    
+    // Continuar con el flujo normal de importación
+    finalizarImportacion(murosRestantes);
+    
+    console.log('[DASHBOARD] Importación confirmada con', murosRestantes.length, 'muros filtrados');
+    
+  } catch (error) {
+    console.error('[DASHBOARD] Error en confirmación de importación:', error);
+    alert('Error al procesar la importación filtrada: ' + error.message);
+  }
+}
+
+// Función para finalizar la importación (continuar flujo normal)
+function finalizarImportacion(murosFinales) {
+  // Actualizar variable global
+  if (window.globalVars) {
+    window.globalVars.panelesActuales = murosFinales;
+  }
+  
+  // Obtener elementos de UI necesarios
+  const tablaPaneles = document.getElementById('tablaPaneles');
+  const tablaAccordion = document.getElementById('tablaAccordion');
+  const panelesInfo = document.getElementById('panelesInfo');
+  const btnCalcular = document.getElementById('btnCalcular');
+  
+  const uiElements = { tablaPaneles, tablaAccordion, panelesInfo, btnCalcular };
+  const callbacks = { openSection: (id) => {} }; // Función dummy para openSection
+  
+  // Actualizar tabla de paneles usando la función global
+  if (typeof updatePanelesDisplay === 'function') {
+    updatePanelesDisplay(murosFinales, uiElements, callbacks);
+  }
+  
+  // Mostrar accordion de tabla de paneles
+  if (tablaAccordion) {
+    tablaAccordion.style.display = 'block';
+  }
+  
+  // Habilitar botones de cálculo
+  const btnInforme = document.getElementById('btnGenerarPDF');
+  
+  if (btnCalcular) btnCalcular.style.display = 'inline-block';
+  if (btnInforme) btnInforme.style.display = 'inline-block';
+  
+  // Cargar tabla de braces después de importar
+  console.log('[DASHBOARD] Cargando tabla de braces...');
+  if (typeof window.cargarTablaBraces === 'function') {
+    window.cargarTablaBraces();
+  }
+  
+  console.log('[DASHBOARD] Importación finalizada con', murosFinales.length, 'muros');
+}
+
+// Función para cancelar la eliminación
+export function cancelarEliminacion() {
+  // Ocultar sección de eliminación
+  document.getElementById('eliminarMurosAccordion').style.display = 'none';
+  
+  // Continuar con importación normal de todos los muros
+  finalizarImportacion(murosOriginales);
+}
+
+// Exponer funciones globalmente
+window.eliminarRango = eliminarRango;
 
 // Exponer función de exportación globalmente
 window.exportarTablaDetallada = exportarTablaDetallada;

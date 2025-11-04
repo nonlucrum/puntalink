@@ -9,7 +9,19 @@ const importController_1 = require("../controllers/importController");
 const importController_2 = require("../controllers/importController");
 const importController_3 = require("../controllers/importController");
 const router = (0, express_1.Router)();
-const upload = (0, multer_1.default)({ storage: multer_1.default.memoryStorage() });
+const upload = (0, multer_1.default)({
+    storage: multer_1.default.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype !== 'text/plain') {
+            cb(new Error('Solo archivos .txt'));
+        }
+        if (file.originalname.length > 255) {
+            cb(new Error('Nombre muy largo'));
+        }
+        cb(null, true);
+    }
+});
 // Middleware de logging para rutas de import
 router.use((req, res, next) => {
     console.log(`[routes - import] ${req.method} ${req.originalUrl}`);
