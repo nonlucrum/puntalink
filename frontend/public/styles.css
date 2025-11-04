@@ -1832,6 +1832,73 @@ pre{
   border-color: #1e7e34;
 }
 
+.btn--warning {
+  background: #ffc107;
+  color: #212529;
+  border-color: #ffc107;
+  font-weight: bold;
+}
+
+.btn--warning:hover {
+  background: #e0a800;
+  border-color: #d39e00;
+}
+
+.btn--info {
+  background: #17a2b8;
+  color: white;
+  border-color: #17a2b8;
+}
+
+.btn--info:hover {
+  background: #138496;
+  border-color: #117a8b;
+}
+
+.btn--small {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+.btn--large {
+  padding: 0.75rem 1.5rem;
+  font-size: 1.1rem;
+}
+
+/* Estilos para panel de edición masiva */
+.rango-masiva-item {
+  transition: all 0.2s ease;
+}
+
+.rango-masiva-item:hover {
+  box-shadow: 0 2px 8px rgba(230, 81, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+#rangosMasivaContainer {
+  max-height: 400px;
+  overflow-y: auto;
+  margin-bottom: 1rem;
+}
+
+#rangosMasivaContainer::-webkit-scrollbar {
+  width: 6px;
+}
+
+#rangosMasivaContainer::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+#rangosMasivaContainer::-webkit-scrollbar-thumb {
+  background: #ffcc02;
+  border-radius: 3px;
+}
+
+#rangosMasivaContainer::-webkit-scrollbar-thumb:hover {
+  background: #e6b800;
+}
+
 #vistaPrevia {
   border-left: 4px solid var(--primary);
 }

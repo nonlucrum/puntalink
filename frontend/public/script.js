@@ -623,6 +623,9 @@ async function mostrarResultadosViento(data) {
 
   // Mostrar panel de asignación de ejes si no existe
   mostrarPanelAsignacionEjes();
+  
+  // Mostrar panel de edición masiva de parámetros si no existe
+  mostrarPanelEdicionMasiva();
 
   // Obtener valores globales para braces
   const anguloGlobal = parseFloat(document.getElementById('angulo_global')?.value) || 55;
@@ -1684,19 +1687,19 @@ function renderTablaMuertos(resultados) {
   const btnReagrupar = document.getElementById('btnReagruparMuertos');
   if (btnReagrupar) {
     btnReagrupar.onclick = async () => {
-      console.log('🔄 [REAGRUPAR] Botón clickeado - iniciando reagrupación desde BD...');
+      console.log('🔄 [REAGRUPAR] Botón clickeado - iniciando reagrupación desde TABLA ACTUAL...');
       try {
         // Mostrar mensaje de que se está reagrupando
         if (mostrarNotificacion) {
-          mostrarNotificacion('Reagrupando con valores actualizados desde la base de datos...', 'info');
+          mostrarNotificacion('Reagrupando con valores actuales de la tabla...', 'info');
         }
         
-        // Usar la nueva función que lee desde BD en lugar del DOM
-        await reagruparMuertosDesdeBaseDatos();
+        // Usar función que lee DESDE LA TABLA (con valores editados y ejes asignados)
+        reagruparMuertosConValoresActuales();
         
         // Confirmar éxito
         if (mostrarNotificacion) {
-          mostrarNotificacion('✅ Reagrupación completada con valores de la base de datos', 'success');
+          mostrarNotificacion('✅ Reagrupación completada con valores actuales de la tabla', 'success');
         }
       } catch (err) {
         console.error('[MUERTOS] Error reagrupando:', err);
@@ -2097,7 +2100,7 @@ function debugMostrarClaves(resultados) {
  * (incluyendo ediciones del usuario en ángulo, tipo brace, etc.)
  */
 function reagruparMuertosConValoresActuales() {
-  console.log('[MUERTOS] Reagrupando con valores actuales de la tabla...');
+  console.log('[MUERTOS-TABLA] 🎯 Reagrupando con valores ACTUALES de la tabla (incluye ejes asignados)...');
   
   // Buscar en ambas tablas: la unificada antigua y la nueva de braces
   const rowsUnificada = document.querySelectorAll('#tablaUnificadaBody tr[data-pid]');
@@ -2234,7 +2237,11 @@ function reagruparMuertosConValoresActuales() {
   
   // Mostrar ejes únicos
   const ejesUnicos = [...new Set(resultadosActualizados.map(r => r.eje))];
-  console.log('[MUERTOS] 🔍 Ejes únicos encontrados:', ejesUnicos);
+  console.log('[MUERTOS-TABLA] 🔍 Ejes únicos encontrados en TABLA:', ejesUnicos);
+  
+  // Comparar con la expectativa (si asignamos ejes debería haber valores como "1", "2", etc.)
+  const tieneEjesAsignados = ejesUnicos.some(eje => !eje.startsWith('Eje_'));
+  console.log('[MUERTOS-TABLA] ✅ ¿Tiene ejes asignados?:', tieneEjesAsignados);
   
   // Reagrupar usando los valores actualizados
   const gruposNuevos = buildGruposMuertosSequential(resultadosActualizados, 39);
@@ -2390,6 +2397,450 @@ function mostrarNotificacionTemporal(mensaje, tipo = 'info') {
       }
     }, 300);
   }, 3000);
+}
+
+/**
+ * Mostrar panel de edición masiva de parámetros braces
+ */
+function mostrarPanelEdicionMasiva() {
+  // Buscar si ya existe el panel
+  let panelExistente = document.getElementById('edicionMasivaPanel');
+  
+  if (panelExistente) {
+    panelExistente.style.display = 'block';
+    return;
+  }
+
+  // Crear el panel si no existe
+  const resultadosViento = document.getElementById('resultadosViento');
+  const tablaResultados = document.getElementById('tablaResultadosViento');
+  
+  const panelHTML = `
+    <div id="edicionMasivaPanel" class="panel" style="margin-bottom: 1rem; background: linear-gradient(135deg, #fff8e1 0%, #fff3c4 100%); border: 1px solid #ffcc02; border-radius: 0.5rem; padding: 1.5rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3 style="margin: 0; color: #e65100;">⚡ Edición Masiva de Parámetros</h3>
+        <span style="font-size: 0.9em; color: #f57c00; font-style: italic;">Cambia múltiples muros al mismo tiempo</span>
+      </div>
+      
+      <div id="rangosMasivaContainer">
+        <div class="rango-masiva-item" data-rango="1" style="background: white; border: 1px solid #ffcc02; border-radius: 6px; padding: 1rem; margin-bottom: 1rem;">
+          <div style="display: flex; gap: 1rem; align-items: end; flex-wrap: wrap;">
+            <div>
+              <label style="font-weight: bold; color: #e65100; display: block; margin-bottom: 0.3rem;">Desde Muro:</label>
+              <input type="number" id="desdeMuro_masiva_1" placeholder="1" min="1" style="width: 80px; padding: 0.4rem; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            <div>
+              <label style="font-weight: bold; color: #e65100; display: block; margin-bottom: 0.3rem;">Hasta Muro:</label>
+              <input type="number" id="hastaMuro_masiva_1" placeholder="10" min="1" style="width: 80px; padding: 0.4rem; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            <div>
+              <label style="font-weight: bold; color: #e65100; display: block; margin-bottom: 0.3rem;">Tipo Brace:</label>
+              <select id="tipoBrace_masiva_1" style="width: 80px; padding: 0.4rem; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="">-</option>
+                <option value="B4">B4</option>
+                <option value="B12">B12</option>
+                <option value="B14">B14</option>
+                <option value="B15">B15</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-weight: bold; color: #e65100; display: block; margin-bottom: 0.3rem;">Ángulo (°):</label>
+              <input type="number" id="angulo_masiva_1" placeholder="55" step="0.1" min="0" max="90" style="width: 80px; padding: 0.4rem; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            <div>
+              <label style="font-weight: bold; color: #e65100; display: block; margin-bottom: 0.3rem;">NPT (m):</label>
+              <input type="number" id="npt_masiva_1" placeholder="0.350" step="0.001" style="width: 80px; padding: 0.4rem; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            <div>
+              <button type="button" onclick="eliminarRangoMasiva(1)" class="btn btn--danger btn--small" title="Eliminar este rango">
+                🗑️
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div style="display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap;">
+        <button id="btnAgregarRangoMasiva" class="btn btn--secondary">
+          ➕ Agregar Otro Rango
+        </button>
+        <button id="btnAutoGenerarMasiva" class="btn btn--info" title="Genera rangos automáticamente basado en la cantidad de muros">
+          🎯 Auto-Generar Rangos
+        </button>
+        <button id="btnAplicarMasiva" class="btn btn--warning btn--large" style="font-weight: bold;">
+          ⚡ Aplicar Cambios Masivos
+        </button>
+        <button id="btnOcultarMasiva" class="btn btn--secondary btn--small">
+          ➖ Ocultar Panel
+        </button>
+      </div>
+      
+      <div style="margin-top: 1rem; padding: 0.75rem; background: rgba(255, 193, 7, 0.1); border-radius: 4px; font-size: 0.9em; color: #e65100;">
+        💡 <strong>Tip:</strong> Solo se aplicarán los campos que no estén vacíos. Deja vacío lo que no quieras cambiar.
+      </div>
+    </div>
+  `;
+
+  // Insertar antes de la tabla de resultados
+  if (tablaResultados && tablaResultados.parentNode) {
+    tablaResultados.insertAdjacentHTML('beforebegin', panelHTML);
+    
+    // Agregar event listeners
+    configurarEventosEdicionMasiva();
+  }
+}
+
+/**
+ * Configurar eventos para el panel de edición masiva
+ */
+function configurarEventosEdicionMasiva() {
+  const btnAgregar = document.getElementById('btnAgregarRangoMasiva');
+  const btnAutoGenerar = document.getElementById('btnAutoGenerarMasiva');
+  const btnAplicar = document.getElementById('btnAplicarMasiva');
+  const btnOcultar = document.getElementById('btnOcultarMasiva');
+  
+  if (btnAgregar) btnAgregar.addEventListener('click', agregarNuevoRangoMasiva);
+  if (btnAutoGenerar) btnAutoGenerar.addEventListener('click', autoGenerarRangosMasiva);
+  if (btnAplicar) btnAplicar.addEventListener('click', aplicarCambiosMasivos);
+  if (btnOcultar) {
+    btnOcultar.addEventListener('click', () => {
+      const panel = document.getElementById('edicionMasivaPanel');
+      if (panel) panel.style.display = 'none';
+    });
+  }
+}
+
+// ===== FUNCIONES PARA EDICIÓN MASIVA DE PARÁMETROS =====
+
+let contadorRangosMasiva = 1;
+
+/**
+ * Agregar un nuevo rango de edición masiva
+ */
+function agregarNuevoRangoMasiva() {
+  contadorRangosMasiva++;
+  const container = document.getElementById('rangosMasivaContainer');
+  
+  const nuevoRango = document.createElement('div');
+  nuevoRango.className = 'rango-masiva-item';
+  nuevoRango.dataset.rango = contadorRangosMasiva;
+  nuevoRango.style.cssText = 'background: white; border: 1px solid #ffcc02; border-radius: 6px; padding: 1rem; margin-bottom: 1rem;';
+  
+  nuevoRango.innerHTML = `
+    <div style="display: flex; gap: 1rem; align-items: end; flex-wrap: wrap;">
+      <div>
+        <label style="font-weight: bold; color: #e65100; display: block; margin-bottom: 0.3rem;">Desde Muro:</label>
+        <input type="number" id="desdeMuro_masiva_${contadorRangosMasiva}" placeholder="1" min="1" style="width: 80px; padding: 0.4rem; border: 1px solid #ddd; border-radius: 4px;">
+      </div>
+      <div>
+        <label style="font-weight: bold; color: #e65100; display: block; margin-bottom: 0.3rem;">Hasta Muro:</label>
+        <input type="number" id="hastaMuro_masiva_${contadorRangosMasiva}" placeholder="10" min="1" style="width: 80px; padding: 0.4rem; border: 1px solid #ddd; border-radius: 4px;">
+      </div>
+      <div>
+        <label style="font-weight: bold; color: #e65100; display: block; margin-bottom: 0.3rem;">Tipo Brace:</label>
+        <select id="tipoBrace_masiva_${contadorRangosMasiva}" style="width: 80px; padding: 0.4rem; border: 1px solid #ddd; border-radius: 4px;">
+          <option value="">-</option>
+          <option value="B4">B4</option>
+          <option value="B12">B12</option>
+          <option value="B14">B14</option>
+          <option value="B15">B15</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-weight: bold; color: #e65100; display: block; margin-bottom: 0.3rem;">Ángulo (°):</label>
+        <input type="number" id="angulo_masiva_${contadorRangosMasiva}" placeholder="55" step="0.1" min="0" max="90" style="width: 80px; padding: 0.4rem; border: 1px solid #ddd; border-radius: 4px;">
+      </div>
+      <div>
+        <label style="font-weight: bold; color: #e65100; display: block; margin-bottom: 0.3rem;">NPT (m):</label>
+        <input type="number" id="npt_masiva_${contadorRangosMasiva}" placeholder="0.350" step="0.001" style="width: 80px; padding: 0.4rem; border: 1px solid #ddd; border-radius: 4px;">
+      </div>
+      <div>
+        <button type="button" onclick="eliminarRangoMasiva(${contadorRangosMasiva})" class="btn btn--danger btn--small" title="Eliminar este rango">
+          🗑️
+        </button>
+      </div>
+    </div>
+  `;
+  
+  container.appendChild(nuevoRango);
+}
+
+/**
+ * Eliminar un rango de edición masiva
+ */
+function eliminarRangoMasiva(numero) {
+  const rango = document.querySelector(`[data-rango="${numero}"]`);
+  if (rango) {
+    rango.remove();
+  }
+}
+
+/**
+ * Auto-generar rangos basado en la cantidad de muros
+ */
+function autoGenerarRangosMasiva() {
+  const muros = window.globalVars?.panelesActuales;
+  if (!muros || muros.length === 0) {
+    alert('No hay muros cargados para auto-generar rangos.');
+    return;
+  }
+  
+  const totalMuros = muros.length;
+  const respuesta = prompt(
+    `Se detectaron ${totalMuros} muros.\n\n` +
+    `¿En cuántos rangos quieres dividirlos?\n` +
+    `(Ejemplo: 4 rangos = ${Math.ceil(totalMuros/4)} muros por rango)`,
+    '4'
+  );
+  
+  if (!respuesta || isNaN(respuesta)) return;
+  
+  const numRangos = parseInt(respuesta);
+  if (numRangos < 1 || numRangos > totalMuros) {
+    alert('Número de rangos inválido.');
+    return;
+  }
+  
+  // Limpiar rangos existentes
+  const container = document.getElementById('rangosMasivaContainer');
+  container.innerHTML = '';
+  contadorRangosMasiva = 0;
+  
+  // Generar rangos automáticamente
+  const murosPorRango = Math.ceil(totalMuros / numRangos);
+  
+  for (let i = 0; i < numRangos; i++) {
+    const desde = (i * murosPorRango) + 1;
+    const hasta = Math.min(((i + 1) * murosPorRango), totalMuros);
+    
+    agregarNuevoRangoMasiva();
+    
+    // Llenar valores automáticamente
+    const desdeInput = document.getElementById(`desdeMuro_masiva_${contadorRangosMasiva}`);
+    const hastaInput = document.getElementById(`hastaMuro_masiva_${contadorRangosMasiva}`);
+    
+    if (desdeInput) desdeInput.value = desde;
+    if (hastaInput) hastaInput.value = hasta;
+  }
+  
+  mostrarNotificacionTemporal(`✅ ${numRangos} rangos generados automáticamente`, 'success');
+}
+
+/**
+ * Aplicar cambios masivos a los muros
+ */
+async function aplicarCambiosMasivos() {
+  // Protección contra doble clic
+  const btnAplicar = document.getElementById('btnAplicarMasiva');
+  if (btnAplicar && btnAplicar.disabled) {
+    console.log('[MASIVA] ⚠️ Aplicación ya en progreso, ignorando...');
+    return;
+  }
+  
+  console.log('[MASIVA] Iniciando aplicación de cambios masivos...');
+  
+  // Deshabilitar botón durante el proceso
+  if (btnAplicar) {
+    btnAplicar.disabled = true;
+    btnAplicar.textContent = '⏳ Aplicando...';
+  }
+  
+  try {
+    // Obtener todos los rangos válidos
+    const rangos = obtenerRangosMasivaValidos();
+    
+    if (rangos.length === 0) {
+      alert('No hay rangos válidos configurados. Por favor, define al menos un rango con valores a cambiar.');
+      return;
+    }
+    
+    // Validar que no haya solapamientos
+    for (let i = 0; i < rangos.length - 1; i++) {
+      for (let j = i + 1; j < rangos.length; j++) {
+        if (!(rangos[i].hasta < rangos[j].desde || rangos[j].hasta < rangos[i].desde)) {
+          alert(`Error: Los rangos se solapan. Rango ${i + 1} (${rangos[i].desde}-${rangos[i].hasta}) con Rango ${j + 1} (${rangos[j].desde}-${rangos[j].hasta})`);
+          return;
+        }
+      }
+    }
+    
+    console.log(`[MASIVA] Aplicando ${rangos.length} rangos de cambios masivos`);
+  
+  let cambiosAplicados = 0;
+  let errores = [];
+  
+  // Aplicar cambios a cada rango
+  for (const rango of rangos) {
+    console.log(`[MASIVA] Procesando rango ${rango.desde}-${rango.hasta}`);
+    
+    for (let numMuro = rango.desde; numMuro <= rango.hasta; numMuro++) {
+      try {
+        // Obtener todas las filas de muros
+        const todasLasFilas = document.querySelectorAll('tr[data-pid]');
+        console.log(`[MASIVA] Buscando muro ${numMuro} entre ${todasLasFilas.length} filas`);
+        
+        // Buscar la fila del muro específico - probar múltiples formatos
+        let filaObjetivo = null;
+        const formatosPosibles = [
+          `M${String(numMuro).padStart(2, '0')}`, // M01, M02, etc.
+          `M${numMuro}`, // M1, M2, etc.
+          `Muro_${numMuro}`, // Muro_1, Muro_2, etc.
+          `${numMuro}` // Solo número
+        ];
+        
+        for (const fila of todasLasFilas) {
+          const celdaMuro = fila.cells[0];
+          if (celdaMuro) {
+            const textoMuro = celdaMuro.textContent.trim();
+            
+            if (formatosPosibles.includes(textoMuro)) {
+              filaObjetivo = fila;
+              console.log(`[MASIVA] ✅ Muro encontrado: "${textoMuro}" para número ${numMuro}`);
+              break;
+            }
+          }
+        }
+        
+        if (!filaObjetivo) {
+          // Debug: mostrar todos los IDs de muro disponibles para ayudar a identificar el formato
+          const idsDisponibles = Array.from(todasLasFilas).slice(0, 10).map(fila => {
+            const celda = fila.cells[0];
+            return celda ? celda.textContent.trim() : 'N/A';
+          });
+          console.warn(`[MASIVA] ⚠️ Muro ${numMuro} no encontrado. IDs disponibles (muestra):`, idsDisponibles);
+          errores.push(`Muro ${numMuro} no encontrado en la tabla`);
+          continue;
+        }
+        
+        // Aplicar cambios según lo especificado en el rango
+        let cambiosEnMuro = 0;
+        console.log(`[MASIVA] Aplicando cambios a muro ${numMuro}:`, {
+          tipoBrace: rango.tipoBrace,
+          angulo: rango.angulo,
+          npt: rango.npt
+        });
+        
+        if (rango.tipoBrace) {
+          const selectTipo = filaObjetivo.querySelector('[data-field="tipo_brace"]');
+          if (selectTipo) {
+            selectTipo.value = rango.tipoBrace;
+            cambiosEnMuro++;
+            console.log(`[MASIVA] ✅ Tipo brace cambiado a: ${rango.tipoBrace}`);
+          }
+        }
+        
+        if (rango.angulo !== null) {
+          const inputAngulo = filaObjetivo.querySelector('[data-field="angulo"]');
+          if (inputAngulo) {
+            inputAngulo.value = rango.angulo;
+            cambiosEnMuro++;
+            console.log(`[MASIVA] ✅ Ángulo cambiado a: ${rango.angulo}`);
+            
+            // Recalcular inmediatamente para este muro
+            await calcularBracesTiempoReal(inputAngulo);
+          }
+        }
+        
+        if (rango.npt !== null) {
+          const inputNpt = filaObjetivo.querySelector('[data-field="npt"]');
+          if (inputNpt) {
+            inputNpt.value = rango.npt;
+            cambiosEnMuro++;
+            console.log(`[MASIVA] ✅ NPT cambiado a: ${rango.npt}`);
+          }
+        }
+        
+        if (cambiosEnMuro > 0) {
+          // Agregar efecto visual temporal
+          filaObjetivo.style.background = '#fff3cd';
+          setTimeout(() => {
+            filaObjetivo.style.background = '';
+          }, 1500);
+          
+          cambiosAplicados++;
+          console.log(`[MASIVA] ✅ Muro M${String(numMuro).padStart(2, '0')} modificado (${cambiosEnMuro} campos)`);
+        }
+        
+      } catch (error) {
+        errores.push(`Error en muro M${String(numMuro).padStart(2, '0')}: ${error.message}`);
+      }
+    }
+  }
+  
+  // Mostrar resultados
+  console.log(`[MASIVA] ✅ Proceso completado: ${cambiosAplicados} muros modificados, ${errores.length} errores`);
+  
+  let mensaje = `✅ Cambios masivos aplicados!\n\n`;
+  mensaje += `• ${cambiosAplicados} muros modificados exitosamente\n`;
+  mensaje += `• ${rangos.length} rangos procesados\n`;
+  
+  if (errores.length > 0) {
+    mensaje += `• ${errores.length} errores encontrados\n`;
+    mensaje += `\nPrimeros errores:\n${errores.slice(0, 3).join('\n')}`;
+    if (errores.length > 3) {
+      mensaje += `\n... y ${errores.length - 3} errores más (ver consola)`;
+    }
+  }
+  
+  mensaje += `\n\n💡 Recuerda guardar los cambios con el botón "Guardar Todos los Cambios de Braces"`;
+  
+  alert(mensaje);
+  
+  if (errores.length > 0) {
+    console.warn('[MASIVA] Errores encontrados:', errores);
+  }
+  
+  // Mostrar notificación temporal
+  mostrarNotificacionTemporal(`⚡ ${cambiosAplicados} muros modificados masivamente`, 'success');
+  
+  } catch (error) {
+    console.error('[MASIVA] ❌ Error aplicando cambios masivos:', error);
+    alert(`Error aplicando cambios masivos: ${error.message}`);
+  } finally {
+    // Rehabilitar botón
+    if (btnAplicar) {
+      btnAplicar.disabled = false;
+      btnAplicar.textContent = '⚡ Aplicar Cambios Masivos';
+    }
+  }
+}
+
+/**
+ * Obtener rangos válidos para edición masiva
+ */
+function obtenerRangosMasivaValidos() {
+  const rangos = [];
+  const items = document.querySelectorAll('.rango-masiva-item');
+  
+  items.forEach((item, index) => {
+    const numero = item.dataset.rango;
+    const desde = parseInt(document.getElementById(`desdeMuro_masiva_${numero}`)?.value);
+    const hasta = parseInt(document.getElementById(`hastaMuro_masiva_${numero}`)?.value);
+    const tipoBrace = document.getElementById(`tipoBrace_masiva_${numero}`)?.value;
+    const angulo = parseFloat(document.getElementById(`angulo_masiva_${numero}`)?.value);
+    const npt = parseFloat(document.getElementById(`npt_masiva_${numero}`)?.value);
+    
+    // Validar que el rango sea válido
+    if (isNaN(desde) || isNaN(hasta) || desde < 1 || hasta < desde) {
+      return; // Saltar este rango
+    }
+    
+    // Validar que al menos un parámetro esté definido
+    const tieneCambios = tipoBrace || !isNaN(angulo) || !isNaN(npt);
+    if (!tieneCambios) {
+      return; // Saltar este rango
+    }
+    
+    rangos.push({
+      desde,
+      hasta,
+      tipoBrace: tipoBrace || null,
+      angulo: !isNaN(angulo) ? angulo : null,
+      npt: !isNaN(npt) ? npt : null
+    });
+  });
+  
+  return rangos.sort((a, b) => a.desde - b.desde);
 }
 
 // ===== FUNCIONES PARA ASIGNACIÓN DE EJES POR RANGOS =====
