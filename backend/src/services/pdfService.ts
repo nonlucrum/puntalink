@@ -45,12 +45,26 @@ interface ProjectInfo {
   version?: string;
 }
 
-export function generarInformePaneles(paneles: PanelCalculado[], projectInfo?: ProjectInfo): Promise<Buffer>;
-export function generarInformePaneles(paneles: PanelCalculadoPaneles[], projectInfo?: ProjectInfo): Promise<Buffer>;
-export function generarInformePaneles(paneles: PanelCalculado[] | PanelCalculadoPaneles[], projectInfo?: ProjectInfo): Promise<Buffer> {
+interface MuertoResumen {
+  numero: string;
+  muerto: string;
+  x_braces: string;
+  angulo: string;
+  eje: string;
+  tipo_construccion: string;
+  cantidad_muros: string;
+  muros_incluidos: string;
+}
+
+export function generarInformePaneles(paneles: PanelCalculado[], projectInfo?: ProjectInfo, tablaMuertos?: MuertoResumen[]): Promise<Buffer>;
+export function generarInformePaneles(paneles: PanelCalculadoPaneles[], projectInfo?: ProjectInfo, tablaMuertos?: MuertoResumen[]): Promise<Buffer>;
+export function generarInformePaneles(paneles: PanelCalculado[] | PanelCalculadoPaneles[], projectInfo?: ProjectInfo, tablaMuertos?: MuertoResumen[]): Promise<Buffer> {
   console.log('[pdfService] Generando informe para', paneles.length, 'paneles');
   if (projectInfo) {
     console.log('[pdfService] Con información del proyecto:', projectInfo);
+  }
+  if (tablaMuertos) {
+    console.log('[pdfService] Con tabla de muertos:', tablaMuertos.length, 'grupos');
   }
   
   // Convertir paneles al formato interno si es necesario
@@ -84,6 +98,12 @@ export function generarInformePaneles(paneles: PanelCalculado[] | PanelCalculado
     // ===== CÁLCULOS =====
     doc.addPage();
     crearPaginasCalculos(doc, panelesConvertidos);
+    
+    // ===== RESUMEN POR MUERTOS =====
+    if (tablaMuertos && tablaMuertos.length > 0) {
+      doc.addPage();
+      crearPaginaMuertos(doc, tablaMuertos);
+    }
     
     // ===== DESCRIPCIÓN DE PARÁMETROS =====
     doc.addPage();
@@ -358,6 +378,102 @@ function crearDescripcionParametros(doc: any, projectInfo?: ProjectInfo) {
   doc.fontSize(8)
     .fillColor('#666666')
     .text('Generado por PUNTALINK - Sistema de análisis y cálculo estructural', 0, 750, { align: 'center' });
+}
+
+function crearPaginaMuertos(doc: any, tablaMuertos: MuertoResumen[]) {
+  console.log('[pdfService] Creando página de resumen por muertos...');
+  
+  // Título
+  doc.fontSize(20)
+    .fillColor('#2E86AB')
+    .text('RESUMEN POR MUERTOS', 50, 50);
+  
+  doc.fontSize(12)
+    .fillColor('#000000')
+    .text('Agrupación de muros por características similares', 50, 80);
+
+  let currentY = 110;
+  
+  // Headers de la tabla
+  const headers = ['#', 'Muerto', 'X Braces', 'Ángulo', 'Eje', 'Tipo Construcción', 'Cant. Muros'];
+  const colWidths = [30, 60, 60, 50, 60, 90, 60];
+  const startX = 50;
+  
+  // Dibujar headers
+  doc.fontSize(10).fillColor('#2E86AB');
+  let currentX = startX;
+  headers.forEach((header, i) => {
+    doc.rect(currentX, currentY, colWidths[i], 20)
+      .fillAndStroke('#E8F4FD', '#2E86AB');
+    doc.fillColor('#000000')
+      .text(header, currentX + 5, currentY + 5, {
+        width: colWidths[i] - 10,
+        align: 'center'
+      });
+    currentX += colWidths[i];
+  });
+  
+  currentY += 20;
+  
+  // Datos de la tabla
+  doc.fontSize(9);
+  tablaMuertos.forEach((muerto, index) => {
+    // Nueva página si es necesario
+    if (currentY > 750) {
+      doc.addPage();
+      currentY = 50;
+    }
+    
+    currentX = startX;
+    const data = [
+      muerto.numero,
+      muerto.muerto,
+      muerto.x_braces,
+      muerto.angulo,
+      muerto.eje,
+      muerto.tipo_construccion,
+      muerto.cantidad_muros
+    ];
+    
+    // Alternar color de fondo
+    const bgColor = index % 2 === 0 ? '#FFFFFF' : '#F8F9FA';
+    
+    data.forEach((value, i) => {
+      doc.rect(currentX, currentY, colWidths[i], 20)
+        .fillAndStroke(bgColor, '#CCCCCC');
+      doc.fillColor('#000000')
+        .text(value, currentX + 5, currentY + 5, {
+          width: colWidths[i] - 10,
+          align: i === 1 || i === 4 || i === 5 ? 'left' : 'center'
+        });
+      currentX += colWidths[i];
+    });
+    
+    currentY += 20;
+    
+    // Agregar fila de muros incluidos si hay espacio
+    if (muerto.muros_incluidos && muerto.muros_incluidos.length > 0 && currentY < 740) {
+      doc.fontSize(8)
+        .fillColor('#666666')
+        .text(`Muros: ${muerto.muros_incluidos}`, startX + 5, currentY + 2, {
+          width: 500
+        });
+      currentY += 15;
+      doc.fontSize(9).fillColor('#000000');
+    }
+  });
+  
+  // Información adicional al final
+  currentY += 30;
+  if (currentY < 700) {
+    doc.fontSize(10)
+      .fillColor('#666666')
+      .text(`Total de grupos de muertos: ${tablaMuertos.length}`, startX, currentY);
+    
+    const totalMuros = tablaMuertos.reduce((sum, m) => sum + parseInt(m.cantidad_muros), 0);
+    currentY += 15;
+    doc.text(`Total de muros: ${totalMuros}`, startX, currentY);
+  }
 }
 
 // Función legacy para compatibilidad
