@@ -1,4 +1,6 @@
 // ===== MÓDULO CONSOLIDADO DE BOTONES =====
+import * as Muertos from './muertos.js';
+
 const API_BASE =
   window.location.hostname === "localhost"
     ? "http://localhost:4008"   // dev backend
@@ -722,6 +724,10 @@ export async function handleGenerarPDF(elements, globalVars) {
   
   console.log('[DASHBOARD] Tabla de muertos generada desde datos actualizados:', tablaMuertos.length, 'grupos');
   
+  // Guardar grupos para cálculos de macizos de anclaje
+  window.lastGruposMuertos = gruposMuertos;
+  console.log('[DASHBOARD] Grupos de muertos guardados para cálculos de macizos:', Object.keys(gruposMuertos).length);
+  
   // Obtener información del proyecto desde localStorage
   const projectConfig = localStorage.getItem('projectConfig');
   let projectInfo = null;
@@ -915,6 +921,357 @@ async function autoRecalcularTiposBraces() {
     return false;
   }
 }
+
+// ===== FUNCIONES PARA MACIZOS DE ANCLAJE (MUERTOS) =====
+
+// Función para manejar el cálculo de muertos
+export async function handleCalcularMuertos(elements, globalVars) {
+  console.log('[DASHBOARD] Iniciando cálculo de macizos de anclaje');
+  
+  // Verificar que hay datos de viento y braces
+  if (!globalVars.resultadosTomoIII || globalVars.resultadosTomoIII.length === 0) {
+    alert('No hay resultados de cálculos de viento. Por favor calcula las cargas de viento primero.');
+    return;
+  }
+
+  // Obtener parámetros de configuración
+  const parametros = {
+    nVarillas: parseInt(document.getElementById('nVarillas').value) || 4,
+    nAnillos: parseInt(document.getElementById('nAnillos').value) || 3,
+    tipoVarilla: document.getElementById('tipoVarilla').value || '#4',
+    nMuertos: parseInt(document.getElementById('nMuertos').value) || 1
+  };
+
+  console.log('[DASHBOARD] Parámetros de cálculo:', parametros);
+
+  // Mostrar loading
+  const btnCalcular = document.getElementById('btnCalcularMuertos');
+  const originalText = btnCalcular.textContent;
+  btnCalcular.disabled = true;
+  btnCalcular.textContent = '⏳ Calculando...';
+
+  try {
+    // Obtener datos actualizados desde la BD (similar al PDF)
+    console.log('[DASHBOARD] Obteniendo datos actualizados desde BD...');
+    
+    const projectConfig = localStorage.getItem('projectConfig');
+    if (!projectConfig) {
+      alert('No hay proyecto seleccionado');
+      return;
+    }
+
+    const project = JSON.parse(projectConfig);
+    const pid = project.pid || project.id;
+
+    if (!pid) {
+      alert('No se pudo identificar el proyecto');
+      return;
+    }
+
+    // Cargar muros desde BD
+    const response = await fetch(`${API_BASE}/api/importar-muros/muros?pk_proyecto=${pid}`);
+    if (!response.ok) {
+      throw new Error('Error al cargar muros desde BD');
+    }
+
+    const responseData = await response.json();
+    console.log('[DASHBOARD] Respuesta de BD:', responseData);
+    
+    // Validar que tenemos datos de muros
+    let murosDB = [];
+    if (Array.isArray(responseData)) {
+      murosDB = responseData;
+    } else if (responseData && Array.isArray(responseData.muros)) {
+      murosDB = responseData.muros;
+    } else if (responseData && Array.isArray(responseData.data)) {
+      murosDB = responseData.data;
+    } else {
+      console.warn('[DASHBOARD] Estructura de respuesta inesperada:', responseData);
+      murosDB = [];
+    }
+    
+    console.log('[DASHBOARD] Muros cargados desde BD:', murosDB.length);
+
+    // Combinar datos de BD con datos de viento
+    const murosConDatos = murosDB.map(muro => {
+      const muroViento = globalVars.resultadosTomoIII.find(mv => mv.pid === muro.pid);
+      if (muroViento) {
+        return {
+          ...muroViento,
+          angulo_brace: muro.angulo_brace || 55,
+          npt: muro.npt || 0.350,
+          tipo_brace_seleccionado: muro.tipo_brace_seleccionado,
+          x_braces: muro.x_braces || 2,
+          fbx: muro.fbx || 0,
+          fby: muro.fby || 0,
+          fb: muro.fb || 0,
+          x_inserto: muro.x_inserto || 0,
+          y_inserto: muro.y_inserto || 0,
+          cant_b14: muro.cant_b14 || 0,
+          cant_b12: muro.cant_b12 || 0,
+          cant_b04: muro.cant_b04 || 0,
+          cant_b15: muro.cant_b15 || 0
+        };
+      }
+      return null;
+    }).filter(Boolean);
+
+    console.log('[DASHBOARD] Muros con datos combinados:', murosConDatos.length);
+    
+    // Si no tenemos muros combinados, usar datos de viento directamente
+    let datosParaCalcular = murosConDatos;
+    if (murosConDatos.length === 0 && globalVars.resultadosTomoIII.length > 0) {
+      console.log('[DASHBOARD] No hay muros de BD, usando datos de viento directamente');
+      datosParaCalcular = globalVars.resultadosTomoIII.map(muro => ({
+        ...muro,
+        angulo_brace: 55,
+        x_braces: 2,
+        fbx: muro.fbx || muro.fb || 5.0
+      }));
+    }
+    
+    console.log('[DASHBOARD] Datos finales para cálculo:', datosParaCalcular.length);
+
+    // Verificar si hay tabla agrupada disponible
+    let resultados;
+    if (window.lastGruposMuertos && Object.keys(window.lastGruposMuertos).length > 0) {
+      console.log('[DASHBOARD] Usando cálculo por grupos (tabla agrupada)');
+      resultados = Muertos.calcularMuertosGrupos(window.lastGruposMuertos, parametros);
+    } else {
+      console.log('[DASHBOARD] Usando cálculo individual por muros');
+      resultados = Muertos.calcularMuertosProyecto(datosParaCalcular, parametros);
+    }
+    
+    console.log('[DASHBOARD] Resultados de muertos:', resultados);
+
+    // Mostrar resultados
+    mostrarResultadosMuertos(resultados);
+
+    // Habilitar botones adicionales
+    document.getElementById('btnExportarMuertosCSV').style.display = 'inline-block';
+    document.getElementById('btnMostrarAlternativas').style.display = 'inline-block';
+    document.getElementById('btnTablaDetallada').style.display = 'inline-block';
+
+    // Guardar resultados para exportación
+    globalVars.resultadosMuertos = resultados;
+
+  } catch (error) {
+    console.error('[DASHBOARD] Error al calcular muertos:', error);
+    alert('Error al calcular macizos de anclaje: ' + error.message);
+  } finally {
+    // Restaurar botón
+    btnCalcular.disabled = false;
+    btnCalcular.textContent = originalText;
+  }
+}
+
+// Función para mostrar resultados en la interfaz
+function mostrarResultadosMuertos(resultados) {
+  const contenedor = document.getElementById('tablaMuertosResultados');
+  const seccionResultados = document.getElementById('resultadosMuertos');
+  
+  // Determinar qué función de tabla usar basado en la estructura de resultados
+  let htmlTabla;
+  if (resultados.totales.gruposCalculados !== undefined) {
+    // Resultados por grupos
+    htmlTabla = Muertos.generarTablaResultadosGrupos(resultados);
+    console.log('[DASHBOARD] Mostrando resultados por grupos');
+  } else {
+    // Resultados individuales
+    htmlTabla = Muertos.generarTablaResultados(resultados);
+    console.log('[DASHBOARD] Mostrando resultados individuales');
+  }
+  
+  contenedor.innerHTML = htmlTabla;
+  
+  // Mostrar la sección de resultados
+  seccionResultados.style.display = 'block';
+  
+  console.log('[DASHBOARD] Resultados mostrados en interfaz');
+}
+
+// Función para exportar resultados a CSV
+export function handleExportarMuertosCSV(globalVars) {
+  if (!globalVars.resultadosMuertos) {
+    alert('No hay resultados de muertos para exportar');
+    return;
+  }
+
+  try {
+    const csv = Muertos.exportarResultadosCSV(globalVars.resultadosMuertos);
+    
+    // Crear y descargar archivo
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `macizos_anclaje_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    console.log('[DASHBOARD] CSV de muertos exportado');
+  } catch (error) {
+    console.error('[DASHBOARD] Error al exportar CSV:', error);
+    alert('Error al exportar CSV: ' + error.message);
+  }
+}
+
+// Función para mostrar alternativas de diseño
+export function handleMostrarAlternativas(globalVars) {
+  if (!globalVars.resultadosMuertos) {
+    alert('No hay resultados de muertos para mostrar alternativas');
+    return;
+  }
+
+  // Crear ventana modal o expandir información
+  const resultados = globalVars.resultadosMuertos.resultados;
+  let htmlAlternativas = `
+    <div class="modal-alternativas" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center;">
+      <div style="background: var(--card); border-radius: var(--radius); padding: 2rem; max-width: 90%; max-height: 80%; overflow-y: auto; box-shadow: var(--shadow);">
+        <h3>🔍 Alternativas de Diseño de Macizos</h3>
+        <p><small>Mostrando hasta 5 alternativas válidas por muro (ordenadas por eficiencia)</small></p>
+  `;
+
+  resultados.forEach(resultado => {
+    if (!resultado.error && resultado.alternativas && resultado.alternativas.length > 1) {
+      htmlAlternativas += `
+        <div style="margin-bottom: 2rem; border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+          <h4 style="color: var(--primary); margin-bottom: 1rem;">${resultado.muro}</h4>
+          <p><strong>FMC:</strong> ${resultado.fmc.fmcKn.toFixed(2)} kN (${resultado.fmc.fmcLb.toFixed(0)} lb)</p>
+          <table style="width: 100%; border-collapse: collapse; margin-top: 0.5rem;">
+            <thead>
+              <tr style="background: var(--border);">
+                <th style="padding: 0.5rem; text-align: left;">Opción</th>
+                <th style="padding: 0.5rem; text-align: left;">Diámetro</th>
+                <th style="padding: 0.5rem; text-align: left;">Altura</th>
+                <th style="padding: 0.5rem; text-align: left;">Peso tabla (lb)</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+
+      resultado.alternativas.forEach((alt, index) => {
+        const seleccionado = index === 0 ? ' style="background: rgba(31, 111, 235, 0.1); font-weight: bold;"' : '';
+        htmlAlternativas += `
+          <tr${seleccionado}>
+            <td style="padding: 0.5rem;">${index + 1}${index === 0 ? ' ✅' : ''}</td>
+            <td style="padding: 0.5rem;">${alt.diametroMm} mm (${alt.diametroIn}")</td>
+            <td style="padding: 0.5rem;">${alt.alturaMm} mm (${alt.alturaFt.replace('-', '\'-')}")</td>
+            <td style="padding: 0.5rem;">${alt.pesoTablaLb.toLocaleString()}</td>
+          </tr>
+        `;
+      });
+
+      htmlAlternativas += `
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+  });
+
+  htmlAlternativas += `
+        <div style="text-align: right; margin-top: 2rem;">
+          <button onclick="this.closest('.modal-alternativas').remove()" class="btn btn--primary">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Agregar modal al DOM
+  document.body.insertAdjacentHTML('beforeend', htmlAlternativas);
+}
+
+// Función para mostrar tabla detallada por muro
+export function handleTablaDetallada(globalVars) {
+  if (!globalVars.resultadosMuertos) {
+    alert('No hay resultados de muertos para mostrar tabla detallada');
+    return;
+  }
+
+  try {
+    const htmlTablaDetallada = Muertos.generarTablaDetalladaPorMuro(globalVars.resultadosMuertos);
+    
+    // Crear modal para mostrar la tabla detallada
+    const modalHtml = `
+      <div class="modal-tabla-detallada" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; overflow-y: auto; padding: 2rem;">
+        <div style="background: var(--card); border-radius: var(--radius); max-width: 95%; width: 100%; max-height: 90%; overflow-y: auto; box-shadow: var(--shadow); position: relative;">
+          <div style="position: sticky; top: 0; background: var(--card); border-bottom: 1px solid var(--border); padding: 1.5rem; z-index: 10;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <h3 style="margin: 0; color: var(--primary);">📋 Tabla Detallada de Materiales por Muro</h3>
+              <button onclick="this.closest('.modal-tabla-detallada').remove()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--muted); padding: 0.5rem;">×</button>
+            </div>
+          </div>
+          <div style="padding: 1.5rem;">
+            ${htmlTablaDetallada}
+          </div>
+          <div style="position: sticky; bottom: 0; background: var(--card); border-top: 1px solid var(--border); padding: 1rem; text-align: center;">
+            <button onclick="this.closest('.modal-tabla-detallada').remove()" class="btn btn--secondary">Cerrar</button>
+            <button onclick="exportarTablaDetallada()" class="btn btn--primary" style="margin-left: 1rem;">📊 Exportar a Excel</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Agregar modal al DOM
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    console.log('[DASHBOARD] Tabla detallada mostrada en modal');
+    
+  } catch (error) {
+    console.error('[DASHBOARD] Error al generar tabla detallada:', error);
+    alert('Error al generar tabla detallada: ' + error.message);
+  }
+}
+
+// Función para exportar tabla detallada a Excel/CSV
+function exportarTablaDetallada() {
+  // Obtener datos de la tabla
+  const tabla = document.querySelector('.tabla-muertos-detallada');
+  if (!tabla) return;
+
+  let csv = '';
+  
+  // Headers
+  const headers = Array.from(tabla.querySelectorAll('thead th')).map(th => th.textContent.trim());
+  csv += headers.join(',') + '\n';
+  
+  // Datos
+  const filas = Array.from(tabla.querySelectorAll('tbody tr:not(.totales-row)'));
+  filas.forEach(fila => {
+    const celdas = Array.from(fila.querySelectorAll('td')).map(td => {
+      return '"' + td.textContent.trim().replace(/"/g, '""') + '"';
+    });
+    csv += celdas.join(',') + '\n';
+  });
+  
+  // Fila de totales
+  const filaTotales = tabla.querySelector('.totales-row');
+  if (filaTotales) {
+    const celdasTotales = Array.from(filaTotales.querySelectorAll('td')).map(td => {
+      return '"' + td.textContent.trim().replace(/"/g, '""') + '"';
+    });
+    csv += celdasTotales.join(',') + '\n';
+  }
+
+  // Descargar archivo
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', `tabla_detallada_macizos_${new Date().toISOString().split('T')[0]}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  console.log('[DASHBOARD] Tabla detallada exportada a CSV');
+}
+
+// Exponer función de exportación globalmente
+window.exportarTablaDetallada = exportarTablaDetallada;
 
 // Exponer funciones globalmente
 window.autoRecalcularTiposBraces = autoRecalcularTiposBraces;

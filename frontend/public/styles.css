@@ -1933,3 +1933,280 @@ pre{
 #rangosContainer::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
+
+/* ====== ESTILOS PARA MACIZOS DE ANCLAJE (MUERTOS) ====== */
+
+/* Configuración de parámetros */
+.muertos-config {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.muertos-config h3 {
+  color: var(--primary);
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+}
+
+/* Resultados de muertos */
+.muertos-results {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  box-shadow: var(--shadow);
+}
+
+.muertos-results h3 {
+  color: var(--primary);
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Totales del proyecto */
+.totales-summary {
+  background: rgba(31, 111, 235, 0.05);
+  border: 1px solid rgba(31, 111, 235, 0.2);
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.totales-summary h4 {
+  color: var(--primary);
+  margin-bottom: 1rem;
+  font-size: 1rem;
+}
+
+.totales-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.total-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.total-item .label {
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.total-item .value {
+  font-weight: 700;
+  color: var(--primary);
+  font-size: 1.1rem;
+}
+
+/* Tabla de resultados de muertos */
+.tabla-muertos {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  background: var(--card);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.tabla-muertos th {
+  background: linear-gradient(180deg, var(--primary), var(--primary-600));
+  color: white;
+  padding: 0.875rem 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.875rem;
+  border: none;
+  white-space: nowrap;
+}
+
+.tabla-muertos td {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.875rem;
+  vertical-align: top;
+}
+
+.tabla-muertos tbody tr:hover {
+  background: rgba(31, 111, 235, 0.05);
+}
+
+.tabla-muertos tbody tr:nth-child(even) {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.tabla-muertos tbody tr:nth-child(even):hover {
+  background: rgba(31, 111, 235, 0.05);
+}
+
+/* Filas de error */
+.tabla-muertos .error-row {
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.tabla-muertos .error-row:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.tabla-muertos .error {
+  color: #dc2626;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Valores pequeños (subtext) */
+.tabla-muertos small {
+  color: var(--muted);
+  font-size: 0.75rem;
+  display: block;
+  margin-top: 0.25rem;
+}
+
+/* Panel de información */
+.info-panel {
+  background: rgba(59, 130, 246, 0.05);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 8px;
+  padding: 1.25rem;
+}
+
+.info-panel h4 {
+  color: var(--primary);
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.info-panel ul {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+}
+
+.info-panel li {
+  margin-bottom: 0.5rem;
+  color: var(--muted);
+}
+
+/* Responsividad para móviles */
+@media (max-width: 768px) {
+  .totales-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .tabla-muertos {
+    font-size: 0.75rem;
+  }
+  
+  .tabla-muertos th,
+  .tabla-muertos td {
+    padding: 0.5rem 0.375rem;
+  }
+  
+  .muertos-config {
+    padding: 1rem;
+  }
+  
+  .parameter-groups {
+    gap: 1rem;
+  }
+  
+  .parameter-group {
+    margin-bottom: 1rem;
+  }
+}
+
+/* ===== ESTILOS PARA TABLA DETALLADA DE MUERTOS ===== */
+.tabla-muertos-detallada {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+  background: var(--card);
+  box-shadow: var(--shadow);
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 0.9rem;
+}
+
+.tabla-muertos-detallada th {
+  background: linear-gradient(135deg, #1f6feb, #1a60ce);
+  color: white;
+  padding: 0.75rem 0.5rem;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.85rem;
+  border: none;
+  white-space: nowrap;
+}
+
+.tabla-muertos-detallada td {
+  padding: 0.7rem 0.5rem;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.tabla-muertos-detallada .totales-row {
+  background: linear-gradient(135deg, #f8f9fa, #e9ecef) !important;
+  border-top: 3px solid #007acc !important;
+  font-weight: bold;
+}
+
+.tabla-muertos-detallada .totales-row td {
+  padding: 1rem 0.5rem;
+  font-size: 0.95rem;
+}
+
+.resumen-materiales {
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+.resumen-materiales h4 {
+  color: var(--primary);
+  margin: 0 0 1rem 0;
+  font-weight: 600;
+}
+
+.resumen-materiales h5 {
+  color: var(--text);
+  margin: 0 0 0.5rem 0;
+  font-weight: 600;
+}
+
+/* Responsive para tabla detallada */
+@media (max-width: 1200px) {
+  .tabla-muertos-detallada {
+    font-size: 0.8rem;
+  }
+  
+  .tabla-muertos-detallada th,
+  .tabla-muertos-detallada td {
+    padding: 0.5rem 0.3rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .tabla-muertos-detallada {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  
+  .resumen-materiales > div[style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+}

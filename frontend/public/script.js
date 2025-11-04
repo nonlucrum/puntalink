@@ -8,7 +8,11 @@ import {
   handleGenerarPDF,
   loadProjectInfo,
   editarProyecto,
-  guardarCambiosProyecto
+  guardarCambiosProyecto,
+  handleCalcularMuertos,
+  handleExportarMuertosCSV,
+  handleMostrarAlternativas,
+  handleTablaDetallada
 } from './js/dashboard.js';
 
 import { 
@@ -196,6 +200,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnUpdateProject = document.getElementById('btnUpdateProject');
   const btnCancelUpdateProject = document.getElementById('btnCancelUpdateProject');
 
+  // Elementos de Muertos (Macizos de Anclaje)
+  const btnCalcularMuertos = document.getElementById('btnCalcularMuertos');
+  const btnExportarMuertosCSV = document.getElementById('btnExportarMuertosCSV');
+  const btnMostrarAlternativas = document.getElementById('btnMostrarAlternativas');
+  const btnTablaDetallada = document.getElementById('btnTablaDetallada');
+
   const btnProjectSubmit = document.getElementById('btnProjectSubmit');
   const btnCreateNewProject = document.getElementById('btnCreateNewProject');
   const toggleBackG = document.getElementById('toggleBackG');
@@ -208,7 +218,8 @@ document.addEventListener('DOMContentLoaded', () => {
     projectData: [],
     panelesActuales: [],
     resultadosActuales: [],
-    resultadosTomoIII: []
+    resultadosTomoIII: [],
+    resultadosMuertos: null
   };
   
   // Hacer globalVars accesible globalmente para funciones de viento
@@ -375,6 +386,37 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   
+  // ===== EVENT LISTENERS PARA MACIZOS DE ANCLAJE (MUERTOS) =====
+  
+  // Calcular macizos de anclaje
+  if (btnCalcularMuertos) {
+    btnCalcularMuertos.addEventListener('click', async () => {
+      if (!requireAuthOrWarn()) return;
+      await handleCalcularMuertos(uiElements, globalVars);
+    });
+  }
+
+  // Exportar muertos a CSV
+  if (btnExportarMuertosCSV) {
+    btnExportarMuertosCSV.addEventListener('click', () => {
+      handleExportarMuertosCSV(globalVars);
+    });
+  }
+
+  // Mostrar alternativas de diseño
+  if (btnMostrarAlternativas) {
+    btnMostrarAlternativas.addEventListener('click', () => {
+      handleMostrarAlternativas(globalVars);
+    });
+  }
+
+  // Mostrar tabla detallada por muro
+  if (btnTablaDetallada) {
+    btnTablaDetallada.addEventListener('click', () => {
+      handleTablaDetallada(globalVars);
+    });
+  }
+
   if (btnProjectSubmit) {
     console.log('[FRONTEND] Configurando listener para envío de formulario de proyecto');
     const form = document.getElementById('formNuevoProyecto');
