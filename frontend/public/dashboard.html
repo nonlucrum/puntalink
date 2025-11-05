@@ -492,6 +492,204 @@
         </div>
       </div>
 
+      <!-- Sección 6: Armado Rectangular para Muertos -->
+      <div class="section" id="armadoSection">
+        <div class="accordion-item" id="armadoAccordion">
+          <div class="accordion-header" data-target="armado-section">
+            <h2 class="accordion-title">
+              🏗️ Armado Rectangular para Muertos
+            </h2>
+            <span class="accordion-toggle">▼</span>
+          </div>
+          <div class="accordion-content" id="armado-section">
+            <div class="armado-container">
+              
+              <!-- Panel de Configuración Global -->
+              <div class="configuracion-global" style="margin-bottom: 2rem; padding: 1.5rem; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;">
+                <h3>⚙️ Configuración Global</h3>
+                
+                <div class="parameter-groups">
+                  <div class="parameter-group">
+                    <h4>🔧 Varillas Longitudinales</h4>
+                    <div class="form-row">
+                      <label>Tipo de varilla:</label>
+                      <select id="tipoVarillaLongitudinal" class="form-control">
+                        <option value="3">#3 (0.560 kg/m)</option>
+                        <option value="4" selected>#4 (0.994 kg/m)</option>
+                        <option value="5">#5 (1.552 kg/m)</option>
+                        <option value="6">#6 (2.235 kg/m)</option>
+                      </select>
+                    </div>
+                    <div class="form-row">
+                      <label>Recubrimiento (cm):</label>
+                      <input type="number" id="recubrimientoLongitudinal" class="form-control" value="7.5" step="0.1">
+                    </div>
+                    <div class="form-row">
+                      <label>Separación (cm):</label>
+                      <input type="number" id="separacionLongitudinal" class="form-control" value="60" step="1">
+                    </div>
+                    <div class="form-row">
+                      <label>Varillas superiores:</label>
+                      <input type="number" id="cantVarillasSuperior" class="form-control" value="4" min="1" step="1">
+                    </div>
+                    <div class="form-row">
+                      <label>Varillas medias (Excel):</label>
+                      <input type="number" id="cantVarillasMedias" class="form-control" placeholder="Auto" min="0" step="1">
+                    </div>
+                    <div class="form-row">
+                      <label>Varillas inferiores:</label>
+                      <input type="number" id="cantVarillasInferior" class="form-control" value="2" min="1" step="1">
+                    </div>
+                  </div>
+                  
+                  <div class="parameter-group">
+                    <h4>🔗 Varillas Transversales (Estribos)</h4>
+                    <div class="form-row">
+                      <label>Tipo de varilla:</label>
+                      <select id="tipoVarillaTransversal" class="form-control">
+                        <option value="3" selected>#3 (0.560 kg/m)</option>
+                        <option value="4">#4 (0.994 kg/m)</option>
+                        <option value="5">#5 (1.552 kg/m)</option>
+                        <option value="6">#6 (2.235 kg/m)</option>
+                      </select>
+                    </div>
+                    <div class="form-row">
+                      <label>Recubrimiento (cm):</label>
+                      <input type="number" id="recubrimientoTransversal" class="form-control" value="7.5" step="0.1">
+                    </div>
+                    <div class="form-row">
+                      <label>Separación (cm):</label>
+                      <input type="number" id="separacionTransversal" class="form-control" value="30" step="1">
+                    </div>
+                    <div class="form-row">
+                      <label>Longitud ganchos (m):</label>
+                      <input type="number" id="longGanchoEstribo" class="form-control" value="0.7" step="0.05">
+                    </div>
+                  </div>
+                  
+                  <div class="parameter-group">
+                    <h4>🏗️ Construcción</h4>
+                    <div class="form-row">
+                      <label>Tipo de concreto (kg/m³):</label>
+                      <input type="number" id="tipoConcreto" class="form-control" value="280" step="10" min="200">
+                    </div>
+                    <div class="form-row">
+                      <label>Factor desperdicio:</label>
+                      <input type="number" id="factorDesperdicio" class="form-control" value="1.1" step="0.05" min="1">
+                    </div>
+                  </div>
+                  
+                  <div class="parameter-group">
+                    <h4>🔗 Alambre de Amarre</h4>
+                    <div class="form-row">
+                      <label>Diámetro alambre (mm):</label>
+                      <input type="number" id="diametroAlambre" class="form-control" value="1.3" step="0.1" min="0.5">
+                    </div>
+                    <div class="form-row">
+                      <label>Longitud por vuelta (cm):</label>
+                      <input type="number" id="longitudVuelta" class="form-control" value="15" step="1" min="5">
+                    </div>
+                    <div class="form-row">
+                      <label>Factor desperdicio alambre:</label>
+                      <input type="number" id="factorDesperdicioAlambre" class="form-control" value="1.15" step="0.05" min="1">
+                    </div>
+                  </div>
+                </div>
+                      <input type="number" id="longitudPorNudo" class="form-control" value="0.35" step="0.05" min="0.1">
+                      
+                      <label>Diámetro Alambre (m):</label>
+                      <input type="number" id="diametroAlambre" class="form-control" value="0.00122" step="0.0001" min="0.0001">
+                      
+                      <label>Densidad Concreto (kg/m³):</label>
+                      <input type="number" id="densidadConcreto" class="form-control" value="2400" step="50" min="1000">
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="actions" style="margin-top: 1.5rem;">
+                  <button id="btnCalcularArmado" class="btn btn--primary">🧮 Calcular Armado Rectangular</button>
+                  <button id="btnExportarArmado" class="btn btn--secondary" style="margin-left: 0.5rem;">📊 Exportar Reporte</button>
+                </div>
+              </div>
+              
+              <!-- Tabla de Resultados -->
+              <div id="tablaArmadoContainer" style="display: none;">
+                <h3>📋 Tabla de Armado por Muerto</h3>
+                <div class="table-container">
+                  <table id="tablaArmado" class="results-table">
+                    <thead>
+                      <tr>
+                        <th rowspan="3">#</th>
+                        <th rowspan="3">Eje</th>
+                        <th rowspan="3">Muros</th>
+                        <th colspan="3">DEADMAN</th>
+                        <th colspan="4">Acero</th>
+                        <th colspan="2">Concreto</th>
+                        <th colspan="2">Alambre</th>
+                      </tr>
+                      <tr>
+                        <th rowspan="2">Largo</th>
+                        <th rowspan="2">Alto</th>
+                        <th rowspan="2">Ancho</th>
+                        <th rowspan="2">Longitud</th>
+                        <th rowspan="2">Peso</th>
+                        <th rowspan="2">Dirección</th>
+                        <th rowspan="2">Vol</th>
+                        <th rowspan="2">Peso</th>
+                        <th rowspan="2">Longitud</th>
+                        <th rowspan="2">Peso</th>
+                      </tr>
+                      <tr>
+                        <th>m</th>
+                        <th>m</th>
+                        <th>m</th>
+                        <th>#</th>
+                        <th>m</th>
+                        <th>kg</th>
+                        <th>***</th>
+                        <th>m³</th>
+                        <th>ton</th>
+                        <th>m</th>
+                        <th>kg</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tablaArmadoBody">
+                      <!-- Los datos se llenarán dinámicamente -->
+                    </tbody>
+                    <tfoot id="tablaArmadoFooter">
+                      <!-- Totales se llenarán dinámicamente -->
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+              
+              <!-- Resumen de Totales -->
+              <div id="resumenArmado" style="display: none; margin-top: 2rem;">
+                <div class="summary-cards">
+                  <div class="summary-card">
+                    <h4>🏗️ Concreto Total</h4>
+                    <div class="summary-value" id="totalConcreto">0 m³ / 0 ton</div>
+                  </div>
+                  <div class="summary-card">
+                    <h4>🔩 Acero Total</h4>
+                    <div class="summary-value" id="totalAcero">0 kg / 0 ton</div>
+                  </div>
+                  <div class="summary-card">
+                    <h4>🔗 Alambre Total</h4>
+                    <div class="summary-value" id="totalAlambre">0 kg / 0 ton</div>
+                  </div>
+                  <div class="summary-card">
+                    <h4>⚖️ Metal Total</h4>
+                    <div class="summary-value" id="totalMetal">0 kg / 0 ton</div>
+                  </div>
+                </div>
+              </div>
+              
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
   </main>
   
@@ -502,6 +700,9 @@
     </div>
   </footer>
 
+  <script type="module" src="js/factoresRepeticion.js"></script>
+  <script type="module" src="js/muertoRectangular.js"></script>
+  <script type="module" src="js/muertoCilindrico.js"></script>
   <script type="module" src="js/usability.js"></script>
   <script type="module" src="script.js"></script>
 </body>

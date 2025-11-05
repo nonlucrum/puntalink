@@ -231,26 +231,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ===== FUNCIONALIDAD DE ACORDEÓN =====
   function initAccordion() {
-    console.log('[FRONTEND] Inicializando acordeón con primera sección siempre visible');
+    console.log('[FRONTEND] Inicializando acordeón - CERRADO hasta que se agrupen los muros');
     const accordionHeaders = document.querySelectorAll('.accordion-header');
     
-    // Marcar la primera sección como siempre activa
-    const firstItem = document.querySelector('.accordion-item');
-    if (firstItem) {
-      firstItem.classList.add('active');
-    }
+    // NO marcar la primera sección como activa hasta que se agrupen los muros
+    // La primera sección se habilitará cuando window.lastGruposMuertos esté disponible
     
     accordionHeaders.forEach((header, index) => {
       header.addEventListener('click', () => {
-        // No permitir colapsar la primera sección
-        if (index === 0) return;
+        // Verificar si los muros han sido agrupados
+        if (!window.lastGruposMuertos || Object.keys(window.lastGruposMuertos).length === 0) {
+          if (index === 0) {
+            // Para la primera sección, mostrar un mensaje específico
+            alert('⚠️ Primero debes generar un PDF para agrupar los muros.\n\nEso activará las secciones de cálculos avanzados.');
+            return;
+          }
+        }
+        
+        // No permitir colapsar la primera sección una vez que esté habilitada
+        if (index === 0 && window.lastGruposMuertos && Object.keys(window.lastGruposMuertos).length > 0) {
+          const accordionItem = header.parentElement;
+          if (!accordionItem.classList.contains('active')) {
+            accordionItem.classList.add('active');
+          }
+          return;
+        }
         
         const accordionItem = header.parentElement;
         const isActive = accordionItem.classList.contains('active');
         
         console.log('[FRONTEND] Acordeón clickeado:', header.querySelector('.accordion-title').textContent.trim());
         
-        // Toggle solo para secciones que no son la primera
+        // Toggle para secciones que no son la primera
         if (isActive) {
           accordionItem.classList.remove('active');
         } else {
@@ -261,6 +273,32 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Inicializar sub-acordeón para la tabla
     initSubAccordion();
+  }
+
+  // Función para habilitar el acordeón después de agrupar muros
+  function enableAccordionAfterGrouping() {
+    console.log('[FRONTEND] Habilitando primera sección del acordeón - muros agrupados');
+    const firstItem = document.querySelector('.accordion-item');
+    if (firstItem && window.lastGruposMuertos && Object.keys(window.lastGruposMuertos).length > 0) {
+      firstItem.classList.add('active');
+      console.log('[FRONTEND] Primera sección habilitada automáticamente');
+    }
+  }
+
+  // Monitorear cuando se agrupan los muros
+  function monitorGroupedWalls() {
+    // Verificar periódicamente si se han agrupado los muros
+    const checkInterval = setInterval(() => {
+      if (window.lastGruposMuertos && Object.keys(window.lastGruposMuertos).length > 0) {
+        enableAccordionAfterGrouping();
+        clearInterval(checkInterval);
+      }
+    }, 1000);
+    
+    // Limpiar el intervalo después de 5 minutos para evitar bucles infinitos
+    setTimeout(() => {
+      clearInterval(checkInterval);
+    }, 300000);
   }
 
   function initSubAccordion() {
@@ -546,7 +584,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ===== INICIALIZACIÓN =====
   initAccordion();
-  console.log('[FRONTEND] Aplicación inicializada con módulo de botones consolidado');
+  monitorGroupedWalls(); // Comenzar a monitorear la agrupación de muros
+  console.log('[FRONTEND] Aplicación inicializada - acordeón cerrado hasta agrupación de muros');
 });
 
 // ===== FUNCIONES PARA CÁLCULO DE VIENTO =====
@@ -3673,3 +3712,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
+// Exponer funciones globalmente para acceso desde dashboard.js
+window.enableAccordionAfterGrouping = function() {
+  console.log('[FRONTEND] Habilitando primera sección del acordeón - muros agrupados');
+  const firstItem = document.querySelector('.accordion-item');
+  if (firstItem && window.lastGruposMuertos && Object.keys(window.lastGruposMuertos).length > 0) {
+    firstItem.classList.add('active');
+    console.log('[FRONTEND] Primera sección habilitada automáticamente');
+  }
+};

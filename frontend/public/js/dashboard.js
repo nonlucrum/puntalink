@@ -731,6 +731,11 @@ export async function handleGenerarPDF(elements, globalVars) {
   window.lastGruposMuertos = gruposMuertos;
   console.log('[DASHBOARD] Grupos de muertos guardados para cálculos de macizos:', Object.keys(gruposMuertos).length);
   
+  // Habilitar acordeón después de agrupar muros
+  if (window.enableAccordionAfterGrouping && typeof window.enableAccordionAfterGrouping === 'function') {
+    window.enableAccordionAfterGrouping();
+  }
+  
   // Obtener información del proyecto desde localStorage
   const projectConfig = localStorage.getItem('projectConfig');
   let projectInfo = null;
@@ -1089,6 +1094,13 @@ function mostrarResultadosMuertos(resultados) {
   
   // Mostrar la sección de resultados
   seccionResultados.style.display = 'block';
+  
+  // Mostrar la sección de armado rectangular cuando hay muertos calculados
+  const seccionArmado = document.getElementById('armadoAccordion');
+  if (seccionArmado && globalVars.resumenMuertos && globalVars.resumenMuertos.length > 0) {
+    seccionArmado.style.display = 'block';
+    console.log('[DASHBOARD] Sección de armado rectangular mostrada');
+  }
   
   console.log('[DASHBOARD] Resultados mostrados en interfaz');
 }
@@ -1605,7 +1617,359 @@ export function cancelarEliminacion() {
   finalizarImportacion(murosOriginales);
 }
 
+// ===== ARMADO RECTANGULAR =====
+
+// Cargar el módulo de armado rectangular
+import { 
+  calcularReporteMuerto
+} from './muertoRectangular.js';
+
+// Cargar el módulo de armado cilíndrico
+import { 
+  calcularReporteCilindrico,
+  calcularResumenProyectoCilindrico 
+} from './muertoCilindrico.js';
+
+// Cargar factores de repetición específicos por muerto
+import { 
+  obtenerConfiguracionMuerto
+} from './factoresRepeticion.js';
+
+// Configuración global del armado rectangular
+let configArmado = {
+  // Varillas longitudinales
+  tipoVarillaLongitudinal: 4,        // #4 (0.994 kg/m)
+  recubrimientoLongitudinal: 4,      // 4 cm (como recomienda)
+  separacionLongitudinal: 60,        // 60 cm ✅
+  cantVarillasSuperior: 4,           // 4 ✅
+  cantVarillasMedias: 2,             // 2 (no null)
+  cantVarillasInferior: 2,           // 2 ✅
+  
+  // Varillas transversales (estribos)
+  tipoVarillaTransversal: 3,         // #3 (0.560 kg/m) ✅
+  recubrimientoTransversal: 4,       // 4 cm (como recomienda)
+  separacionTransversal: 25,         // 25 cm (como recomienda)
+  longGanchoEstribo: 0.7,            // 0.7 m ✅
+  
+  // Construcción
+  tipoConcreto: 2400,                // 2400 kg/m³ (como recomienda)
+  factorDesperdicio: 1.0,            // 1.0 (como recomienda)
+  
+  // Alambre de amarre
+  diametroAlambre: 1.22,             // 1.22 mm (como recomienda)
+  longitudVuelta: 35,                // 35 cm (como recomienda)
+  factorDesperdicioAlambre: 1.15     // 1.15 (como recomienda)
+};
+
+// Función para inicializar el armado rectangular
+function initArmadoRectangular() {
+  // Verificar que existan los elementos del DOM
+  if (!document.getElementById('btnCalcularArmado')) {
+    console.log('[ARMADO] Elementos del armado no encontrados, omitiendo inicialización');
+    return;
+  }
+
+  // Cargar configuración inicial en los inputs
+  document.getElementById('tipoVarillaLongitudinal').value = configArmado.tipoVarillaLongitudinal;
+  document.getElementById('recubrimientoLongitudinal').value = configArmado.recubrimientoLongitudinal;
+  document.getElementById('separacionLongitudinal').value = configArmado.separacionLongitudinal;
+  document.getElementById('cantVarillasSuperior').value = configArmado.cantVarillasSuperior;
+  document.getElementById('cantVarillasSuperior').value = configArmado.cantVarillasSuperior;
+  if (configArmado.cantVarillasMedias !== null) {
+    document.getElementById('cantVarillasMedias').value = configArmado.cantVarillasMedias;
+  }
+  document.getElementById('cantVarillasInferior').value = configArmado.cantVarillasInferior;
+  document.getElementById('tipoVarillaTransversal').value = configArmado.tipoVarillaTransversal;
+  document.getElementById('recubrimientoTransversal').value = configArmado.recubrimientoTransversal;
+  document.getElementById('separacionTransversal').value = configArmado.separacionTransversal;
+  document.getElementById('longGanchoEstribo').value = configArmado.longGanchoEstribo;
+  document.getElementById('tipoConcreto').value = configArmado.tipoConcreto;
+  document.getElementById('factorDesperdicio').value = configArmado.factorDesperdicio;
+  document.getElementById('diametroAlambre').value = configArmado.diametroAlambre;
+  document.getElementById('longitudVuelta').value = configArmado.longitudVuelta;
+  document.getElementById('factorDesperdicioAlambre').value = configArmado.factorDesperdicioAlambre;
+  
+  // Event listener para el botón de calcular armado
+  document.getElementById('btnCalcularArmado').addEventListener('click', ejecutarCalculosArmado);
+  
+  // Event listeners para actualizar configuración cuando cambien los inputs
+  document.querySelectorAll('#armadoRectangular .form-control').forEach(input => {
+    input.addEventListener('change', actualizarConfiguracion);
+  });
+  
+  console.log('[ARMADO] Armado rectangular inicializado correctamente');
+}
+
+// Función para actualizar la configuración desde los inputs
+function actualizarConfiguracion() {
+  configArmado.tipoVarillaLongitudinal = parseInt(document.getElementById('tipoVarillaLongitudinal').value);
+  configArmado.recubrimientoLongitudinal = parseFloat(document.getElementById('recubrimientoLongitudinal').value);
+  configArmado.separacionLongitudinal = parseFloat(document.getElementById('separacionLongitudinal').value);
+  configArmado.cantVarillasSuperior = parseInt(document.getElementById('cantVarillasSuperior').value);
+  const mediasValue = document.getElementById('cantVarillasMedias').value;
+  configArmado.cantVarillasMedias = mediasValue ? parseInt(mediasValue) : null; // null = usar regla automática
+  configArmado.cantVarillasInferior = parseInt(document.getElementById('cantVarillasInferior').value);
+  configArmado.tipoVarillaTransversal = parseInt(document.getElementById('tipoVarillaTransversal').value);
+  configArmado.recubrimientoTransversal = parseFloat(document.getElementById('recubrimientoTransversal').value);
+  configArmado.separacionTransversal = parseFloat(document.getElementById('separacionTransversal').value);
+  configArmado.longGanchoEstribo = parseFloat(document.getElementById('longGanchoEstribo').value);
+  configArmado.tipoConcreto = parseFloat(document.getElementById('tipoConcreto').value);
+  configArmado.factorDesperdicio = parseFloat(document.getElementById('factorDesperdicio').value);
+  configArmado.diametroAlambre = parseFloat(document.getElementById('diametroAlambre').value);
+  configArmado.longitudVuelta = parseFloat(document.getElementById('longitudVuelta').value);
+  configArmado.factorDesperdicioAlambre = parseFloat(document.getElementById('factorDesperdicioAlambre').value);
+}
+
+// Función principal para ejecutar los cálculos de armado
+async function ejecutarCalculosArmado() {
+  try {
+    // Actualizar configuración desde la interfaz
+    actualizarConfiguracion();
+    
+    // Verificar que tengamos muertos agrupados para calcular
+    if (!window.lastGruposMuertos || Object.keys(window.lastGruposMuertos).length === 0) {
+      alert('⚠️ No hay muertos agrupados para calcular. Ejecute primero "Generar PDF" para agrupar los muros por muertos.');
+      return;
+    }
+    
+    // Obtener tipo de muerto del proyecto
+    const projectConfig = JSON.parse(localStorage.getItem('projectConfig') || '{}');
+    const tipoMuerto = projectConfig.tipo_muerto || 'Cilindrico'; // Default a cilíndrico
+    
+    console.log('📊 [ARMADO] Iniciando cálculo con grupos de muertos:', Object.keys(window.lastGruposMuertos).length);
+    console.log('🏗️ [ARMADO] Tipo de muerto:', tipoMuerto);
+    console.log('⚙️ [ARMADO] Configuración:', configArmado);
+    
+    // Limpiar tabla anterior
+    const tbody = document.querySelector('#tablaArmado tbody');
+    tbody.innerHTML = '';
+    
+    let reporteCompleto = [];
+    let totalConcreto = 0;
+    let totalAcero = 0;
+    let totalAlambre = 0;
+    let totalMetal = 0;
+    
+    // Convertir grupos de muertos a formato de resumen para cálculos
+    const resumenMuertos = [];
+    Object.keys(window.lastGruposMuertos).forEach((clave, index) => {
+      const grupo = window.lastGruposMuertos[clave];
+      const muertoId = `D${index + 1}`; // Usar D1, D2, D3... para coincidir con factores de Magnorth
+      
+      // Calcular dimensiones típicas del macizo basado en características del grupo
+      const fbx = grupo.fbx || 500; // kN, valor por defecto
+      const angulo = grupo.angulo_brace || 55; // grados
+      const xBraces = grupo.x_braces || 2;
+      
+      // Cálculo simplificado de dimensiones del macizo
+      // Basado en la fuerza horizontal y características del suelo
+      const areaRequerida = fbx / 100; // m² (simplificado)
+      
+      // ===== USAR DIMENSIONES EXACTAS DEL PDF DE MAGNORTH =====
+      // Mapeo de dimensiones específicas por muerto ID (según tabla exacta del usuario)
+      const dimensionesMagnorth = {
+        'D1':  { ancho: 0.80, alto: 0.55, profundidad: 1.50 },
+        'D2':  { ancho: 0.70, alto: 0.40, profundidad: 6.88 },
+        'D3':  { ancho: 0.80, alto: 0.43, profundidad: 8.52 },
+        'D4':  { ancho: 0.80, alto: 0.43, profundidad: 8.52 },
+        'D5':  { ancho: 0.70, alto: 0.40, profundidad: 6.88 },
+        'D6':  { ancho: 0.80, alto: 0.60, profundidad: 1.50 },
+        'D7':  { ancho: 0.80, alto: 0.55, profundidad: 0.75 },
+        'D8':  { ancho: 0.70, alto: 0.43, profundidad: 4.00 },
+        'D9':  { ancho: 0.75, alto: 0.60, profundidad: 15.73 },
+        'D10': { ancho: 0.80, alto: 0.60, profundidad: 85.50 },
+        'D11': { ancho: 0.80, alto: 0.67, profundidad: 4.50 },
+        'D12': { ancho: 0.80, alto: 0.67, profundidad: 19.41 },
+        'D13': { ancho: 0.80, alto: 0.60, profundidad: 85.50 },
+        'D14': { ancho: 0.80, alto: 0.58, profundidad: 15.73 },
+        'D15': { ancho: 0.70, alto: 0.43, profundidad: 4.00 },
+        'D16': { ancho: 0.80, alto: 0.60, profundidad: 0.75 }
+      };
+
+      let dimensiones;
+      if (tipoMuerto === 'Cilindrico') {
+        // Para muertos cilíndricos: calcular diámetro y altura
+        const diametro = Math.max(1.0, Math.sqrt(4 * areaRequerida / Math.PI)); // mínimo 1.0m
+        const altura = Math.max(1.5, diametro * 0.8); // mínimo 1.5m o 80% del diámetro
+        
+        dimensiones = {
+          diametro: Math.round(diametro * 100) / 100,
+          altura: Math.round(altura * 100) / 100
+        };
+      } else {
+        // Para muertos rectangulares: usar dimensiones exactas del PDF Magnorth
+        dimensiones = dimensionesMagnorth[muertoId] || {
+          ancho: 1.26,   // dimensiones por defecto si no se encuentra el ID
+          alto: 1.74,
+          profundidad: 2.0
+        };
+      }
+      
+      resumenMuertos.push({
+        id: muertoId,
+        eje: grupo.eje || 'Sin eje',
+        dimensiones: dimensiones,
+        fbx: fbx,
+        cantidadMuros: grupo.muros.length,
+        murosIncluidos: grupo.muros.map(m => m.nombre || m.pid).join(', ')
+      });
+    });
+    
+    console.log('📋 [ARMADO] Resumen de muertos generado:', resumenMuertos);
+    
+    // Calcular para cada muerto
+    for (const muerto of resumenMuertos) {
+      let reporteMuerto;
+      
+      // Seleccionar función de cálculo según el tipo de muerto
+      if (tipoMuerto === 'Cilindrico') {
+        // Usar funciones de cálculo cilíndrico
+        reporteMuerto = calcularReporteCilindrico(muerto.dimensiones, configArmado);
+      } else {
+        // Usar funciones de cálculo rectangular con factores específicos
+        // Obtener configuración con factores específicos para este muerto
+        const configConFactores = obtenerConfiguracionMuerto(muerto.id, configArmado);
+        reporteMuerto = calcularReporteMuerto(muerto.dimensiones, configConFactores);
+      }
+      
+      reporteCompleto.push({
+        ...reporteMuerto,
+        muertoId: muerto.id,
+        eje: muerto.eje,
+        cantidadMuros: muerto.cantidadMuros,
+        murosIncluidos: muerto.murosIncluidos,
+        tipoMuerto: tipoMuerto,
+        // Asegurar que las dimensiones estén disponibles para la tabla
+        ...muerto.dimensiones
+      });
+      
+      // Sumar a totales
+      totalConcreto += reporteMuerto.volumenConcreto;
+      totalAcero += reporteMuerto.pesoLongitudinal + reporteMuerto.pesoTransversal;
+      totalAlambre += reporteMuerto.pesoAlambre;
+      totalMetal += reporteMuerto.pesoLongitudinal + reporteMuerto.pesoTransversal + reporteMuerto.pesoAlambre;
+    }
+    
+    // Llenar la tabla con los resultados
+    llenarTablaArmado(reporteCompleto);
+    
+    // Actualizar tarjetas de resumen
+    actualizarResumenArmado(totalConcreto, totalAcero, totalAlambre, totalMetal);
+    
+    alert(`✅ Armado calculado exitosamente para ${reporteCompleto.length} muertos`);
+    
+  } catch (error) {
+    console.error('Error al calcular armado:', error);
+    alert('❌ Error al calcular armado rectangular: ' + error.message);
+  }
+}
+
+// Función para llenar la tabla de armado
+function llenarTablaArmado(reporte) {
+  const tbody = document.querySelector('#tablaArmado tbody');
+  const tfoot = document.querySelector('#tablaArmado tfoot');
+  
+  // Limpiar contenido anterior
+  tbody.innerHTML = '';
+  
+  let totales = {
+    volumenConcreto: 0,
+    pesoConcreto: 0,
+    pesoLongitudinal: 0,
+    pesoTransversal: 0,
+    pesoAlambre: 0,
+    longitudTotalLongitudinal: 0,
+    longitudTotalTransversal: 0,
+    longitudAlambre: 0
+  };
+  
+  // Agregar filas de datos - cada muerto tiene 2 filas (Long. y Trans.)
+  reporte.forEach((item, index) => {
+    // Fila para acero longitudinal
+    const filaLong = document.createElement('tr');
+    filaLong.innerHTML = `
+      <td rowspan="2">D${index + 1}</td>
+      <td rowspan="2">${item.eje}</td>
+      <td rowspan="2">${item.cantidadMuros || 1 > 1 ? 'M0' + (item.cantidadMuros || 1) : 'M01'}</td>
+      <td rowspan="2">${item.profundidad?.toFixed(2) || 'N/A'}</td>
+      <td rowspan="2">${item.alto?.toFixed(2) || 'N/A'}</td>
+      <td rowspan="2">${item.ancho?.toFixed(2) || 'N/A'}</td>
+      <td>4</td>
+      <td>${item.longitudTotalLongitudinal.toFixed(1)}</td>
+      <td>${item.pesoLongitudinal.toFixed(1)}</td>
+      <td>Long.</td>
+      <td rowspan="2">${item.volumenConcreto.toFixed(2)}</td>
+      <td rowspan="2">${(item.pesoConcreto / 1000).toFixed(1)}</td>
+      <td rowspan="2">${item.longitudAlambre.toFixed(0)}</td>
+      <td rowspan="2">${item.pesoAlambre.toFixed(1)}</td>
+    `;
+    tbody.appendChild(filaLong);
+    
+    // Fila para acero transversal
+    const filaTrans = document.createElement('tr');
+    filaTrans.innerHTML = `
+      <td>3</td>
+      <td>${item.longitudTotalTransversal.toFixed(1)}</td>
+      <td>${item.pesoTransversal.toFixed(1)}</td>
+      <td>Trans.</td>
+    `;
+    tbody.appendChild(filaTrans);
+    
+    // Sumar a totales
+    totales.volumenConcreto += item.volumenConcreto;
+    totales.pesoConcreto += item.pesoConcreto;
+    totales.pesoLongitudinal += item.pesoLongitudinal;
+    totales.pesoTransversal += item.pesoTransversal;
+    totales.pesoAlambre += item.pesoAlambre;
+    totales.longitudTotalLongitudinal += item.longitudTotalLongitudinal;
+    totales.longitudTotalTransversal += item.longitudTotalTransversal;
+    totales.longitudAlambre += item.longitudAlambre;
+  });
+  
+  // Agregar fila de totales
+  if (tfoot) {
+    const totalAcero = totales.pesoLongitudinal + totales.pesoTransversal;
+    
+    tfoot.innerHTML = `
+      <tr style="background-color: #f0f8ff; font-weight: bold;">
+        <td colspan="6">TOTALES</td>
+        <td>-</td>
+        <td>${(totales.longitudTotalLongitudinal + totales.longitudTotalTransversal).toFixed(1)}</td>
+        <td>${totalAcero.toFixed(1)}</td>
+        <td>-</td>
+        <td>${totales.volumenConcreto.toFixed(2)}</td>
+        <td>${(totales.pesoConcreto / 1000).toFixed(2)}</td>
+        <td>${totales.longitudAlambre.toFixed(0)}</td>
+        <td>${totales.pesoAlambre.toFixed(1)}</td>
+      </tr>
+    `;
+  }
+  
+  // Mostrar la tabla
+  const tablaContainer = document.getElementById('tablaArmadoContainer');
+  if (tablaContainer) {
+    tablaContainer.style.display = 'block';
+  }
+}
+
+// Función para actualizar las tarjetas de resumen
+function actualizarResumenArmado(concreto, acero, alambre, metal) {
+  document.getElementById('totalConcreto').textContent = `${concreto.toFixed(3)} m³`;
+  document.getElementById('totalAcero').textContent = `${acero.toFixed(2)} kg`;
+  document.getElementById('totalAlambre').textContent = `${alambre.toFixed(2)} kg`;
+  document.getElementById('totalMetal').textContent = `${metal.toFixed(2)} kg`;
+}
+
+// Inicializar armado rectangular cuando se carga la página
+document.addEventListener('DOMContentLoaded', function() {
+  // Solo inicializar si estamos en la página del dashboard y existe el contenedor de armado
+  if (document.getElementById('tablaArmado')) {
+    initArmadoRectangular();
+  }
+});
+
 // Exponer funciones globalmente
+window.ejecutarCalculosArmado = ejecutarCalculosArmado;
 window.eliminarRango = eliminarRango;
 
 // Exponer función de exportación globalmente

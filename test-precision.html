@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Precisión Cálculos</title>
+</head>
+<body>
+    <h1>Test de Precisión - Cálculos Magnorth</h1>
+    <div id="resultados"></div>
+
+    <script type="module">
+        import { obtenerConfiguracionMuerto } from './frontend/public/js/factoresRepeticion.js';
+        import { calcularReporteMuerto } from './frontend/public/js/muertoRectangular.js';
+
+        // Dimensiones exactas del PDF Magnorth
+        const dimensionesMagnorth = {
+            'D1':  { ancho: 1.26, alto: 1.74, profundidad: 0.96 },
+            'D2':  { ancho: 1.26, alto: 1.74, profundidad: 1.89 },
+            'D3':  { ancho: 1.26, alto: 1.74, profundidad: 2.61 },
+            'D4':  { ancho: 1.26, alto: 1.74, profundidad: 2.61 },
+            'D5':  { ancho: 1.26, alto: 1.74, profundidad: 1.89 },
+            'D6':  { ancho: 1.26, alto: 1.74, profundidad: 0.96 },
+            'D7':  { ancho: 1.26, alto: 1.74, profundidad: 0.66 },
+            'D8':  { ancho: 1.26, alto: 1.74, profundidad: 1.39 },
+            'D9':  { ancho: 1.26, alto: 1.74, profundidad: 2.22 },
+            'D10': { ancho: 1.26, alto: 1.74, profundidad: 3.87 },
+            'D11': { ancho: 1.26, alto: 1.74, profundidad: 1.62 },
+            'D12': { ancho: 1.26, alto: 1.74, profundidad: 1.95 },
+            'D13': { ancho: 1.26, alto: 1.74, profundidad: 3.87 },
+            'D14': { ancho: 1.26, alto: 1.74, profundidad: 2.22 },
+            'D15': { ancho: 1.26, alto: 1.74, profundidad: 1.39 },
+            'D16': { ancho: 1.26, alto: 1.74, profundidad: 0.66 }
+        };
+
+        const configBase = {
+            tipoVarillaLongitudinal: 4,
+            tipoVarillaTransversal: 3
+        };
+
+        let totalAcero = 0;
+        let totalHormigon = 0;
+        let resultadosHTML = '<h2>Resultados por Muerto:</h2>';
+
+        // Calcular cada muerto
+        for (let i = 1; i <= 16; i++) {
+            const muertoId = `D${i}`;
+            const dimensiones = dimensionesMagnorth[muertoId];
+            
+            // Obtener configuración con factores específicos
+            const configConFactores = obtenerConfiguracionMuerto(muertoId, configBase);
+            
+            // Calcular
+            const resultado = calcularReporteMuerto(dimensiones, configConFactores);
+            
+            const pesoAceroTotal = resultado.pesoLongitudinal + resultado.pesoTransversal + resultado.pesoAlambre;
+            
+            totalAcero += pesoAceroTotal;
+            totalHormigon += resultado.volumenConcreto;
+            
+            resultadosHTML += `
+                <p><strong>${muertoId}:</strong> 
+                   Acero: ${pesoAceroTotal.toFixed(2)} kg, 
+                   Hormigón: ${resultado.volumenConcreto.toFixed(3)} m³</p>
+            `;
+        }
+
+        resultadosHTML += `
+            <h2>TOTALES:</h2>
+            <p><strong>Total Acero: ${totalAcero.toFixed(1)} kg</strong> (Esperado: 3550.8 kg)</p>
+            <p><strong>Total Hormigón: ${totalHormigon.toFixed(2)} m³</strong> (Esperado: 123.46 m³)</p>
+            <p><strong>Precisión Acero: ${totalAcero === 3550.8 ? '✅ EXACTO' : '❌ DIFERENTE'}</strong></p>
+            <p><strong>Precisión Hormigón: ${Math.abs(totalHormigon - 123.46) < 0.01 ? '✅ EXACTO' : '❌ DIFERENTE'}</strong></p>
+        `;
+
+        document.getElementById('resultados').innerHTML = resultadosHTML;
+    </script>
+</body>
+</html>

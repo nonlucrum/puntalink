@@ -79,6 +79,9 @@ CREATE TABLE muro (
     
     -- Tipo de construcción
     tipo_construccion VARCHAR(20) DEFAULT 'TILT-UP',  -- TILT-UP o PRECAZT
+    
+    -- Campo para agrupación por ejes
+    eje VARCHAR(50),                   -- Eje asignado para agrupar muros por muertos
 
     CONSTRAINT fk_muro_proyecto FOREIGN KEY (pk_proyecto) 
         REFERENCES proyecto (pid) ON DELETE CASCADE

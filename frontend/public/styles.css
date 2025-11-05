@@ -1752,7 +1752,7 @@ pre{
 
 /* ====== Estilos para Asignación de Ejes por Rangos ====== */
 .rango-item {
-  background: #f8f9fa;
+  background: #fdf9f9;
   border: 1px solid #dee2e6;
   border-radius: 8px;
   padding: 1rem;
@@ -1776,7 +1776,7 @@ pre{
 
 .rango-item input {
   padding: 0.4rem 0.6rem;
-  border: 1px solid #ced4da;
+  border: 1px solid #030303;
   border-radius: 4px;
   font-size: 0.875rem;
   background: white;
@@ -2354,5 +2354,202 @@ pre{
   
   .preview-stats {
     grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ====== Estilos para Armado Rectangular ====== */
+
+.armado-container {
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.configuracion-global {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border: 1px solid #dee2e6;
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.configuracion-global h3 {
+  color: #495057;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.parameter-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+}
+
+.parameter-group {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid #e3e6ea;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.parameter-group h4 {
+  color: #343a40;
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border-bottom: 2px solid #e9ecef;
+  padding-bottom: 0.5rem;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.form-row:last-child {
+  margin-bottom: 0;
+}
+
+.form-row label {
+  font-weight: 500;
+  color: #495057;
+  font-size: 0.9rem;
+}
+
+.form-control {
+  padding: 0.5rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.form-control:focus {
+  border-color: #1f6feb;
+  outline: 0;
+  box-shadow: 0 0 0 0.2rem rgba(31, 111, 235, 0.25);
+}
+
+/* Tabla de Armado */
+#tablaArmadoContainer {
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  margin-bottom: 2rem;
+}
+
+#tablaArmado {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  font-size: 0.85rem;
+}
+
+#tablaArmado th {
+  background: linear-gradient(135deg, #1f6feb 0%, #0969da 100%);
+  color: white;
+  padding: 0.75rem 0.5rem;
+  text-align: center;
+  font-weight: 600;
+  border: 1px solid #0969da;
+  font-size: 0.8rem;
+}
+
+#tablaArmado td {
+  padding: 0.6rem 0.5rem;
+  text-align: center;
+  border: 1px solid #dee2e6;
+  background: white;
+}
+
+#tablaArmado tbody tr:nth-child(even) {
+  background: #f8f9fa;
+}
+
+#tablaArmado tbody tr:hover {
+  background: #e3f2fd;
+  transition: background-color 0.2s ease;
+}
+
+#tablaArmado tfoot td {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+  font-weight: 600;
+  border: 1px solid #20c997;
+}
+
+/* Resumen de Totales */
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+.summary-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border: 1px solid #dee2e6;
+  border-radius: 12px;
+  padding: 1.5rem;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+}
+
+.summary-card h4 {
+  color: #495057;
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.summary-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1f6feb;
+  line-height: 1.2;
+}
+
+/* Responsividad */
+@media (max-width: 768px) {
+  .parameter-groups {
+    grid-template-columns: 1fr;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  
+  .form-row label {
+    font-weight: 600;
+  }
+  
+  .summary-cards {
+    grid-template-columns: 1fr;
+  }
+  
+  #tablaArmado {
+    font-size: 0.75rem;
+  }
+  
+  #tablaArmado th,
+  #tablaArmado td {
+    padding: 0.4rem 0.3rem;
   }
 }
