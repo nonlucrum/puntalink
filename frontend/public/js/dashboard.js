@@ -1310,22 +1310,23 @@ export function mostrarSeccionEliminacion(muros) {
 export function agregarRangoEliminacion() {
   const rangosContainer = document.getElementById('rangosEliminar');
   
-  // Si es el primer rango, limpiar el mensaje
-  if (rangosEliminacion.length === 0) {
+  // Si es el primer rango, limpiar el mensaje inicial
+  const existingRangos = rangosContainer.querySelectorAll('.rango-eliminacion-item');
+  if (existingRangos.length === 0) {
     rangosContainer.innerHTML = '';
   }
   
   const rangoId = Date.now();
   const rangoDiv = document.createElement('div');
-  rangoDiv.className = 'rango-item';
+  rangoDiv.className = 'rango-eliminacion-item';
   rangoDiv.setAttribute('data-rango-id', rangoId);
   
   rangoDiv.innerHTML = `
     <div class="rango-inputs">
       <span>Desde muro:</span>
-      <input type="number" class="rango-desde" min="1" max="${murosOriginales.length}" placeholder="Ej: 1">
+      <input type="number" class="rango-desde-elim" min="1" max="${murosOriginales.length}" placeholder="Ej: 1">
       <span>hasta:</span>
-      <input type="number" class="rango-hasta" min="1" max="${murosOriginales.length}" placeholder="Ej: 10">
+      <input type="number" class="rango-hasta-elim" min="1" max="${murosOriginales.length}" placeholder="Ej: 10">
     </div>
     <div class="rango-info">
       <span class="rango-count">0 muros</span>
@@ -1336,14 +1337,14 @@ export function agregarRangoEliminacion() {
   rangosContainer.appendChild(rangoDiv);
   
   // Agregar event listeners para actualizar el conteo
-  const inputDesde = rangoDiv.querySelector('.rango-desde');
-  const inputHasta = rangoDiv.querySelector('.rango-hasta');
+  const inputDesde = rangoDiv.querySelector('.rango-desde-elim');
+  const inputHasta = rangoDiv.querySelector('.rango-hasta-elim');
   
   [inputDesde, inputHasta].forEach(input => {
     input.addEventListener('input', () => actualizarConteoRango(rangoId));
   });
   
-  console.log('[DASHBOARD] Nuevo rango agregado:', rangoId);
+  console.log('[DASHBOARD] Nuevo rango agregado:', rangoId, 'Total rangos:', rangosContainer.querySelectorAll('.rango-eliminacion-item').length);
 }
 
 // Función para actualizar el conteo de muros en un rango
@@ -1351,8 +1352,8 @@ function actualizarConteoRango(rangoId) {
   const rangoDiv = document.querySelector(`[data-rango-id="${rangoId}"]`);
   if (!rangoDiv) return;
   
-  const desde = parseInt(rangoDiv.querySelector('.rango-desde').value) || 0;
-  const hasta = parseInt(rangoDiv.querySelector('.rango-hasta').value) || 0;
+  const desde = parseInt(rangoDiv.querySelector('.rango-desde-elim').value) || 0;
+  const hasta = parseInt(rangoDiv.querySelector('.rango-hasta-elim').value) || 0;
   const countElement = rangoDiv.querySelector('.rango-count');
   
   if (desde > 0 && hasta > 0 && desde <= hasta && hasta <= murosOriginales.length) {
@@ -1432,14 +1433,16 @@ export function previsualizarEliminacion() {
 
 // Función auxiliar para obtener rangos válidos (eliminación de muros)
 function obtenerRangosEliminacion() {
-  const rangosDiv = document.querySelectorAll('.rango-item');
+  // Solo buscar rangos dentro del contenedor de eliminación
+  const rangosContainer = document.getElementById('rangosEliminar');
+  const rangosDiv = rangosContainer ? rangosContainer.querySelectorAll('.rango-eliminacion-item') : [];
   const rangosValidos = [];
   
-  console.log('[DASHBOARD] Elementos .rango-item encontrados:', rangosDiv.length);
+  console.log('[DASHBOARD] Elementos .rango-eliminacion-item encontrados en rangosEliminar:', rangosDiv.length);
   
   rangosDiv.forEach((rangoDiv, index) => {
-    const desdeInput = rangoDiv.querySelector('.rango-desde');
-    const hastaInput = rangoDiv.querySelector('.rango-hasta');
+    const desdeInput = rangoDiv.querySelector('.rango-desde-elim');
+    const hastaInput = rangoDiv.querySelector('.rango-hasta-elim');
     
     console.log(`[DASHBOARD] Rango ${index + 1}:`, {
       desdeInput: desdeInput?.value,
@@ -1525,6 +1528,9 @@ export async function confirmarImportacionFiltrada() {
     // Continuar con el flujo normal de importación
     finalizarImportacion(murosRestantes);
     
+    // Limpiar rangos de eliminación después de importar exitosamente
+    limpiarRangosEliminacion();
+    
     console.log('[DASHBOARD] Importación confirmada con', murosRestantes.length, 'muros filtrados');
     
   } catch (error) {
@@ -1565,6 +1571,13 @@ function finalizarImportacion(murosFinales) {
   if (btnCalcular) btnCalcular.style.display = 'inline-block';
   if (btnInforme) btnInforme.style.display = 'inline-block';
   
+  // Mostrar sección de asignación de ejes después de importar
+  const ejesPanel = document.getElementById('ejesRangoPanel');
+  if (ejesPanel) {
+    ejesPanel.style.display = 'block';
+    console.log('[DASHBOARD] Sección de asignación de ejes mostrada');
+  }
+  
   // Cargar tabla de braces después de importar
   console.log('[DASHBOARD] Cargando tabla de braces...');
   if (typeof window.cargarTablaBraces === 'function') {
@@ -1572,6 +1585,15 @@ function finalizarImportacion(murosFinales) {
   }
   
   console.log('[DASHBOARD] Importación finalizada con', murosFinales.length, 'muros');
+}
+
+// Función para limpiar rangos de eliminación después de importar
+function limpiarRangosEliminacion() {
+  const rangosContainer = document.getElementById('rangosEliminar');
+  if (rangosContainer) {
+    rangosContainer.innerHTML = '<p class="muted">Rangos de eliminación limpiados después de la importación.</p>';
+    console.log('[DASHBOARD] Rangos de eliminación limpiados');
+  }
 }
 
 // Función para cancelar la eliminación

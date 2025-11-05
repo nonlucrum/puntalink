@@ -422,7 +422,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Event listeners para eliminación de muros
-  const btnAgregarRangoElim = document.getElementById('btnAgregarRango');
+  const btnAgregarRangoElim = document.getElementById('btnAgregarRangoEliminacion');
   const btnPrevisualizarEliminacion = document.getElementById('btnPrevisualizarEliminacion');
   const btnConfirmarImportacion = document.getElementById('btnConfirmarImportacion');
   const btnCancelarEliminacion = document.getElementById('btnCancelarEliminacion');
@@ -3008,23 +3008,44 @@ function obtenerRangosValidos() {
   const rangoItems = document.querySelectorAll('.rango-item');
   const rangos = [];
   
-  rangoItems.forEach(item => {
+  console.log('[EJES] Elementos .rango-item encontrados:', rangoItems.length);
+  
+  rangoItems.forEach((item, index) => {
     const desdeInput = item.querySelector('.rango-desde');
     const hastaInput = item.querySelector('.rango-hasta');
+    const ejeInput = item.querySelector('.rango-eje');
     
-    if (desdeInput && hastaInput) {
+    console.log(`[EJES] Rango ${index + 1}:`, {
+      desde: desdeInput?.value,
+      hasta: hastaInput?.value,
+      eje: ejeInput?.value,
+      ejeFound: !!ejeInput
+    });
+    
+    if (desdeInput && hastaInput && ejeInput) {
       const desde = parseInt(desdeInput.value);
       const hasta = parseInt(hastaInput.value);
+      const eje = ejeInput.value.trim();
       
-      if (desde && hasta && desde <= hasta) {
-        rangos.push({ desde, hasta });
+      if (desde && hasta && eje && desde <= hasta) {
+        rangos.push({ desde, hasta, eje });
+        console.log(`[EJES] Rango válido agregado: ${desde}-${hasta} → Eje "${eje}"`);
+      } else {
+        console.log(`[EJES] Rango inválido o incompleto: desde=${desde}, hasta=${hasta}, eje="${eje}"`);
       }
+    } else {
+      console.log(`[EJES] Rango ${index + 1} - elementos faltantes:`, {
+        desdeInput: !!desdeInput,
+        hastaInput: !!hastaInput,
+        ejeInput: !!ejeInput
+      });
     }
   });
   
   // Ordenar por rango inicial
   rangos.sort((a, b) => a.desde - b.desde);
   
+  console.log('[EJES] Rangos válidos finales:', rangos);
   return rangos;
 }
 
@@ -3155,6 +3176,8 @@ async function crearRegistrosIndividuales() {
  */
 async function aplicarEjesPorRango() {
   const rangos = obtenerRangosValidos();
+  
+  console.log('[EJES] Rangos obtenidos:', rangos);
   
   if (rangos.length === 0) {
     alert('No hay rangos válidos configurados. Por favor, define al menos un rango.');

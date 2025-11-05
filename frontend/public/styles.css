@@ -2225,7 +2225,8 @@ pre{
   background: var(--card);
 }
 
-.rango-item {
+.rango-item,
+.rango-eliminacion-item {
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -2237,7 +2238,8 @@ pre{
   transition: all 0.2s ease;
 }
 
-.rango-item:hover {
+.rango-item:hover,
+.rango-eliminacion-item:hover {
   background: rgba(31, 111, 235, 0.1);
   border-color: rgba(31, 111, 235, 0.3);
 }
