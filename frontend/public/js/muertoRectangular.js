@@ -19,10 +19,10 @@ import { obtenerConfiguracionMuerto } from './factoresRepeticion.js';
 // ================== CONSTANTES ==================
 
 const PESO_ESPECIFICO_KG_M = {
-  '#3': 0.560 * 1.2186, // Ajustado para precisión exacta del PDF Magnorth
-  '#4': 0.994 * 1.2186, // Ajustado para precisión exacta del PDF Magnorth
-  '#5': 1.552 * 1.2186, // Ajustado para precisión exacta del PDF Magnorth
-  '#6': 2.235 * 1.2186, // Ajustado para precisión exacta del PDF Magnorth
+  '#3': 0.560 , // Ajustado para precisión exacta del PDF Magnorth
+  '#4': 0.994, // Ajustado para precisión exacta del PDF Magnorth
+  '#5': 1.552 , // Ajustado para precisión exacta del PDF Magnorth
+  '#6': 2.235 , // Ajustado para precisión exacta del PDF Magnorth
 };
 
 const DENSIDAD_ACERO_KG_M3 = 7850;

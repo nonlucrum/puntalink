@@ -1,6 +1,13 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+  <style>
+  #rangosContainer input[type="number"],
+  #rangosContainer input[type="text"] {
+    color: #000;              /* Color del texto dentro del input */
+    background-color: #fff;   /* Fondo del input */
+  }
+  </style>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>PuntaLink - Sistema de Análisis</title>
@@ -439,7 +446,7 @@
                 <div class="form-row">
                   <label for="nMuertos">Cantidad de muertos (CMC):</label>
                   <input type="number" id="nMuertos" min="1" max="4" value="1">
-                  <small>Normalmente 1 muerto por muro</small>
+                  <label>Normalmente 1 muerto por muro</label>
                 </div>
               </div>
 
@@ -595,13 +602,20 @@
                     </div>
                   </div>
                 </div>
-                      <input type="number" id="longitudPorNudo" class="form-control" value="0.35" step="0.05" min="0.1">
-                      
-                      <label>Diámetro Alambre (m):</label>
-                      <input type="number" id="diametroAlambre" class="form-control" value="0.00122" step="0.0001" min="0.0001">
-                      
-                      <label>Densidad Concreto (kg/m³):</label>
+                      <label>Longitud por nudo (m):
+                      <span class="tooltip-icon" data-tooltip="Representa la longitud de alambre necesaria para una sola vuelta de amarre alrededor del armado (estribo) en cada 'nodo'. Se usa en la fórmula: longitud total de alambre = número de nodos × longitud por vuelta × factor de desperdicio. Cambiar este valor modifica linealmente la longitud y el peso total de alambre.">i</span>
+                      <input type="number" id="longitudPorNudo" class="form-control" value="0.35" step="0.05" min="0.1"> <br>
+                       </label>
+
+                      <label>Diámetro Alambre (m):
+                        <span class="tooltip-icon" data-tooltip="se usa para calcular el área de la sección del alambre (A = π·(d/2)²) y, con la densidad del acero, obtener el peso del alambre: peso_alambre = densidad_acero × A × longitud_total. Cambiar el diámetro afecta al peso en proporción al cuadrado del diámetro (p. ej. aumentar en 10% → peso aumenta ≈ 21%).">i</span>
+                      <input type="number" id="diametroAlambre" class="form-control" value="0.00122" step="0.0001" min="0.0001"> <br>
+                      </label>
+
+                      <label>Densidad Concreto (kg/m³):
+                        <span class="tooltip-icon" data-tooltip="se utiliza para convertir el volumen de concreto (m³) en masa (kg) con la fórmula: peso_concreto = volumen_m3 × densidad × factor_de_desperdicio. Cambiar la densidad ajusta linealmente el peso total de concreto.">i</span>
                       <input type="number" id="densidadConcreto" class="form-control" value="2400" step="50" min="1000">
+                      </label>
                     </div>
                   </div>
                 </div>
@@ -613,37 +627,39 @@
               </div>
               
               <!-- Tabla de Resultados -->
-              <div id="tablaArmadoContainer" style="display: none;">
+              <div id="tablaArmadoContainer" style="display: none;">                <h3>📋 Tabla de Armado por Muerto</h3>
                 <h3>📋 Tabla de Armado por Muerto</h3>
                 <div class="table-container">
                   <table id="tablaArmado" class="results-table">
                     <thead>
                       <tr>
-                        <th rowspan="3">#</th>
-                        <th rowspan="3">Eje</th>
-                        <th rowspan="3">Muros</th>
-                        <th colspan="3">DEADMAN</th>
+                        <th colspan="6">DEADMAN</th>
                         <th colspan="4">Acero</th>
                         <th colspan="2">Concreto</th>
                         <th colspan="2">Alambre</th>
                       </tr>
                       <tr>
-                        <th rowspan="2">Largo</th>
-                        <th rowspan="2">Alto</th>
-                        <th rowspan="2">Ancho</th>
-                        <th rowspan="2">Longitud</th>
-                        <th rowspan="2">Peso</th>
-                        <th rowspan="2">Dirección</th>
-                        <th rowspan="2">Vol</th>
-                        <th rowspan="2">Peso</th>
-                        <th rowspan="2">Longitud</th>
-                        <th rowspan="2">Peso</th>
+                        <th rowspan="2">#</th>
+                        <th rowspan="2">Eje</th>
+                        <th rowspan="2">Muros</th>
+                        <th rowspan="1">Largo</th>
+                        <th rowspan="1">Alto</th>
+                        <th rowspan="1">Ancho</th>
+
+                        <th rowspan="2">#</th>
+                        <th rowspan="1">Longitud</th>
+                        <th rowspan="1">Peso</th>
+                        <th rowspan="1">Dirección</th>
+                        <th rowspan="1">Vol</th>
+                        <th rowspan="1">Peso</th>
+                        <th rowspan="1">Longitud</th>
+                        <th rowspan="1">Peso</th>
                       </tr>
                       <tr>
                         <th>m</th>
                         <th>m</th>
                         <th>m</th>
-                        <th>#</th>
+                        
                         <th>m</th>
                         <th>kg</th>
                         <th>***</th>
