@@ -1,3 +1,5 @@
+import path from 'path';
+import fs from 'fs';
 import PDFDocument from 'pdfkit';
 import { PanelCalculado as PanelCalculadoPaneles } from './panelesService';
 
@@ -114,64 +116,107 @@ export function generarInformePaneles(paneles: PanelCalculado[] | PanelCalculado
 }
 
 function crearPortada(doc: any, projectInfo?: ProjectInfo) {
-  // Logo/Título principal centrado
-  doc.fontSize(36)
-    .fillColor('#2E86AB')
-    .text('PUNTALINK', 0, 150, { align: 'center' });
-  
-  // Subtítulo
-  doc.fontSize(18)
-    .fillColor('#666666')
-    .text('Sistema de Análisis y Cálculo Estructural', 0, 200, { align: 'center' });
-  
-  // Línea decorativa
-  doc.strokeColor('#2E86AB')
-    .lineWidth(3)
-    .moveTo(150, 240)
-    .lineTo(450, 240)
-    .stroke();
-  
-  // Informe de
-  doc.fontSize(20)
-    .fillColor('#333333')
-    .text('INFORME DE ANÁLISIS', 0, 280, { align: 'center' })
-    .text('DE MUERTOS CORRIDOS', 0, 310, { align: 'center' });
-  
-  // Información del proyecto en la portada
-  let currentY = 380;
-  
+  const pageW = doc.page.width;
+  const pageH = doc.page.height;
+
+  // ========= 1) FONDO A PÁGINA COMPLETA (cover) =========
+  const fondoPath = getAssetPath('fondo.jpg');
+  drawCoverImage(doc, fondoPath, pageW, pageH, 0.28); // imagen de fondo con opacidad
+
+  // Lavado para simular B/N y mejorar legibilidad
+  doc.save();
+  doc.opacity(0.35).rect(0, 0, pageW, pageH).fill('#FFFFFF'); // capa blanca
+  doc.restore();
+  doc.save();
+  doc.opacity(0.06).rect(0, 0, pageW, pageH).fill('#000000'); // toque gris
+  doc.restore();
+
+  // ========= 2) LOGO ARRIBA + TÍTULO DEBAJO (CENTRADOS) =========
+  const logoPath = getAssetPath('logo.png');
+
+  // Fuente llamativa si está disponible; sino Helvetica-Bold
+  const titleFontName =
+    registerFontIfExists(doc, 'TitleFont', 'fonts/Montserrat-Bold.ttf') ||
+    registerFontIfExists(doc, 'TitleFont', 'fonts/Poppins-SemiBold.ttf');
+  if (titleFontName) doc.font('TitleFont'); else doc.font('Helvetica-Bold');
+
+  const title = 'PUNTALINK';
+  const titleSize = 38;
+  const topMargin = 110;   // altura del bloque logo+título
+  const gapLogoTitle = 12; // espacio entre logo y título
+
+  // Medidas del título
+  doc.fontSize(titleSize).fillColor('#1f1f1f');
+  const titleLineHeight = doc.currentLineHeight();
+
+  // Escalado del logo manteniendo proporción
+  const maxLogoWidth = doc.page.width * 0.28;
+  const maxLogoHeight = Math.max(80, titleLineHeight * 1.6);
+
+  // openImage no está tipado en PDFKit, así que casteamos a any
+  const logoImg = (doc as any).openImage(logoPath);
+  const lw = logoImg.width;
+  const lh = logoImg.height;
+  const scale = Math.min(maxLogoWidth / lw, maxLogoHeight / lh);
+  const drawLogoW = lw * scale;
+  const drawLogoH = lh * scale;
+
+  const logoX = (pageW - drawLogoW) / 2;
+  const logoY = topMargin;
+
+  doc.save();
+  doc.opacity(1);
+  doc.image(logoPath, logoX, logoY, { width: drawLogoW, height: drawLogoH });
+  doc.restore();
+
+  // Título centrado justo debajo del logo
+  const titleY = logoY + drawLogoH + gapLogoTitle;
+  doc.fontSize(titleSize).fillColor('#1f1f1f')
+     .text(title, 0, titleY, { align: 'center' });
+
+  // >>> ÚNICA referencia vertical posterior (NO la declares dos veces)
+  const afterTitleY = titleY + titleLineHeight + 12;
+
+  // ========= 3) SUBTÍTULO, LÍNEA Y TÍTULO DEL INFORME (centrados) =========
+  doc.fontSize(16)
+     .fillColor('#4a4a4a')
+     .text('Sistema de Análisis y Cálculo Estructural', 0, afterTitleY, { align: 'center' });
+
+  doc.save();
+  doc.strokeColor('#2E86AB').lineWidth(3)
+     .moveTo(pageW * 0.25, afterTitleY + 28)
+     .lineTo(pageW * 0.75, afterTitleY + 28)
+     .stroke();
+  doc.restore();
+
+  doc.fontSize(20).fillColor('#333333')
+     .text('INFORME DE ANÁLISIS', 0, afterTitleY + 58, { align: 'center' })
+     .text('DE MUERTOS CORRIDOS', 0, afterTitleY + 86, { align: 'center' });
+
+  // ========= 4) INFO DEL PROYECTO EN PORTADA =========
+  let currentY = afterTitleY + 140;
+
   if (projectInfo?.nombreProyecto) {
-    doc.fontSize(18)
-      .fillColor('#2E86AB')
-      .text('PROYECTO:', 0, currentY, { align: 'center' });
-    
-    doc.fontSize(16)
-      .fillColor('#333333')
-      .text(projectInfo.nombreProyecto, 0, currentY + 25, { align: 'center' });
-    
+    doc.fontSize(18).fillColor('#2E86AB').text('PROYECTO:', 0, currentY, { align: 'center' });
+    doc.fontSize(16).fillColor('#333333').text(projectInfo.nombreProyecto, 0, currentY + 25, { align: 'center' });
     currentY += 70;
   }
-  
+
   if (projectInfo?.empresaConstructora) {
-    doc.fontSize(16)
-      .fillColor('#2E86AB')
-      .text('CONSTRUCTORA:', 0, currentY, { align: 'center' });
-    
-    doc.fontSize(14)
-      .fillColor('#333333')
-      .text(projectInfo.empresaConstructora, 0, currentY + 20, { align: 'center' });
-    
+    doc.fontSize(16).fillColor('#2E86AB').text('CONSTRUCTORA:', 0, currentY, { align: 'center' });
+    doc.fontSize(14).fillColor('#333333').text(projectInfo.empresaConstructora, 0, currentY + 20, { align: 'center' });
     currentY += 60;
   }
-  
-  // Fecha en la parte inferior
+
+  // ========= 5) FECHA EN EL PIE DE LA PORTADA =========
   doc.fontSize(12)
-    .fillColor('#666666')
-    .text(`Fecha: ${new Date().toLocaleDateString('es-ES', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    })}`, 0, 700, { align: 'center' });
+     .fillColor('#666666')
+     .text(
+       `Fecha: ${new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}`,
+       0,
+       pageH - 90,
+       { align: 'center' }
+     );
 }
 
 function crearPaginaProyecto(doc: any, projectInfo?: ProjectInfo) {
@@ -479,4 +524,41 @@ function crearPaginaMuertos(doc: any, tablaMuertos: MuertoResumen[]) {
 // Función legacy para compatibilidad
 export function generarInforme(resultados: any[]): Promise<Buffer> {
   return generarInformePaneles(resultados);
+}
+
+function getAssetPath(relPathFromSrcAssets: string) {
+  const tryDist = path.resolve(__dirname, '../assets', relPathFromSrcAssets);
+  const trySrc  = path.resolve(__dirname, '../../src/assets', relPathFromSrcAssets);
+  if (fs.existsSync(tryDist)) return tryDist;
+  if (fs.existsSync(trySrc))  return trySrc;
+  return path.resolve(process.cwd(), 'src/assets', relPathFromSrcAssets);
+}
+
+// Dibuja una imagen de portada ajustada a la página con opacidad
+function drawCoverImage(doc: any, imagePath: string, pageW: number, pageH: number, opacity = 0.28) {
+  const img = doc.openImage(imagePath);   // obtenemos dimensiones originales
+  const iw = img.width;
+  const ih = img.height;
+
+  // escala para cubrir: max de los dos ejes
+  const scale   = Math.max(pageW / iw, pageH / ih);
+  const drawW   = iw * scale;
+  const drawH   = ih * scale;
+  const offsetX = (pageW - drawW) / 2;    // centrado horizontal
+  const offsetY = (pageH - drawH) / 2;    // centrado vertical
+
+  doc.save();
+  doc.opacity(opacity);
+  doc.image(imagePath, offsetX, offsetY, { width: drawW, height: drawH });
+  doc.restore();
+}
+
+// Registra una fuente si existe; si no, devuelve null
+function registerFontIfExists(doc: any, name: string, assetsRelPath: string) {
+  const fontPath = getAssetPath(assetsRelPath);
+  if (fs.existsSync(fontPath)) {
+    doc.registerFont(name, fontPath);
+    return name;
+  }
+  return null;
 }
