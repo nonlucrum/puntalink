@@ -31,7 +31,6 @@
             <button id="btnCancelUpdateProject" class="btn btn--ghost" style="display: none;">Cancelar</button>
             <button id="btnUpdateProject" class="btn" style="display: none;">Guardar</button>
         </div>
-        
       </div>
       
       <form id="formProyecto" autocomplete="off">
@@ -354,7 +353,8 @@
         <div class="accordion-content" id="calculations-section">
           
           <!-- Resultados del Cálculo de Viento -->
-          <div class="wind-results" id="resultadosViento" style="display: none;">
+          <!-- CAMBIO: display: block para que se vea -->
+          <div class="wind-results" id="resultadosViento" style="display: block;">
             <h3>Resultados del Cálculo de Viento</h3>
             <button id="btnInforme" class="btn" style="display: none; margin-bottom: 2rem;">Generar Informe PDF</button>
             
@@ -370,15 +370,17 @@
                 <span class="sub-accordion-toggle">▼</span>
               </div>
               <div class="sub-accordion-content" id="muertos-section">
-                <div id="tablaMuertos"> <!-- Contenedor que llenará JS -->
-                  <p class="muted">La tabla por muertos aparecerá aquí después de ejecutar el cálculo.</p>
-                </div>
-
                 <!-- Controles de depuración / verificación -->
-                <div style="margin-top:0.8rem; display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
+                <div style="margin-bottom:1rem; display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
                   <button id="btnReagruparMuertos" class="btn btn--primary">Reagrupar Muertos</button>
                   <button id="btnVerificarClaves" class="btn btn--secondary">Verificar claves (debug)</button>
-                  <span class="muted">Haz clic en 'Reagrupar' para recalcular grupos M1..M39 con los valores actuales de la tabla (incluyendo ediciones).</span>
+                  
+                  <span class="muted" style="flex: 1;">Haz clic en 'Reagrupar' para recalcular grupos M1..M39 con los valores actuales de la tabla (incluyendo ediciones).</span>
+                </div>
+
+                <!-- Contenedor para la tabla de macizos -->
+                <div id="tablaMuertos" style="margin-top: 1.5rem;">
+                  <p class="muted">La tabla de armado rectangular aparecerá aquí después de hacer clic en 'Calcular Armado Rectangular'.</p>
                 </div>
 
                 <div id="muertosDebugOutput" style="margin-top:1rem;"></div>
@@ -406,7 +408,11 @@
         </div>
       </div>
 
-      <!-- Sección 5: Macizos de Anclaje (Muertos Cilíndricos) -->
+      <!-- Sección 5: Macizos de Anclaje (Muertos Cilíndricos) - DESHABILITADA -->
+      <!-- Los cálculos cilíndricos son FUNCIONALIDADES INDEPENDIENTES que deben recibir datos del TXT sin agrupar -->
+      <!-- NO deben usar la agrupación de braces (window.lastGruposMuertos) -->
+      <!-- TODO: Refactorizar para ser completamente independiente del flujo de braces -->
+      <!--
       <div class="accordion-item">
         <div class="accordion-header" data-target="muertos-anclaje-section">
           <h2 class="accordion-title">
@@ -498,7 +504,7 @@
 
         </div>
       </div>
-
+  
       <!-- Sección 6: Armado Rectangular para Muertos -->
       <div class="section" id="armadoSection">
         <div class="accordion-item" id="armadoAccordion">
@@ -602,81 +608,93 @@
                     </div>
                   </div>
                 </div>
-                      <label>Longitud por nudo (m):
-                      <span class="tooltip-icon" data-tooltip="Representa la longitud de alambre necesaria para una sola vuelta de amarre alrededor del armado (estribo) en cada 'nodo'. Se usa en la fórmula: longitud total de alambre = número de nodos × longitud por vuelta × factor de desperdicio. Cambiar este valor modifica linealmente la longitud y el peso total de alambre.">i</span>
-                      <input type="number" id="longitudPorNudo" class="form-control" value="0.35" step="0.05" min="0.1"> <br>
-                       </label>
 
-                      <label>Diámetro Alambre (m):
-                        <span class="tooltip-icon" data-tooltip="se usa para calcular el área de la sección del alambre (A = π·(d/2)²) y, con la densidad del acero, obtener el peso del alambre: peso_alambre = densidad_acero × A × longitud_total. Cambiar el diámetro afecta al peso en proporción al cuadrado del diámetro (p. ej. aumentar en 10% → peso aumenta ≈ 21%).">i</span>
-                      <input type="number" id="diametroAlambre" class="form-control" value="0.00122" step="0.0001" min="0.0001"> <br>
-                      </label>
+                <!-- Campos extra que tenías abajo -->
+                <label>Longitud por nudo (m):
+                  <span class="tooltip-icon" data-tooltip="Representa la longitud de alambre necesaria para una sola vuelta de amarre alrededor del armado (estribo) en cada 'nodo'. Se usa en la fórmula: longitud total de alambre = número de nodos × longitud por vuelta × factor de desperdicio. Cambiar este valor modifica linealmente la longitud y el peso total de alambre.">i</span>
+                  <input type="number" id="longitudPorNudo" class="form-control" value="0.35" step="0.05" min="0.1">
+                  <br>
+                </label>
 
-                      <label>Densidad Concreto (kg/m³):
-                        <span class="tooltip-icon" data-tooltip="se utiliza para convertir el volumen de concreto (m³) en masa (kg) con la fórmula: peso_concreto = volumen_m3 × densidad × factor_de_desperdicio. Cambiar la densidad ajusta linealmente el peso total de concreto.">i</span>
-                      <input type="number" id="densidadConcreto" class="form-control" value="2400" step="50" min="1000">
-                      </label>
-                    </div>
-                  </div>
-                </div>
-                
-                <div class="actions" style="margin-top: 1.5rem;">
+                <label>Diámetro Alambre (m):
+                  <span class="tooltip-icon" data-tooltip="se usa para calcular el área de la sección del alambre (A = π·(d/2)²) y, con la densidad del acero, obtener el peso del alambre: peso_alambre = densidad_acero × A × longitud_total. Cambiar el diámetro afecta al peso en proporción al cuadrado del diámetro (p. ej. aumentar en 10% → peso aumenta ≈ 21%).">i</span>
+                  <input type="number" id="diametroAlambre_m" class="form-control" value="0.00122" step="0.0001" min="0.0001">
+                  <br>
+                </label>
+
+                <label>Densidad Concreto (kg/m³):
+                  <span class="tooltip-icon" data-tooltip="se utiliza para convertir el volumen de concreto (m³) en masa (kg) con la fórmula: peso_concreto = volumen_m3 × densidad × factor_de_desperdicio. Cambiar la densidad ajusta linealmente el peso total de concreto.">i</span>
+                  <input type="number" id="densidadConcreto" class="form-control" value="2400" step="50" min="1000">
+                </label>
+
+                <div class="actions" style="margin-top: 1.5rem;"> 
                   <button id="btnCalcularArmado" class="btn btn--primary">🧮 Calcular Armado Rectangular</button>
-                  <button id="btnExportarArmado" class="btn btn--secondary" style="margin-left: 0.5rem;">📊 Exportar Reporte</button>
+                  <button id="btnExportarArmado" class="btn btn--secondary">📊 Exportar Reporte</button>
+                </div>
+              </div>
+
+              <!-- Configuración de Grupos de Muertos -->
+              <div id="configGruposContainer" style="display: none; margin-top: 2rem; padding: 1.5rem; background: var(--bg); border-radius: 8px; border: 1px solid var(--border);">
+                <h3>⚙️ Configuración de Grupos de Muertos</h3>
+                <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 1rem;">Ingresa los valores específicos para cada grupo de muerto (se aplican después de agrupar)</p>
+                
+                <div id="configGruposForm" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+                  <!-- Los grupos se generarán dinámicamente aquí -->
+                </div>
+
+                <div class="actions" style="margin-top: 1.5rem;">
+                  <button id="btnGuardarConfigGrupos" class="btn btn--primary">✅ Guardar Configuración</button>
                 </div>
               </div>
               
               <!-- Tabla de Resultados -->
-              <div id="tablaArmadoContainer" style="display: none;">                <h3>📋 Tabla de Armado por Muerto</h3>
-                <h3>📋 Tabla de Armado por Muerto</h3>
-                <div class="table-container">
-                  <table id="tablaArmado" class="results-table">
-                    <thead>
-                      <tr>
-                        <th colspan="6">DEADMAN</th>
-                        <th colspan="4">Acero</th>
-                        <th colspan="2">Concreto</th>
-                        <th colspan="2">Alambre</th>
-                      </tr>
-                      <tr>
-                        <th rowspan="2">#</th>
-                        <th rowspan="2">Eje</th>
-                        <th rowspan="2">Muros</th>
-                        <th rowspan="1">Largo</th>
-                        <th rowspan="1">Alto</th>
-                        <th rowspan="1">Ancho</th>
-
-                        <th rowspan="2">#</th>
-                        <th rowspan="1">Longitud</th>
-                        <th rowspan="1">Peso</th>
-                        <th rowspan="1">Dirección</th>
-                        <th rowspan="1">Vol</th>
-                        <th rowspan="1">Peso</th>
-                        <th rowspan="1">Longitud</th>
-                        <th rowspan="1">Peso</th>
-                      </tr>
-                      <tr>
-                        <th>m</th>
-                        <th>m</th>
-                        <th>m</th>
-                        
-                        <th>m</th>
-                        <th>kg</th>
-                        <th>***</th>
-                        <th>m³</th>
-                        <th>ton</th>
-                        <th>m</th>
-                        <th>kg</th>
-                      </tr>
-                    </thead>
-                    <tbody id="tablaArmadoBody">
-                      <!-- Los datos se llenarán dinámicamente -->
-                    </tbody>
-                    <tfoot id="tablaArmadoFooter">
-                      <!-- Totales se llenarán dinámicamente -->
-                    </tfoot>
-                  </table>
-                </div>
+              <h3>📋 Tabla de Armado por Muerto</h3>
+                
+              <div class="table-container"> 
+                <table id="tablaArmadoResultados" class="results-table" style="display: block;">
+                  <thead>
+                    <tr>
+                      <th colspan="6">DEADMAN</th>
+                      <th colspan="4">Acero</th>
+                      <th colspan="2">Concreto</th>
+                      <th colspan="2">Alambre</th>
+                    </tr>
+                    <tr>
+                      <th rowspan="2">#</th>
+                      <th rowspan="2">Eje</th>
+                      <th rowspan="2">Muros</th>
+                      <th rowspan="1">Largo</th>
+                      <th rowspan="1">Alto</th>
+                      <th rowspan="1">Ancho</th>
+                      <th rowspan="1">#</th>
+                      <th rowspan="1">Longitud</th>
+                      <th rowspan="1">Peso</th>
+                      <th rowspan="1">Dirección</th>
+                      <th rowspan="1">Vol</th>
+                      <th rowspan="1">Peso</th>
+                      <th rowspan="1">Longitud</th>
+                      <th rowspan="1">Peso</th>
+                    </tr>
+                    <tr>
+                      <th>m</th>
+                      <th>m</th>
+                      <th>m</th>
+                      <th>m</th>
+                      <th>kg</th>
+                      <th>***</th>
+                      <th>m³</th>
+                      <th>ton</th>
+                      <th>m</th>
+                      <th>kg</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tablaArmadoBody">
+                    <!-- Los datos se llenarán dinámicamente -->
+                  </tbody>
+                  <tfoot id="tablaArmadoFooter">
+                    <!-- Totales se llenarán dinámicamente -->
+                  </tfoot>
+                </table>
               </div>
               
               <!-- Resumen de Totales -->
@@ -708,6 +726,14 @@
 
     </div>
   </main>
+              
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
   
 
   <footer class="footer">
@@ -716,7 +742,8 @@
     </div>
   </footer>
 
-  <script type="module" src="js/factoresRepeticion.js"></script>
+  <!-- ELIMINADO: <script type="module" src="js/factoresRepeticion.js"></script> -->
+  <!-- Factores de repetición deben venir de BD, no de archivos hardcodeados -->
   <script type="module" src="js/muertoRectangular.js"></script>
   <script type="module" src="js/muertoCilindrico.js"></script>
   <script type="module" src="js/usability.js"></script>

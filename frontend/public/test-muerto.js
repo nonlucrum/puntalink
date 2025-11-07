@@ -1,5 +1,5 @@
 // Test de un solo muerto para verificar precisión
-import { obtenerConfiguracionMuerto } from './js/factoresRepeticion.js';
+// ELIMINADO: import { obtenerConfiguracionMuerto } from './js/factoresRepeticion.js';
 import { calcularReporteMuerto } from './js/muertoRectangular.js';
 
 // Test muerto D1 (debería dar exactamente los valores del PDF)

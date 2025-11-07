@@ -233,6 +233,90 @@ table{ width: 100%; border-collapse: collapse; font-size: .95rem; background: va
 th, td{ padding: .6rem .5rem; border-bottom: 1px solid var(--border); text-align: center; }
 th{ text-transform: uppercase; letter-spacing: .02em; font-size: .8rem; color: var(--muted); }
 
+/* Estilos específicos para tablas de resultados (Armado Rectangular) */
+.results-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--card);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.results-table thead {
+  background: linear-gradient(180deg, var(--bg) 0%, color-mix(in srgb, var(--bg) 80%, transparent) 100%);
+  border-bottom: 2px solid var(--border);
+}
+
+.results-table thead th {
+  padding: 1rem 0.75rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text);
+  border: none;
+  border-right: 1px solid var(--border);
+}
+
+.results-table thead th:last-child {
+  border-right: none;
+}
+
+.results-table tbody td {
+  padding: 0.85rem 0.75rem;
+  border: 1px solid var(--border);
+  font-size: 0.9rem;
+  color: var(--text);
+  transition: background-color 0.2s ease;
+}
+
+.results-table tbody tr {
+  transition: all 0.2s ease;
+}
+
+.results-table tbody tr:hover {
+  background: color-mix(in srgb, var(--primary) 5%, var(--card));
+}
+
+.results-table tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--bg) 50%, var(--card));
+}
+
+.results-table tbody tr:nth-child(even):hover {
+  background: color-mix(in srgb, var(--primary) 8%, var(--card));
+}
+
+/* Alineación de texto */
+.results-table td.text-left {
+  text-align: left;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+/* Footer con totales */
+.results-table tfoot {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 10%, var(--card)) 0%, color-mix(in srgb, var(--primary) 5%, var(--card)) 100%);
+  border-top: 2px solid var(--primary);
+}
+
+.results-table tfoot tr {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.results-table tfoot td {
+  padding: 1rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border));
+  text-align: center;
+  background: inherit;
+}
+
+.results-table tfoot td:first-child {
+  text-align: center;
+  font-size: 0.9rem;
+}
+
 /* ====== KPIs ====== */
 .kpis{ 
   margin: .25rem 0 1rem; 
@@ -399,7 +483,7 @@ pre{
 }
 
 .sub-accordion-item.active .sub-accordion-content {
-  max-height: 500px;
+  max-height: 1200px;
   overflow-y: auto;
   padding: 1rem;
   transition: max-height 0.3s ease-in;

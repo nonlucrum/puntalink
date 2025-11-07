@@ -27,6 +27,3 @@ services:
     restart: always
     ports:
       - "3008:3008"
-
-volumes:
-  db_data:

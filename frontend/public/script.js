@@ -9,10 +9,6 @@ import {
   loadProjectInfo,
   editarProyecto,
   guardarCambiosProyecto,
-  handleCalcularMuertos,
-  handleExportarMuertosCSV,
-  handleMostrarAlternativas,
-  handleTablaDetallada,
   agregarRangoEliminacion,
   previsualizarEliminacion,
   confirmarImportacionFiltrada,
@@ -430,34 +426,83 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // ===== EVENT LISTENERS PARA MACIZOS DE ANCLAJE (MUERTOS) =====
   
-  // Calcular macizos de anclaje
+  // Calcular macizos de anclaje (rectangular o cilíndrico)
   if (btnCalcularMuertos) {
     btnCalcularMuertos.addEventListener('click', async () => {
       if (!requireAuthOrWarn()) return;
-      await handleCalcularMuertos(uiElements, globalVars);
+      
+      try {
+        console.log('[SCRIPT] Iniciando cálculo de macizos de anclaje...');
+        
+        // Obtener gruposMuertos que ya están agrupados por braces
+        const gruposMuertos = window.gruposMuertosGlobal;
+        
+        if (!gruposMuertos || Object.keys(gruposMuertos).length === 0) {
+          alert('No hay grupos de muertos. Por favor, primero calcula los paneles/braces.');
+          return;
+        }
+        
+        console.log('[SCRIPT] gruposMuertos obtenido:', gruposMuertos);
+        
+        // Importar funciones para calcular macizos
+        const { prepararGruposParaMuertos, calcularMacizosRectangulares, generarTablaResultadosMacizos } = await import('./js/muertoRectangular.js');
+        
+        // Paso 1: Preparar grupos (sumar dimensiones dentro de cada grupo)
+        const gruposPreparados = prepararGruposParaMuertos(gruposMuertos);
+        console.log('[SCRIPT] Grupos preparados:', gruposPreparados);
+        
+        // Paso 2: Calcular macizos rectangulares
+        const resultadosMacizos = calcularMacizosRectangulares(gruposPreparados);
+        console.log('[SCRIPT] Macizos calculados:', resultadosMacizos);
+        
+        // Paso 3: Generar tabla HTML
+        const tablaHTML = generarTablaResultadosMacizos(resultadosMacizos);
+        
+        // Paso 4: Mostrar resultados
+        const contenedorResultados = document.getElementById('tablaArmado') || document.createElement('div');
+        if (!document.getElementById('tablaArmado')) {
+          contenedorResultados.id = 'tablaArmado';
+          document.body.appendChild(contenedorResultados);
+        }
+        
+        contenedorResultados.innerHTML = `
+          <h3>Resultados: Macizos de Anclaje Rectangulares</h3>
+          ${tablaHTML}
+        `;
+        
+        // Guardar globalmente para referencia
+        window.gruposParaMuertosGlobal = gruposPreparados;
+        window.resultadosMacizosGlobal = resultadosMacizos;
+        
+        alert(`✅ Se calcularon ${resultadosMacizos.length} macizos de anclaje rectangulares.\nResultados mostrados en tabla.`);
+        
+      } catch (error) {
+        console.error('[SCRIPT] Error en cálculo de macizos:', error);
+        alert(`Error: ${error.message}`);
+      }
     });
   }
 
-  // Exportar muertos a CSV
-  if (btnExportarMuertosCSV) {
-    btnExportarMuertosCSV.addEventListener('click', () => {
-      handleExportarMuertosCSV(globalVars);
-    });
-  }
+  // Exportar muertos a CSV - ELIMINADO
+  // if (btnExportarMuertosCSV) {
+  //   btnExportarMuertosCSV.addEventListener('click', () => {
+  //     handleExportarMuertosCSV(globalVars);
+  //   });
+  // }
 
-  // Mostrar alternativas de diseño
-  if (btnMostrarAlternativas) {
-    btnMostrarAlternativas.addEventListener('click', () => {
-      handleMostrarAlternativas(globalVars);
-    });
-  }
+  // Mostrar alternativas de diseño - ELIMINADO
+  // if (btnMostrarAlternativas) {
+  //   btnMostrarAlternativas.addEventListener('click', () => {
+  //     handleMostrarAlternativas(globalVars);
+  //   });
+  // }
 
-  // Mostrar tabla detallada por muro
-  if (btnTablaDetallada) {
-    btnTablaDetallada.addEventListener('click', () => {
-      handleTablaDetallada(globalVars);
-    });
-  }
+  // Mostrar tabla detallada por muro - ELIMINADO
+  // if (btnTablaDetallada) {
+  //   btnTablaDetallada.addEventListener('click', () => {
+  //     handleTablaDetallada(globalVars);
+  //   });
+  // }
 
   // Event listeners para eliminación de muros
   const btnAgregarRangoElim = document.getElementById('btnAgregarRangoEliminacion');
@@ -2401,6 +2446,20 @@ function reagruparMuertosConValoresActuales() {
 
   // Actualizar también el debug output
   window.lastGruposMuertos = gruposNuevos;
+  
+  // ✅ EXPONER GLOBALMENTE para que ejecutarCalculosArmado() pueda usarlos
+  window.gruposMuertosGlobal = gruposNuevos;
+  console.log('[MUERTOS] gruposMuertosGlobal actualizado después de reagrupar:', gruposNuevos);
+  
+  // ✅ ASEGURAR que los datos originales (con grosor, overall_height) estén disponibles
+  // Si window.lastResultadosMuertos NO tiene datos completos, usar los datos originales
+  if (!window.lastResultadosMuertos || !Array.isArray(window.lastResultadosMuertos) || window.lastResultadosMuertos.length === 0) {
+    console.log('[MUERTOS] ⚠️ window.lastResultadosMuertos no tiene datos completos, intentando recuperar...');
+    // window.lastResultadosMuertos debería haber sido establecido por renderTablaMuertos()
+    // pero si no está disponible, aquí podríamos intentar recuperarlo
+  } else {
+    console.log('[MUERTOS] ✅ window.lastResultadosMuertos disponible con', window.lastResultadosMuertos.length, 'muros completos');
+  }
 }
 
 /**
