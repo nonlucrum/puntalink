@@ -802,7 +802,7 @@ async function mostrarResultadosViento(data) {
           <th style="background: #e3f2fd;">Peso (ton)</th>
           <th style="background: #e3f2fd;">Altura (m)</th>
           <th style="background: #e3f2fd;">YCG (m)</th>
-          <th style="background: #e3f2fd;">NFT (m)</th>
+        
           <!-- Viento -->
           <th style="background: #fff3e0;">Vd (km/h)</th>
           <th style="background: #fff3e0;">qz (kPa)</th>
@@ -851,7 +851,7 @@ async function mostrarResultadosViento(data) {
         <td>${resultado.peso_ton}</td>
         <td>${resultado.altura_z_m}</td>
         <td>${resultado.YCG || 'N/A'}</td>
-        <td>${resultado.NFT?.toFixed(3) || 'N/A'}</td>
+
         
         <!-- Viento -->
         <td>${resultado.Vd_kmh}</td>
@@ -1006,20 +1006,7 @@ async function mostrarResultadosViento(data) {
       htmlDetalle += `<li><strong>Centro de gravedad (YCG):</strong> YCG = H/2 = ${resultado.altura_z_m}/2 = ${resultado.YCG} m</li>`;
     }
     
-    if (resultado.NFT !== undefined) {
-      htmlDetalle += `<li><strong>📏 NFT - Nivel de Piso Terminado:</strong></li>`;
-      htmlDetalle += `<ul>`;
-      htmlDetalle += `<li><strong>Nivel final:</strong> ${resultado.NFT.toFixed(3)}m</li>`;
-      if (resultado.componentes_nft) {
-        htmlDetalle += `<li><strong>Componentes del cálculo:</strong></li>`;
-        htmlDetalle += `<li style="margin-left: 20px;">• Nivel Natural Terreno: ${resultado.componentes_nft.nivel_natural}m</li>`;
-        htmlDetalle += `<li style="margin-left: 20px;">• Excavación: ${resultado.componentes_nft.excavacion}m</li>`;
-        htmlDetalle += `<li style="margin-left: 20px;">• Espesor losa: ${resultado.componentes_nft.espesor_losa}m (${(resultado.componentes_nft.espesor_losa * 39.37).toFixed(1)}")</li>`;
-        htmlDetalle += `<li style="margin-left: 20px;">• Acabado superficial: ${resultado.componentes_nft.acabado}m</li>`;
-        htmlDetalle += `<li><strong>Fórmula:</strong> NFT = NNT - Excavación + Espesor_Losa + Acabado</li>`;
-      }
-      htmlDetalle += `</ul>`;
-    }
+    
     
     if (resultado.grados_inclinacion_brace !== undefined) {
       htmlDetalle += `<li><strong>Inclinación brace:</strong> θ = arctan(altura_anclaje/distancia_horizontal) = ${resultado.grados_inclinacion_brace}°</li>`;
@@ -3168,7 +3155,7 @@ async function crearRegistrosMurosEnDB() {
       peso: muro.peso,
       altura: muro.altura,
       ycg: muro.ycg,
-      nft: muro.nft,
+
       // Datos de viento
       vd: muro.vd,
       qz: muro.qz,
