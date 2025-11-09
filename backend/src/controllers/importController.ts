@@ -71,3 +71,40 @@ export async function getMuros(req: Request, res: Response) {
     return res.status(500).json({ ok: false, error: err.message });
   }
 }
+
+export async function deleteMurosBatch(req: Request, res: Response) {
+  console.log('[controller - importController] deleteMurosBatch - Inicio');
+  try {
+    const { pk_proyecto, pids } = req.body;
+    
+    if (!pk_proyecto || !Array.isArray(pids) || pids.length === 0) {
+      console.log('[controller - importController] Datos inválidos:', { pk_proyecto, pids });
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Se requiere pk_proyecto y array de pids' 
+      });
+    }
+    
+    console.log(`[controller - importController] Eliminando ${pids.length} muros del proyecto ${pk_proyecto}`);
+    
+    // Importar pool para ejecutar query directa
+    const pool = require('../config/db').default;
+    
+    // Eliminar muros por PIDs
+    const result = await pool.query(
+      'DELETE FROM muro WHERE pk_proyecto = $1 AND pid = ANY($2::int[])',
+      [pk_proyecto, pids]
+    );
+    
+    console.log('[controller - importController] Muros eliminados:', result.rowCount);
+    
+    return res.json({ 
+      success: true, 
+      deleted: result.rowCount,
+      message: `${result.rowCount} muros eliminados exitosamente` 
+    });
+  } catch (err: any) {
+    console.error('[controller - importController] Error en deleteMurosBatch:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}

@@ -12,6 +12,104 @@ const API_BASE =
     ? "http://localhost:4008"   // dev backend
     : "";                       // production (relative)
 
+// ===== MODAL PERSONALIZADO =====
+function mostrarModalConfirmacion(titulo, mensaje, opciones = {}) {
+  return new Promise((resolve) => {
+    // Crear overlay
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+    `;
+
+    // Crear modal
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      background: #2a2a3e;
+      border-radius: 12px;
+      padding: 2rem;
+      max-width: 500px;
+      width: 90%;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+      color: white;
+    `;
+
+    const icono = opciones.tipo === 'warning' ? '⚠️' : opciones.tipo === 'success' ? '✅' : 'ℹ️';
+    
+    modal.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
+        <span style="font-size: 2rem;">${icono}</span>
+        <h3 style="margin: 0; font-size: 1.5rem;">${titulo}</h3>
+      </div>
+      <div style="margin-bottom: 2rem; white-space: pre-wrap; line-height: 1.6;">
+        ${mensaje}
+      </div>
+      <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+        ${opciones.mostrarCancelar !== false ? `
+          <button id="btn-modal-cancelar" style="
+            padding: 0.75rem 1.5rem;
+            background: #6c757d;
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+          ">Cancelar</button>
+        ` : ''}
+        <button id="btn-modal-aceptar" style="
+          padding: 0.75rem 1.5rem;
+          background: ${opciones.tipo === 'warning' ? '#dc3545' : '#28a745'};
+          border: none;
+          border-radius: 6px;
+          color: white;
+          font-size: 1rem;
+          font-weight: bold;
+          cursor: pointer;
+          transition: background 0.2s;
+        ">${opciones.textoAceptar || 'Aceptar'}</button>
+      </div>
+    `;
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    // Event listeners
+    const btnAceptar = modal.querySelector('#btn-modal-aceptar');
+    const btnCancelar = modal.querySelector('#btn-modal-cancelar');
+
+    btnAceptar.addEventListener('click', () => {
+      document.body.removeChild(overlay);
+      resolve(true);
+    });
+
+    if (btnCancelar) {
+      btnCancelar.addEventListener('click', () => {
+        document.body.removeChild(overlay);
+        resolve(false);
+      });
+    }
+
+    // Cerrar con ESC
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') {
+        document.body.removeChild(overlay);
+        document.removeEventListener('keydown', handleEsc);
+        resolve(false);
+      }
+    };
+    document.addEventListener('keydown', handleEsc);
+  });
+}
+
 // ===== FUNCIONES DE VALIDACIÓN =====
 export function validateTxtFile(file) {
   console.log('[DASHBOARD] Validando archivo:', file.name);
@@ -1009,6 +1107,9 @@ export function mostrarSeccionEliminacion(muros) {
 
 // Función para agregar un nuevo rango de eliminación
 export function agregarRangoEliminacion() {
+  console.log('[DASHBOARD] agregarRangoEliminacion llamada');
+  console.trace('[DASHBOARD] Stack trace de agregarRangoEliminacion');
+  
   const rangosContainer = document.getElementById('rangosEliminar');
   
   // Si es el primer rango, limpiar el mensaje inicial
@@ -1198,28 +1299,92 @@ function calcularMurosAEliminar(rangos) {
 
 // Función para confirmar la importación con muros filtrados
 export async function confirmarImportacionFiltrada() {
+  console.log('[DASHBOARD] confirmarImportacionFiltrada - Iniciando proceso');
+  console.trace('[DASHBOARD] Stack trace de confirmarImportacionFiltrada');
+  
   const rangosValidos = obtenerRangosEliminacion();
+  
+  if (rangosValidos.length === 0) {
+    await mostrarModalConfirmacion(
+      'Sin rangos de eliminación',
+      '⚠️ No has definido ningún rango de eliminación.\n\nHaz clic en "Agregar Rango" para definir qué muros deseas eliminar.',
+      { tipo: 'warning', mostrarCancelar: false }
+    );
+    return;
+  }
+  
   const murosAEliminar = calcularMurosAEliminar(rangosValidos);
   const murosRestantes = murosOriginales.filter(muro => 
     !murosAEliminar.some(muroElim => muroElim.pid === muro.pid)
   );
   
   if (murosRestantes.length === 0) {
-    alert('❌ Error: No puedes eliminar todos los muros. Debe quedar al menos uno.');
+    await mostrarModalConfirmacion(
+      'Error',
+      '❌ No puedes eliminar todos los muros. Debe quedar al menos uno.',
+      { tipo: 'warning', mostrarCancelar: false }
+    );
     return;
   }
   
-  const confirmacion = confirm(
-    `¿Confirmas la importación de ${murosRestantes.length} muros?\n\n` +
-    `• Muros originales: ${murosOriginales.length}\n` +
-    `• Muros a eliminar: ${murosAEliminar.length}\n` +
-    `• Muros resultantes: ${murosRestantes.length}`
+  // PASO 1: Mostrar modal de confirmación (sin eliminar nada todavía)
+  const mensaje = `🔍 ¿Estás seguro de que deseas ELIMINAR estos muros de la base de datos?\n\n📊 Resumen:\n• Muros originales: ${murosOriginales.length}\n• Muros a ELIMINAR: ${murosAEliminar.length}\n• Muros resultantes: ${murosRestantes.length}\n\n⚠️ Esta acción NO se puede deshacer.`;
+  
+  const confirmacion = await mostrarModalConfirmacion(
+    'Confirmación',
+    mensaje,
+    { tipo: 'warning', textoAceptar: 'Aceptar' }
   );
   
-  if (!confirmacion) return;
+  // PASO 2: Si el usuario cancela, NO hacer nada (mantener rangos editables)
+  if (!confirmacion) {
+    console.log('[DASHBOARD] Eliminación cancelada por el usuario');
+    return;
+  }
+  
+  // PASO 3: Si el usuario confirma, AHORA sí eliminar de la base de datos
+  console.log('[DASHBOARD] Usuario confirmó eliminación. Eliminando', murosAEliminar.length, 'muros de BD...');
   
   try {
-    // Actualizar la variable global con los muros filtrados
+    const projectConfig = localStorage.getItem('projectConfig');
+    if (!projectConfig) {
+      await mostrarModalConfirmacion(
+        'Error',
+        'No se encontró el proyecto actual',
+        { tipo: 'warning', mostrarCancelar: false }
+      );
+      return;
+    }
+    
+    const proyecto = JSON.parse(projectConfig);
+    const pidsAEliminar = murosAEliminar.map(m => m.pid);
+    
+    console.log('[DASHBOARD] PIDs a eliminar:', pidsAEliminar);
+    
+    // Eliminar muros de la base de datos
+    const response = await fetch(`${API_BASE}/api/importar-muros/muros/batch-delete`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pk_proyecto: proyecto.pid,
+        pids: pidsAEliminar
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Error HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const result = await response.json();
+    console.log('[DASHBOARD] Respuesta de eliminación:', result);
+    
+    if (!result.success) {
+      throw new Error(result.error || 'Error desconocido eliminando muros');
+    }
+    
+    console.log('[DASHBOARD] ✅ Muros eliminados exitosamente de BD');
+    
+    // PASO 4: Actualizar la variable global con los muros filtrados
     const globalVars = window.globalVars || {};
     globalVars.panelesActuales = murosRestantes;
     
@@ -1232,11 +1397,22 @@ export async function confirmarImportacionFiltrada() {
     // Limpiar rangos de eliminación después de importar exitosamente
     limpiarRangosEliminacion();
     
-    console.log('[DASHBOARD] Importación confirmada con', murosRestantes.length, 'muros filtrados');
+    console.log('[DASHBOARD] ✅ Importación confirmada con', murosRestantes.length, 'muros filtrados');
+    
+    // Mostrar mensaje de éxito
+    await mostrarModalConfirmacion(
+      'Mensaje',
+      `✅ Importación exitosa!\n\n• Muros eliminados: ${murosAEliminar.length}\n• Muros importados: ${murosRestantes.length}`,
+      { tipo: 'success', mostrarCancelar: false }
+    );
     
   } catch (error) {
-    console.error('[DASHBOARD] Error en confirmación de importación:', error);
-    alert('Error al procesar la importación filtrada: ' + error.message);
+    console.error('[DASHBOARD] ❌ Error en confirmación de importación:', error);
+    await mostrarModalConfirmacion(
+      'Error',
+      `❌ Error al eliminar muros de la base de datos:\n\n${error.message}`,
+      { tipo: 'warning', mostrarCancelar: false }
+    );
   }
 }
 

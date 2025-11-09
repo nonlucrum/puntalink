@@ -3,6 +3,7 @@ import multer from 'multer';
 import { importarMuros } from '../controllers/importController';
 import { cancelarImport } from '../controllers/importController';
 import { getMuros } from '../controllers/importController';
+import { deleteMurosBatch } from '../controllers/importController';
 
 const router = Router();
 const upload = multer({
@@ -38,6 +39,11 @@ router.delete(['/', '/cancelar-import'], (req, res) => {
 router.get('/muros', (req, res) => {
   console.log('[routes - import] GET /muros - Llamando a getMuros');
   getMuros(req, res);
+});
+
+router.delete('/muros/batch-delete', (req, res) => {
+  console.log('[routes - import] DELETE /muros/batch-delete - Llamando a deleteMurosBatch');
+  deleteMurosBatch(req, res);
 });
 
 export default router;
