@@ -12,10 +12,6 @@ CREATE TABLE app_user (
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Insert some data into the table
-INSERT INTO app_user (name, email, provider)
-VALUES ('Victor Silva', 'victor@email.com', 'manual');
-
 -- Create another table
 CREATE TABLE proyecto (
     pid SERIAL PRIMARY KEY,
@@ -31,10 +27,6 @@ CREATE TABLE proyecto (
     CONSTRAINT fk_proyecto_usuario FOREIGN KEY (pk_usuario) 
         REFERENCES app_user (id) ON DELETE CASCADE
 );
-
--- Insertar proyecto de prueba DESPUÉS de crear la tabla
-INSERT INTO proyecto (pk_usuario, nombre, empresa, tipo_muerto, vel_viento, temp_promedio, presion_atmo)
-VALUES (1, 'Proyecto Prueba', 'Mi Empresa', 'Corrido', 50.0, 22.5, 1013.25);
 
 CREATE TABLE muro (
     pid SERIAL PRIMARY KEY,
@@ -82,6 +74,9 @@ CREATE TABLE muro (
     
     -- Campo para agrupación por ejes
     eje VARCHAR(50),                   -- Eje asignado para agrupar muros por muertos
+    
+    -- Relación con grupo de muerto
+    fk_grupo_muerto INT,               -- FK a grupo_muerto (NULL si aún no está agrupado)
 
     CONSTRAINT fk_muro_proyecto FOREIGN KEY (pk_proyecto) 
         REFERENCES proyecto (pid) ON DELETE CASCADE
@@ -98,3 +93,37 @@ CREATE TABLE brace (
     CONSTRAINT fk_brace_muro FOREIGN KEY (fk_muro) 
         REFERENCES muro (pid) ON DELETE CASCADE
 );
+
+CREATE TABLE grupo_muerto (
+    pid SERIAL PRIMARY KEY,
+    pk_proyecto INT NOT NULL,
+    numero_muerto INT NOT NULL,           -- Número del muerto (M1, M2, etc.)
+    nombre VARCHAR(50),                   -- Nombre descriptivo del grupo
+    x_braces INT NOT NULL,                -- Cantidad de braces
+    angulo_brace DECIMAL(10,2) NOT NULL,  -- Ángulo de inclinación
+    eje VARCHAR(50),                      -- Eje asignado
+    tipo_construccion VARCHAR(20),        -- TILT-UP o PRECAZT
+    cantidad_muros INT DEFAULT 0,         -- Cantidad de muros en este grupo
+    
+    -- Parámetros físicos del muerto (EDITABLES POR EL USUARIO)
+    profundidad DECIMAL(10,3) DEFAULT 2.0, -- Profundidad del muerto (m) - EDITABLE ⭐
+    largo DECIMAL(10,3),                  -- Largo del muerto (m)
+    ancho DECIMAL(10,3),                  -- Ancho del muerto (m)
+    
+    -- Campos calculados para el muerto
+    fuerza_total DECIMAL(10,2),           -- Fuerza total del grupo (kN)
+    volumen_concreto DECIMAL(10,3),       -- Volumen de concreto necesario (m³)
+    peso_muerto DECIMAL(10,2),            -- Peso del muerto (kN)
+    
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    
+    CONSTRAINT fk_grupo_muerto_proyecto FOREIGN KEY (pk_proyecto) 
+        REFERENCES proyecto (pid) ON DELETE CASCADE,
+    CONSTRAINT unique_numero_muerto_proyecto UNIQUE (pk_proyecto, numero_muerto)
+);
+
+-- Agregar constraint de FK después de crear ambas tablas
+ALTER TABLE muro 
+ADD CONSTRAINT fk_muro_grupo_muerto FOREIGN KEY (fk_grupo_muerto) 
+    REFERENCES grupo_muerto (pid) ON DELETE SET NULL;

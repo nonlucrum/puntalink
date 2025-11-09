@@ -2438,6 +2438,14 @@ function reagruparMuertosConValoresActuales() {
   window.gruposMuertosGlobal = gruposNuevos;
   console.log('[MUERTOS] gruposMuertosGlobal actualizado después de reagrupar:', gruposNuevos);
   
+  // ✅ DISPARAR EVENTO para notificar a dashboard.js que los grupos fueron actualizados
+  const evento = new CustomEvent('gruposMuertosActualizados', {
+    detail: gruposNuevos,
+    bubbles: true
+  });
+  window.dispatchEvent(evento);
+  console.log('[MUERTOS] 📢 Evento gruposMuertosActualizados disparado con', Object.keys(gruposNuevos).length, 'grupos');
+  
   // ✅ ASEGURAR que los datos originales (con grosor, overall_height) estén disponibles
   // Si window.lastResultadosMuertos NO tiene datos completos, usar los datos originales
   if (!window.lastResultadosMuertos || !Array.isArray(window.lastResultadosMuertos) || window.lastResultadosMuertos.length === 0) {

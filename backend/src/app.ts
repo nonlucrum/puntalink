@@ -11,6 +11,7 @@ import calculosRoutes from './routes/calculosRoutes';
 import panelesRoutes from './routes/panelesRoutes';
 import projectRoutes from './routes/projectRoutes';
 import authRoutes from './routes/authRoutes'; // 👈 NUEVO
+import grupoMuertoRoutes from './routes/grupoMuertoRoutes'; // 👈 NUEVO - Grupos de muertos
 
 const app = express();
 
@@ -80,7 +81,10 @@ app.use('/api/paneles', panelesRoutes);
 // ===== Proyecto =====
 app.use('/api/proyecto', projectRoutes);
 
-// ===== 404 para APIs =====
+// ===== Grupos de Muertos (DEBE IR ANTES DEL 404) =====
+app.use('/api/grupos-muertos', grupoMuertoRoutes);
+
+// ===== 404 para APIs (SIEMPRE AL FINAL) =====
 app.use('/api', (_req: Request, res: Response) => {
   res.status(404).json({ ok: false, error: 'Recurso API no encontrado' });
 });

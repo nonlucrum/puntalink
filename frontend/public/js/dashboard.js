@@ -745,6 +745,7 @@ export async function handleGenerarPDF(elements, globalVars) {
       x_braces: grupo.x_braces.toString(),
       angulo: `${grupo.angulo}°`,
       eje: grupo.eje.toString(),
+      profundidad: '2.0',
       tipo_construccion: tipoConstruccion,
       cantidad_muros: grupo.muros.length.toString(),
       muros_incluidos: murosIncluidos
@@ -758,9 +759,12 @@ export async function handleGenerarPDF(elements, globalVars) {
   // Exponer gruposMuertos globalmente para que pueda usarse en calcular macizos de anclaje
   window.gruposMuertosGlobal = gruposMuertos;
   console.log('[DASHBOARD] gruposMuertos expuesto globalmente para macizos de anclaje');
+  console.log('[DASHBOARD] Claves de grupos generados:', Object.keys(gruposMuertos));
+  console.log('[DASHBOARD] Objeto gruposMuertos completo:', JSON.stringify(gruposMuertos, null, 2));
   
-  // ===== NO mostrar configuración de grupos aquí - se mostrará cuando presione "Reagrupar Muertos" =====
-  // mostrarConfigGrupos(gruposMuertos); // ← ELIMINADO
+  // ===== Mostrar configuración de grupos después de generar PDF =====
+  mostrarConfigGrupos(gruposMuertos);
+  console.log('[DASHBOARD] Formulario de configuración de grupos mostrado');
   
   // NOTA: window.lastGruposMuertos se eliminó porque los cálculos cilíndricos
   // deben ser completamente independientes y NO usar la agrupación de braces
@@ -1409,155 +1413,328 @@ function actualizarConfiguracion() {
 
 // ===== FUNCIONES PARA CONFIGURACIÓN DE GRUPOS DE MUERTOS =====
 function mostrarConfigGrupos(gruposMuertos) {
-  console.log('[DASHBOARD] mostrarConfigGrupos - Mostrando formulario de configuración');
+  console.log('[DASHBOARD] mostrarConfigGrupos - Mostrando listado de muertos');
+  console.log('[DASHBOARD] Cantidad de grupos recibidos:', Object.keys(gruposMuertos).length);
+  console.log('[DASHBOARD] Grupos:', gruposMuertos);
   
   const configContainer = document.getElementById('configGruposContainer');
-  const configForm = document.getElementById('configGruposForm');
   
-  if (!configContainer || !configForm) {
-    console.error('[DASHBOARD] No se encontraron elementos de configuración');
+  if (!configContainer) {
+    console.error('[DASHBOARD] No se encontró contenedor de configuración');
     return;
   }
-  
-  // Limpiar formulario anterior
-  configForm.innerHTML = '';
   
   // Inicializar almacenamiento global de configuración si no existe
   if (!window.configGruposMuertos) {
     window.configGruposMuertos = {};
   }
   
-  // Crear un card de configuración para cada grupo
-  let indice = 1;
-  Object.keys(gruposMuertos).forEach(clave => {
-    const grupo = gruposMuertos[clave];
-    const configCard = document.createElement('div');
-    configCard.style.cssText = `
-      padding: 1rem;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-    `;
-    
-    configCard.innerHTML = `
-      <h4 style="margin-top: 0; color: var(--primary);">Grupo ${indice} - Eje: ${grupo.eje || 'N/A'}</h4>
-      
-      <label style="display: block; margin-bottom: 0.75rem;">
-        <span style="display: block; font-weight: 600; margin-bottom: 0.3rem; font-size: 0.9rem;">Profundidad del Muerto (m)</span>
-        <input 
-          type="number" 
-          class="config-profundo" 
-          data-grupo-clave="${clave}"
-          value="${window.configGruposMuertos[clave]?.profundo || 0.80}"
-          step="0.01" 
-          min="0.1"
-          max="2"
-          style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px;"
-        >
-      </label>
-
-      <label style="display: block; margin-bottom: 0.75rem;">
-        <span style="display: block; font-weight: 600; margin-bottom: 0.3rem; font-size: 0.9rem;">Espaciado Varilla Longitudinal (cm)</span>
-        <input 
-          type="number" 
-          class="config-espaciado-long" 
-          data-grupo-clave="${clave}"
-          value="${window.configGruposMuertos[clave]?.espaciadoLong || 25}"
-          step="1" 
-          min="5"
-          max="50"
-          style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px;"
-        >
-      </label>
-
-      <label style="display: block; margin-bottom: 0.75rem;">
-        <span style="display: block; font-weight: 600; margin-bottom: 0.3rem; font-size: 0.9rem;">Espaciado Varilla Transversal (cm)</span>
-        <input 
-          type="number" 
-          class="config-espaciado-trans" 
-          data-grupo-clave="${clave}"
-          value="${window.configGruposMuertos[clave]?.espaciadoTrans || 25}"
-          step="1" 
-          min="5"
-          max="50"
-          style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px;"
-        >
-      </label>
-
-      <label style="display: block;">
-        <span style="display: block; font-weight: 600; margin-bottom: 0.3rem; font-size: 0.9rem;">Factor de Seguridad</span>
-        <input 
-          type="number" 
-          class="config-factor-seguridad" 
-          data-grupo-clave="${clave}"
-          value="${window.configGruposMuertos[clave]?.factorSeguridad || 1.0}"
-          step="0.1" 
-          min="0.8"
-          max="2.0"
-          style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px;"
-        >
-      </label>
-
-      <label style="display: block;">
-        <span style="display: block; font-weight: 600; margin-bottom: 0.3rem; font-size: 0.9rem;">Coeficiente de Fricción</span>
-        <input 
-          type="number" 
-          class="config-friccion" 
-          data-grupo-clave="${clave}"
-          value="${window.configGruposMuertos[clave]?.friccion || 0.3}"
-          step="0.05" 
-          min="0.1"
-          max="0.8"
-          style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px;"
-        >
-      </label>
-    `;
-    
-    configForm.appendChild(configCard);
-    indice++;
-  });
+  // Detectar formato: script.js usa {M1: {...}, M2: {...}} vs dashboard.js usa {'2_55_1': {...}}
+  const primeraClave = Object.keys(gruposMuertos)[0];
+  const formatoScriptJS = primeraClave && primeraClave.startsWith('M');
   
-  // Mostrar el contenedor
+  console.log('[DASHBOARD] Formato detectado:', formatoScriptJS ? 'script.js (M1, M2)' : 'dashboard.js (x_ang_eje)');
+  
+  // Crear HTML con tabla simplificada
+  let html = `
+    <div style="background: var(--card); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border);">
+      <h3 style="margin-top: 0; color: var(--primary); display: flex; align-items: center; gap: 0.5rem;">
+        <span style="font-size: 1.5rem;">⚙️</span>
+        Configuración de Profundidad por Muerto
+      </h3>
+      
+      <p style="color: var(--text-dim); margin-bottom: 1.5rem;">
+        Ingresa la profundidad deseada para cada grupo de muertos. 
+        Este valor se usará en los cálculos de macizos de anclaje.
+        <br><strong>Total de grupos: ${Object.keys(gruposMuertos).length}</strong>
+      </p>
+      
+      <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 6px; overflow: hidden;">
+        <thead>
+          <tr style="background: var(--primary); color: white;">
+            <th style="padding: 0.75rem; text-align: left;">Muerto</th>
+            <th style="padding: 0.75rem; text-align: center;">X Braces</th>
+            <th style="padding: 0.75rem; text-align: center;">Ángulo</th>
+            <th style="padding: 0.75rem; text-align: center;">Eje</th>
+            <th style="padding: 0.75rem; text-align: center;">Cant. Muros</th>
+            <th style="padding: 0.75rem; text-align: center; min-width: 150px;">Profundidad (m)</th>
+          </tr>
+        </thead>
+        <tbody>`;
+  
+  if (formatoScriptJS) {
+    // Formato de script.js: {M1: {muerto, x, ang, tipo, eje, muros}, M2: {...}}
+    Object.keys(gruposMuertos).forEach(clave => {
+      const grupo = gruposMuertos[clave];
+      const numeroMuerto = grupo.muerto || parseInt(clave.replace('M', ''));
+      
+      // Construir clave en formato backend: "x_angulo_eje"
+      const xBraces = grupo.x || grupo.x_braces || 0;
+      const angulo = Math.round(grupo.ang || grupo.angulo || 0);
+      const eje = grupo.eje || 0;
+      const claveBackend = `${xBraces}_${angulo}_${eje}`;
+      
+      const valorActual = window.configGruposMuertos[claveBackend]?.profundo || 2.0;
+      
+      console.log(`[DASHBOARD] Generando fila para ${clave} -> clave backend: ${claveBackend}`, grupo);
+      
+      html += `
+        <tr style="border-bottom: 1px solid var(--border);">
+          <td style="padding: 0.75rem; font-weight: bold; color: var(--primary);">${clave}</td>
+          <td style="padding: 0.75rem; text-align: center;">${xBraces}</td>
+          <td style="padding: 0.75rem; text-align: center;">${angulo}°</td>
+          <td style="padding: 0.75rem; text-align: center; font-weight: bold; color: #28a745;">${eje}</td>
+          <td style="padding: 0.75rem; text-align: center; color: #6f42c1; font-weight: bold;">${grupo.muros?.length || 0}</td>
+          <td style="padding: 0.75rem; text-align: center;">
+            <input 
+              type="number" 
+              class="input-profundidad-muerto" 
+              data-muerto="${clave}"
+              data-grupo-clave="${claveBackend}"
+              value="${valorActual}"
+              step="0.1" 
+              min="0.5"
+              max="10"
+              style="width: 100px; padding: 0.5rem; text-align: center; border: 2px solid var(--border); border-radius: 4px; font-size: 1rem; font-weight: bold;"
+              placeholder="2.0"
+            >
+          </td>
+        </tr>`;
+    });
+  } else {
+    // Formato de dashboard.js: {'2_55_1': {x_braces, angulo, eje, muros}}
+    let indice = 1;
+    Object.keys(gruposMuertos).forEach(clave => {
+      const grupo = gruposMuertos[clave];
+      const valorActual = window.configGruposMuertos[clave]?.profundo || 2.0;
+      
+      console.log(`[DASHBOARD] Generando fila para M${indice}, clave: ${clave}`, grupo);
+      
+      html += `
+        <tr style="border-bottom: 1px solid var(--border);">
+          <td style="padding: 0.75rem; font-weight: bold; color: var(--primary);">M${indice}</td>
+          <td style="padding: 0.75rem; text-align: center;">${grupo.x_braces}</td>
+          <td style="padding: 0.75rem; text-align: center;">${grupo.angulo}°</td>
+          <td style="padding: 0.75rem; text-align: center; font-weight: bold; color: #28a745;">${grupo.eje || 'N/A'}</td>
+          <td style="padding: 0.75rem; text-align: center; color: #6f42c1; font-weight: bold;">${grupo.muros.length}</td>
+          <td style="padding: 0.75rem; text-align: center;">
+            <input 
+              type="number" 
+              class="input-profundidad-muerto" 
+              data-muerto="M${indice}"
+              data-grupo-clave="${clave}"
+              value="${valorActual}"
+              step="0.1" 
+              min="0.5"
+              max="10"
+              style="width: 100px; padding: 0.5rem; text-align: center; border: 2px solid var(--border); border-radius: 4px; font-size: 1rem; font-weight: bold;"
+              placeholder="2.0"
+            >
+          </td>
+        </tr>`;
+      
+      indice++;
+    });
+  }
+  
+  html += `
+        </tbody>
+      </table>
+      
+      <div style="margin-top: 1.5rem; display: flex; gap: 1rem; justify-content: flex-end;">
+        <button 
+          id="btnGuardarProfundidades" 
+          class="btn btn-primary"
+          style="padding: 0.75rem 1.5rem; font-size: 1rem; font-weight: bold;"
+        >
+          💾 Guardar Profundidades
+        </button>
+      </div>
+      
+      <div id="mensajeGuardado" style="display: none; margin-top: 1rem; padding: 1rem; background: #d4edda; color: #155724; border-radius: 6px; border: 1px solid #c3e6cb;">
+        ✅ Profundidades guardadas correctamente
+      </div>
+    </div>`;
+  
+  configContainer.innerHTML = html;
   configContainer.style.display = 'block';
   
-  // Agregar event listener al botón de guardar
-  const btnGuardar = document.getElementById('btnGuardarConfigGrupos');
-  if (btnGuardar) {
-    btnGuardar.onclick = guardarConfigGrupos;
+  // Event listener para el botón de guardar
+  document.getElementById('btnGuardarProfundidades').addEventListener('click', guardarProfundidadesMuertos);
+  
+  console.log('[DASHBOARD] Listado de muertos mostrado:', Object.keys(gruposMuertos).length, 'grupos');
+}
+
+// Función para guardar profundidades individuales por muerto
+function guardarProfundidadesMuertos() {
+  console.log('[DASHBOARD] guardarProfundidadesMuertos - Guardando profundidades individuales');
+  
+  // Limpiar configuración anterior de profundidades
+  if (!window.configGruposMuertos) {
+    window.configGruposMuertos = {};
+  }
+  
+  // Obtener todos los inputs de profundidad
+  const inputs = document.querySelectorAll('.input-profundidad-muerto');
+  
+  console.log('[DASHBOARD] Inputs encontrados:', inputs.length);
+  
+  if (inputs.length === 0) {
+    alert('⚠️ No se encontraron inputs de profundidad');
+    return;
+  }
+  
+  let profundidadesValidas = 0;
+  
+  inputs.forEach((input, index) => {
+    const clave = input.getAttribute('data-grupo-clave');
+    const muerto = input.getAttribute('data-muerto');
+    const valor = parseFloat(input.value);
+    
+    console.log(`[DASHBOARD] Input ${index + 1}:`, { clave, muerto, valor });
+    
+    if (!clave) {
+      console.warn('[DASHBOARD] Input sin clave:', input);
+      return;
+    }
+    
+    if (isNaN(valor) || valor <= 0) {
+      console.warn(`[DASHBOARD] Valor inválido para ${muerto}: ${input.value}`);
+      input.style.borderColor = 'red';
+      return;
+    }
+    
+    // Inicializar objeto de configuración para este grupo si no existe
+    if (!window.configGruposMuertos[clave]) {
+      window.configGruposMuertos[clave] = {
+        espaciadoLong: 25,
+        espaciadoTrans: 25,
+        factorSeguridad: 1.0,
+        friccion: 0.3
+      };
+    }
+    
+    // Guardar profundidad
+    window.configGruposMuertos[clave].profundo = valor;
+    input.style.borderColor = '#28a745'; // Verde para indicar guardado
+    profundidadesValidas++;
+    
+    console.log(`[DASHBOARD] ✓ ${muerto} (${clave}): ${valor}m`);
+  });
+  
+  console.log('[DASHBOARD] Total profundidades guardadas:', profundidadesValidas);
+  console.log('[DASHBOARD] Configuración completa:', window.configGruposMuertos);
+  
+  if (profundidadesValidas === 0) {
+    alert('⚠️ No se pudo guardar ninguna profundidad. Verifica los valores ingresados.');
+    return;
+  }
+  
+  // Mostrar mensaje de éxito
+  const mensaje = document.getElementById('mensajeGuardado');
+  if (mensaje) {
+    mensaje.style.display = 'block';
+    setTimeout(() => {
+      mensaje.style.display = 'none';
+    }, 3000);
+  }
+  
+  // Guardar en backend
+  const projectConfig = localStorage.getItem('projectConfig');
+  if (projectConfig) {
+    const proyecto = JSON.parse(projectConfig);
+    
+    console.log('[DASHBOARD] Proyecto en localStorage:', proyecto);
+    console.log('[DASHBOARD] PID del proyecto:', proyecto.pid);
+    console.log('[DASHBOARD] Enviando al backend:', {
+      url: `${API_BASE}/api/grupos-muertos/${proyecto.pid}`,
+      proyecto: proyecto.pid,
+      config: window.configGruposMuertos
+    });
+    
+    fetch(`${API_BASE}/api/grupos-muertos/${proyecto.pid}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(window.configGruposMuertos)
+    })
+    .then(response => {
+      console.log('[DASHBOARD] Respuesta HTTP status:', response.status);
+      console.log('[DASHBOARD] Respuesta HTTP OK:', response.ok);
+      return response.json();
+    })
+    .then(data => {
+      console.log('[DASHBOARD] Datos recibidos del servidor:', data);
+      if (data.success) {
+        console.log('[DASHBOARD] ✅ Guardado en BD:', data);
+        
+        // Resetear bordes a normal
+        inputs.forEach(input => {
+          input.style.borderColor = 'var(--border)';
+        });
+        
+        alert(`✅ Profundidades guardadas exitosamente!\n\n` +
+              `📊 Resumen:\n` +
+              `• Total muertos: ${profundidadesValidas}\n` +
+              `• Guardados en BD: ${data.grupos?.length || profundidadesValidas}\n\n` +
+              `Los datos están disponibles para cálculos.`);
+      } else {
+        console.error('[DASHBOARD] Error guardando:', data.error);
+        alert('⚠️ Error al guardar en la base de datos:\n' + data.error + '\n\nLa configuración se guardó en memoria local.');
+      }
+    })
+    .catch(error => {
+      console.error('[DASHBOARD] Error en petición:', error);
+      alert('⚠️ Error de conexión con el servidor.\n\nLa configuración se guardó en memoria local y podrás usarla en esta sesión.');
+    });
+  } else {
+    alert(`✅ Profundidades guardadas en memoria!\n\n` +
+          `📊 Total: ${profundidadesValidas} muertos configurados\n\n` +
+          `⚠️ No hay proyecto seleccionado para guardar en BD.`);
   }
 }
 
 function guardarConfigGrupos() {
-  console.log('[DASHBOARD] guardarConfigGrupos - Guardando configuración de grupos');
+  console.log('[DASHBOARD] guardarConfigGrupos - DEPRECADO: Usar guardarProfundidadesMuertos()');
   
-  // Limpiar configuración anterior
-  window.configGruposMuertos = {};
-  
-  // Obtener todos los inputs de configuración
-  const inputs = document.querySelectorAll('[data-grupo-clave]');
-  
-  inputs.forEach(input => {
-    const clave = input.getAttribute('data-grupo-clave');
+  // Redirigir a la nueva función
+  guardarProfundidadesMuertos();
+}
+
+// Función para cargar grupos de muertos desde el backend
+async function cargarGruposMuertosDesdeBackend(pk_proyecto) {
+  try {
+    console.log('[DASHBOARD] Cargando grupos desde backend para proyecto:', pk_proyecto);
     
-    if (!window.configGruposMuertos[clave]) {
-      window.configGruposMuertos[clave] = {};
-    }
+    const response = await fetch(`${API_BASE}/api/grupos-muertos/${pk_proyecto}`);
+    const data = await response.json();
     
-    if (input.classList.contains('config-profundo')) {
-      window.configGruposMuertos[clave].profundo = parseFloat(input.value) || 0.80;
-    } else if (input.classList.contains('config-espaciado-long')) {
-      window.configGruposMuertos[clave].espaciadoLong = parseFloat(input.value) || 25;
-    } else if (input.classList.contains('config-espaciado-trans')) {
-      window.configGruposMuertos[clave].espaciadoTrans = parseFloat(input.value) || 25;
-    } else if (input.classList.contains('config-factor-seguridad')) {
-      window.configGruposMuertos[clave].factorSeguridad = parseFloat(input.value) || 1.0;
-    } else if (input.classList.contains('config-friccion')) {
-      window.configGruposMuertos[clave].friccion = parseFloat(input.value) || 0.3;
+    if (data.success && data.grupos && data.grupos.length > 0) {
+      console.log('[DASHBOARD] Grupos cargados desde BD:', data.grupos);
+      
+      // Convertir a formato de configuración
+      window.configGruposMuertos = {};
+      
+      data.grupos.forEach(grupo => {
+        const clave = `${grupo.x_braces}_${Math.round(grupo.angulo_brace)}_${grupo.eje || ''}`;
+        window.configGruposMuertos[clave] = {
+          profundo: parseFloat(grupo.profundidad) || 2.0,
+          espaciadoLong: 25, // Valores por defecto si no están en BD
+          espaciadoTrans: 25,
+          factorSeguridad: 1.0,
+          friccion: 0.3
+        };
+      });
+      
+      console.log('[DASHBOARD] Configuración cargada desde BD:', window.configGruposMuertos);
+      return true;
+    } else {
+      console.log('[DASHBOARD] No hay grupos guardados en BD');
+      return false;
     }
-  });
-  
-  console.log('[DASHBOARD] Configuración guardada:', window.configGruposMuertos);
-  alert('✅ Configuración de grupos guardada correctamente');
+  } catch (error) {
+    console.error('[DASHBOARD] Error cargando grupos desde backend:', error);
+    return false;
+  }
 }
 
 // ===== FUNCIÓN PARA REAGRUPAR MUERTOS =====
@@ -1645,31 +1822,47 @@ async function reagruparMuertos() {
   
   console.log('[DASHBOARD] murosConBraces completado:', murosConBraces.length, 'muros');
   
-  // ===== AGRUPAR MUROS =====
-  const gruposMuertos = {};
+  // ===== USAR GRUPOS DE MUERTOS DE SCRIPT.JS =====
+  // En lugar de crear grupos nuevos, usar window.gruposMuertosGlobal que ya viene de script.js
+  // con la agrupación correcta (M1, M2, etc.)
+  let gruposMuertos;
   
-  murosConBraces.forEach(muro => {
-    const xBraces = muro.x_braces || 2;
-    const angulo = Math.round(muro.angulo_brace || 55);
-    const eje = muro.eje || '1';
+  if (window.gruposMuertosGlobal && Object.keys(window.gruposMuertosGlobal).length > 0) {
+    console.log('[DASHBOARD] ✅ Usando window.gruposMuertosGlobal de script.js');
+    gruposMuertos = window.gruposMuertosGlobal;
+  } else {
+    console.log('[DASHBOARD] ⚠️ window.gruposMuertosGlobal no disponible, creando grupos por eje');
+    // Fallback: crear grupos por eje si no existe window.gruposMuertosGlobal
+    gruposMuertos = {};
     
-    const clave = `${xBraces}_${angulo}_${eje}`;
-    
-    if (!gruposMuertos[clave]) {
-      gruposMuertos[clave] = {
-        x_braces: xBraces,
-        angulo: angulo,
-        eje: eje,
-        muros: []
-      };
-    }
-    
-    gruposMuertos[clave].muros.push(muro);
-  });
+    murosConBraces.forEach(muro => {
+      const xBraces = muro.x_braces || 2;
+      const angulo = Math.round(muro.angulo_brace || 55);
+      const eje = muro.eje || '1';
+      
+      // Crear clave única por EJE (no solo por x, ang, eje combinados)
+      const clave = `M${eje}`;
+      
+      if (!gruposMuertos[clave]) {
+        gruposMuertos[clave] = {
+          muerto: parseInt(eje),
+          x: xBraces,
+          ang: angulo,
+          eje: eje,
+          x_braces: xBraces,
+          angulo: angulo,
+          muros: []
+        };
+      }
+      
+      gruposMuertos[clave].muros.push(muro);
+    });
+  }
   
-  console.log('[DASHBOARD] Grupos creados:', Object.keys(gruposMuertos).length);
+  console.log('[DASHBOARD] Grupos de muertos disponibles:', Object.keys(gruposMuertos).length);
   Object.keys(gruposMuertos).forEach(clave => {
-    console.log(`[DASHBOARD]   ${clave}: ${gruposMuertos[clave].muros.length} muros`);
+    const grupo = gruposMuertos[clave];
+    console.log(`[DASHBOARD]   ${clave}: ${grupo.muros?.length || 0} muros`);
   });
   
   // Exponer globalmente
@@ -1677,10 +1870,12 @@ async function reagruparMuertos() {
   window.murosConBraces = murosConBraces;
   console.log('[DASHBOARD] gruposMuertosGlobal y murosConBraces expuestos globalmente');
   
-  // ===== MOSTRAR FORMULARIO DE CONFIGURACIÓN =====
-  mostrarConfigGrupos(gruposMuertos);
+  // ===== NO MOSTRAR FORMULARIO AQUÍ =====
+  // El formulario se mostrará automáticamente cuando script.js dispare el evento 'gruposMuertosActualizados'
+  // con los grupos correctos (M1, M2, etc.)
+  console.log('[DASHBOARD] ⏳ Esperando que script.js actualice gruposMuertosGlobal y dispare evento...');
   
-  alert('✅ Muertos reagrupados correctamente.\n\n➡️ Ahora ingresa los valores de configuración para cada grupo:\n- Profundidad del Muerto (m)\n- Espaciado Varilla Longitudinal (cm)\n- Espaciado Varilla Transversal (cm)\n- Factor de Seguridad\n- Coeficiente de Fricción\n\n Luego haz clic en "Guardar Configuración".\n\nFinalmente, haz clic en "Calcular Armado Rectangular".');
+  // NOTA: No mostramos alert aquí para evitar confusión. El alert se mostrará desde el listener del evento.
 }
 
 // Función principal para ejecutar los cálculos de armado
@@ -1854,11 +2049,32 @@ document.addEventListener('DOMContentLoaded', function() {
   } else {
     console.warn('[ARMADO] ⚠️ Botón btnCalcularArmado no encontrado');
   }
+  
+  // Listener para detectar cuando script.js actualiza window.gruposMuertosGlobal
+  window.addEventListener('gruposMuertosActualizados', function(event) {
+    console.log('[DASHBOARD] 🎯 Evento gruposMuertosActualizados recibido desde script.js');
+    console.log('[DASHBOARD] Grupos actualizados:', event.detail);
+    
+    // Actualizar el formulario de configuración con los nuevos grupos
+    if (event.detail && Object.keys(event.detail).length > 0) {
+      mostrarConfigGrupos(event.detail);
+      
+      // Mostrar mensaje de confirmación
+      const numGrupos = Object.keys(event.detail).length;
+      alert(`✅ ${numGrupos} grupo${numGrupos > 1 ? 's' : ''} de muertos detectado${numGrupos > 1 ? 's' : ''}!\n\n` +
+            `➡️ Ahora configura la profundidad para cada muerto.\n\n` +
+            `Luego haz clic en "💾 Guardar Profundidades".`);
+    }
+  });
+  
+  console.log('[DASHBOARD] ✅ Listener de gruposMuertosActualizados registrado');
 });
 
 // Exponer funciones globalmente
 window.ejecutarCalculosArmado = ejecutarCalculosArmado;
 window.eliminarRango = eliminarRango;
+window.cargarGruposMuertosDesdeBackend = cargarGruposMuertosDesdeBackend;
+window.guardarProfundidadesMuertos = guardarProfundidadesMuertos;
 
 // ELIMINADO: window.exportarTablaDetallada = exportarTablaDetallada;
 

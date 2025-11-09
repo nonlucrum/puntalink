@@ -50,7 +50,16 @@ export async function cancelarImport(req: Request, res: Response) {
 export async function getMuros(req: Request, res: Response) {
   console.log('[controller - importController] getMuros - Inicio');
   try {
-    const pk_proyecto = parseInt(req.query.pk_proyecto as string) || 1; // Default project ID
+    const pk_proyecto = parseInt(req.query.pk_proyecto as string);
+    
+    if (!pk_proyecto || isNaN(pk_proyecto)) {
+      console.log('[controller - importController] pk_proyecto no proporcionado o inválido');
+      return res.status(400).json({ 
+        ok: false, 
+        error: 'Se requiere pk_proyecto válido' 
+      });
+    }
+    
     console.log('[controller - importController] Obteniendo muros para proyecto:', pk_proyecto);
     
     const muros = await getMurosByProject(pk_proyecto);
