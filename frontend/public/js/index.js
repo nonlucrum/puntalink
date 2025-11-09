@@ -61,7 +61,7 @@ export async function loadPreviousProjects(userId) {
         else {
             data.proyectos.forEach(project => {
                 htmlDetalle += `
-                    <button class="project-card">
+                    <button class="project-card" data-id="${project.pid}">
                         <div style="display: flex; flex-direction: row">
                         <svg width="40" height="77">
                     `;
@@ -96,8 +96,47 @@ export async function loadPreviousProjects(userId) {
             });
         }
         projectList.innerHTML = htmlDetalle;
+
+        // Now attach listeners to the newly created buttons
+        document.querySelectorAll(".project-card").forEach(button => {
+        button.addEventListener("click", () => {
+            const projectId = button.getAttribute("data-id");
+            console.log("[FRONTEND] Proyecto seleccionado con ID:", projectId);
+            // You can also trigger a function, e.g.:
+            // openProjectDetails(projectId);
+            loadProjectById(userId, projectId);
+        });
+        });
     } catch (error) {
         console.error('[FRONTEND] Error al cargar los proyectos anteriores:', error);
         alert('Error al cargar los proyectos anteriores. Por favor, inténtelo de nuevo.');
+    }
+}
+
+export async function loadProjectById(userId, projectId) {
+    console.log('[FRONTEND] Cargando proyecto con ID:', projectId);
+    try {
+        const response = await fetch(`${API_BASE}/api/proyecto/cargar`, {
+            method: 'GET',
+            headers: {
+                'x-user-id': userId,
+                'x-project-id': projectId
+            }
+        });
+        const data = await response.json();
+        console.log('[FRONTEND] Proyecto cargado:', data.proyecto);
+        if (data.ok && data.proyecto) {
+            // Guardar los datos en localStorage para uso posterior
+            localStorage.setItem('projectConfig', JSON.stringify(data.proyecto));
+            console.log("[FRONTEND] Project loaded to localStorage");
+            // Redirigir al dashboard
+            window.location.href = 'dashboard.html';
+        } else {
+            console.error("[FRONTEND] Error en la respuesta:", data);
+            alert('Error al cargar el proyecto: ' + (data.error || 'Respuesta inválida del servidor'));
+        }
+    } catch (error) {
+        console.error('[FRONTEND] Error al cargar el proyecto:', error);
+        alert('Error al cargar el proyecto. Por favor, inténtelo de nuevo.');
     }
 }

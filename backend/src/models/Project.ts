@@ -62,6 +62,26 @@ export async function updateProject(
     }
 }
 
+export async function saveTXT(
+    pid: number,
+    texto_entrada: object
+) {
+    const query = `
+    UPDATE proyecto
+    SET texto_entrada = $2
+    WHERE pid = $1
+    RETURNING row_to_json(proyecto.*);
+    `;
+    const values = [pid, texto_entrada];
+    try {
+        const result = await pool.query(query, values);
+        return result.rows[0].row_to_json; // devuelve la fila actualizada
+    } catch (error) {
+        console.error("Error saving project TXT:", error);
+        throw error;
+    } 
+}
+
 export async function getProjectById(pid: number, pk_usuario: number) {
     const query = `
       SELECT row_to_json(proyecto.*) FROM proyecto

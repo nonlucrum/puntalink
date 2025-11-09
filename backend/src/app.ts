@@ -39,7 +39,7 @@ const corsOptions: CorsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-project-id'],
 };
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions)); // preflight

@@ -312,6 +312,20 @@ export async function handleUploadTxt(file, elements, callbacks, globalVars) {
     }
     
     console.log('[DASHBOARD] Archivo procesado exitosamente');
+
+    console.log('[DASHBOARD] Guardando txt en la base de datos...');
+    const saveResp = await fetch(`${API_BASE}/api/proyecto/guardar-txt`, {
+        method: 'POST',
+        body: formData
+    });
+    const saveJson = await saveResp.json();
+    if (!saveResp.ok || !saveJson.ok) {
+        console.log('[DASHBOARD] Error guardando TXT en BD:', saveJson.error);
+        tablaPaneles.innerHTML = `<p class="error">${saveJson.error || 'Error guardando el TXT en la base de datos.'}</p>`;
+        updatePanelesDisplay();
+        return;
+    }
+    console.log('[DASHBOARD] TXT guardado en la base de datos exitosamente');
     
     // Obtener los muros completos desde la base de datos (incluyendo overall_height)
     console.log('[DASHBOARD] Obteniendo muros completos desde la base de datos...');
