@@ -2729,6 +2729,51 @@ pre{
   }
 }
 
+/* ====== Estilos para tablas dentro de modales de configuración ====== */
+#configGruposContainer table {
+  color: #1c1f23 !important;
+}
+
+#configGruposContainer table th {
+  background: var(--primary) !important;
+  color: white !important;
+}
+
+#configGruposContainer table td {
+  color: #1c1f23 !important;
+  background: white !important;
+}
+
+#configGruposContainer table tr:nth-child(even) td {
+  background: #f6f7fb !important;
+}
+
+#configGruposContainer input[type="number"] {
+  color: #1c1f23 !important;
+  background: white !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  #configGruposContainer table {
+    color: #e5e7eb !important;
+  }
+  
+  #configGruposContainer table td {
+    color: #e5e7eb !important;
+    background: #2a2a3e !important;
+  }
+  
+  #configGruposContainer table tr:nth-child(even) td {
+    background: #1c1f23 !important;
+  }
+  
+  #configGruposContainer input[type="number"] {
+    color: #e5e7eb !important;
+    background: #1c1f23 !important;
+  }
+}
+
+
 /* ====== Estilos para Armado Rectangular ====== */
 
 .armado-container {
@@ -2738,6 +2783,7 @@ pre{
 
 .configuracion-global {
   background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  color: #f1f1f1;
   border: 1px solid #dee2e6;
   border-radius: 12px;
   padding: 2rem;
