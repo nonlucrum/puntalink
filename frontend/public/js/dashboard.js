@@ -313,7 +313,7 @@ export function updatePanelesDisplay(panelesActuales, elements, callbacks) {
   
   if (panelesActuales.length > 0) {
     // Mostrar tabla en el sub-acordeón con Overall Height
-    let html = "<table><thead><tr><th>#</th><th>ID Muro</th><th>Grosor</th><th>Área</th><th>Peso</th><th>Volumen</th><th>Overall Height</th><th>Overall Width</th><th>CGx</th><th>CGy</th></thead><tbody>";
+    let html = "<table><thead><tr><th>#</th><th>ID Muro</th><th>Grosor</th><th>Área</th><th>Peso</th><th>Volumen</th><th>Overall Width</th><th>Overall Height</th><th>CGx</th><th>CGy</th></thead><tbody>";
     panelesActuales.forEach((p, i) => {
       html += `<tr>
         <td>${p.num}</td>
@@ -322,8 +322,8 @@ export function updatePanelesDisplay(panelesActuales, elements, callbacks) {
         <td>${p.area ?? ''}</td>
         <td>${p.peso ?? ''}</td>
         <td>${p.volumen ?? ''}</td>
-        <td>${p.overall_height || 'N/A'}</td>
         <td>${p.overall_width || 'N/A'}</td>
+        <td>${p.overall_height || 'N/A'}</td>
         <td>${p.cgx || 'N/A'}</td>
         <td>${p.cgy || 'N/A'}</td>
       
