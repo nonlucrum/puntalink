@@ -3,14 +3,55 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Nuevo Proyecto - PuntaLink</title>
+  <title>Configuración de Proyecto</title>
+
+  <!-- Tus estilos globales -->
   <link rel="stylesheet" href="styles.css"/>
 
-  <!-- Google Identity Services -->
+  <!-- SDK de Google Identity Services (ya lo usabas) -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <!-- Estilos mínimos para el slideshow (puedes moverlos a styles.css si prefieres) -->
+  <style>
+    /* ===== Fondo con cross-fade ===== */
+    .bg-slideshow{
+      position: fixed;
+      left: 0; top: 0;
+      width: 100vw; height: 100vh;
+      z-index: 0; /* detrás del contenido */
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .bg-slideshow .bg-layer{
+      position: absolute;
+      inset: 0;
+      background-size: cover;
+      background-position: center;
+      opacity: 0;
+      transition: opacity 1.8s ease; /* transición lenta */
+      will-change: opacity;
+    }
+    .bg-slideshow .bg-layer.is-visible{ opacity: 1; }
+
+    /* Asegura que el contenido quede por encima del fondo */
+    .app-main{ position: relative; z-index: 1; }
+
+    /* Overlay para legibilidad; si te oscurece mucho, puedes quitarlo */
+    .bg-slideshow::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      background: linear-gradient(180deg, rgba(0,0,0,.20), rgba(0,0,0,.40));
+    }
+  </style>
 </head>
+
 <body class="project-body">
-  <main>
+  <!-- Fondo: slideshow (nuevo, primer hijo del body) -->
+  <div id="bg-slideshow" class="bg-slideshow" aria-hidden="true"></div>
+
+  <!-- Contenido -->
+  <main class="app-main">
     <section class="card-project">
       <h1>Configuración de Proyecto</h1>
 
@@ -97,29 +138,7 @@
         </div>
       </form>
 
-      <div id="projectList" class="project-list" style="display:none">
-        <!-- <button class="project-card">
-          <div style="display: flex; flex-direction: row">
-            <svg width="40" height="77">
-              <circle cx="0" cy="38.5" r="30" stroke="#ccc" stroke-width="3" fill="transparent" />
-              <rect x="-30" y="8.5" width="60" height="60" stroke="#ccc" stroke-width="3" fill="transparent" style="display:none" />
-              <polygon points="-30,12 30,12 0,64" style="fill:transparent;stroke:#ccc;stroke-width:3;display:none" />
-            </svg>
-            <div class="project-card-title">
-              <h3>Frontier 04</h3>
-              <h4>Magnorth</h4>
-              <text class="project-card-var">Muerto Cilíndrico</text>
-              <text class="project-card-var">28/10/2025 18:30</text>
-            </div>
-          </div>
-          <div class="project-card-info">
-            <text class="project-card-var">Hidalgo, México</text>
-            <text class="project-card-var">128 km/h</text>
-            <text class="project-card-var">30 °C</text>
-            <text class="project-card-var">760 mmHg</text>
-          </div>
-        </button> -->
-      </div>
+      <div id="projectList" class="project-list" style="display:none"></div>
 
       <!-- Callback global que invoca Google; delega al handler que define script.js -->
       <script>
@@ -132,6 +151,60 @@
         }
       </script>
 
+      <!-- Slideshow de fondo: inicialización (no toca tu lógica existente) -->
+      <script>
+        document.addEventListener('DOMContentLoaded', function initBackgroundSlideshow(){
+          const container = document.getElementById("bg-slideshow");
+          if (!container) return;
+
+          // RUTAS RELATIVAS dentro de public/
+          const IMAGES = [
+            "img/background/1.png",
+            "img/background/2.png",
+            "img/background/3.png",
+            "img/background/4.png",
+            "img/background/5.png",
+          ];
+          const INTERVAL_MS = 5000;   // cada 5 s
+
+          // Precarga
+          IMAGES.forEach(src => { const i = new Image(); i.src = src; });
+
+          // Dos capas para cross-fade real
+          const a = document.createElement("div");
+          const b = document.createElement("div");
+          a.className = "bg-layer";
+          b.className = "bg-layer";
+          container.appendChild(a);
+          container.appendChild(b);
+
+          let idx = 0;
+          let showA = true;
+
+          a.style.backgroundImage = `url(${IMAGES[idx]})`;
+          a.classList.add("is-visible");
+          b.style.backgroundImage = `url(${IMAGES[(idx + 1) % IMAGES.length]})`;
+
+          setInterval(() => {
+            const next = (idx + 1) % IMAGES.length;
+
+            if (showA) {
+              b.style.backgroundImage = `url(${IMAGES[next]})`;
+              b.classList.add("is-visible");
+              a.classList.remove("is-visible");
+            } else {
+              a.style.backgroundImage = `url(${IMAGES[next]})`;
+              a.classList.add("is-visible");
+              b.classList.remove("is-visible");
+            }
+
+            showA = !showA;
+            idx = next;
+          }, INTERVAL_MS);
+        });
+      </script>
+
+      <!-- Tu bundle actual (no se toca) -->
       <script type="module" src="script.js"></script>
     </section>
   </main>

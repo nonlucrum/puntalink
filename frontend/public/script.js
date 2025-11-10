@@ -21,6 +21,132 @@ import {
 } from './js/index.js';
 
 const { confirmar, mostrarNotificacion, BarraProgreso, ejecutarConLoading, debounce, formatearError } = window.Usability || {};
+/* =========================
+   Fondo: Slideshow (5 s, fade lento)
+   Carpeta: public/img/backgrounds/
+   Archivos: 1..5 con extensión png/jpg/jpeg/webp
+   ========================= */
+(function () {
+  const INTERVAL_MS = 5000;     // tiempo entre cambios
+  const TRANSITION_MS = 1800;   // duración del fade (lento)
+  const exts = ['png', 'jpg', 'jpeg', 'webp'];
+  const base = new URL('img/backgrounds/', document.baseURI);
+
+  // --- utils: resuelve la primera URL existente entre varias opciones ---
+  function resolveExisting(sources, done) {
+    let i = 0;
+    function tryNext() {
+      if (i >= sources.length) return done(null);
+      const url = sources[i++];
+      const img = new Image();
+      img.onload = () => done(url);
+      img.onerror = tryNext;
+      img.src = url;
+    }
+    tryNext();
+  }
+  function sourcesFor(n) {
+    return exts.map(ext => new URL(`${n}.${ext}`, base).toString());
+  }
+
+  // --- crea/asegura el contenedor y estilos mínimos (por si falta CSS) ---
+  function ensureContainer() {
+    let c = document.getElementById('bg-slideshow');
+    if (!c) {
+      c = document.createElement('div');
+      c.id = 'bg-slideshow';
+      c.setAttribute('aria-hidden', 'true');
+      // lo dejamos como primer hijo del body
+      document.body.prepend(c);
+    }
+    const cs = getComputedStyle(c);
+    if (cs.position === 'static') {
+      Object.assign(c.style, {
+        position: 'fixed',
+        left: '0',
+        top: '0',
+        width: '100vw',
+        height: '100vh',
+        zIndex: '0',
+        pointerEvents: 'none',
+        overflow: 'hidden'
+      });
+    }
+    return c;
+  }
+  function makeLayer() {
+    const el = document.createElement('div');
+    Object.assign(el.style, {
+      position: 'absolute',
+      inset: '0',
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      opacity: '0',
+      transition: `opacity ${TRANSITION_MS}ms ease`,
+      willChange: 'opacity'
+    });
+    return el;
+  }
+
+  function start() {
+    const container = ensureContainer();
+    const a = makeLayer();
+    const b = makeLayer();
+    container.appendChild(a);
+    container.appendChild(b);
+
+    // imagen inicial (1) y pre-set de la siguiente (2)
+    resolveExisting(sourcesFor(1), (url1) => {
+      if (!url1) {
+        console.error('[BG] No se encontró 1.(png/jpg/jpeg/webp) en', base.href);
+        return;
+      }
+      a.style.backgroundImage = `url("${url1}")`;
+      a.style.opacity = '1';
+      resolveExisting(sourcesFor(2), (url2) => {
+        if (url2) b.style.backgroundImage = `url("${url2}")`;
+      });
+    });
+
+    let idx = 1;      // 1..5
+    let showA = true;
+
+    setInterval(() => {
+      idx = (idx % 5) + 1;   // 1→2→3→4→5→1
+      resolveExisting(sourcesFor(idx), (nextUrl) => {
+        if (!nextUrl) {
+          console.error('[BG] No se encontró', sourcesFor(idx));
+          return;
+        }
+        if (showA) {
+          b.style.backgroundImage = `url("${nextUrl}")`;
+          b.style.opacity = '1';
+          a.style.opacity = '0';
+        } else {
+          a.style.backgroundImage = `url("${nextUrl}")`;
+          a.style.opacity = '1';
+          b.style.opacity = '0';
+        }
+        showA = !showA;
+      });
+    }, INTERVAL_MS);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    start();
+
+    // Toggle opcional si existe el botón
+    const btn = document.getElementById('toggleBackG');
+    const cont = document.getElementById('bg-slideshow');
+    if (btn && cont) {
+      btn.addEventListener('click', () => {
+        const hidden = cont.style.display === 'none';
+        cont.style.display = hidden ? 'block' : 'none';
+        btn.setAttribute('aria-pressed', String(hidden));
+      });
+    }
+  });
+})();
 
 // --- API BASE ---
 const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
