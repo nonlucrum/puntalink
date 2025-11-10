@@ -39,9 +39,11 @@ window.onGoogleCredential = async (response) => {
     const resp = await fetch(`${API_BASE}/api/auth/google`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credential }),
       credentials: 'include',             // ⬅️ IMPORTANTE
-      body: JSON.stringify({ credential })// id_token
+      // id_token
     });
+    
 
     if (!resp.ok) {
       const text = await resp.text().catch(() => '');
@@ -51,6 +53,12 @@ window.onGoogleCredential = async (response) => {
     }
 
     const data = await resp.json();
+    if (data.ok) {
+      // aquí fuerzas recarga o redirección
+      window.location.reload();        // recarga la misma
+      // o
+      // window.location.href = '/dashboard';
+    }
     console.log('[LOGIN] OK:', data);
 
     const me = await fetch(`${API_BASE}/api/auth/me`, { credentials: 'include' }).then(r => r.json());
