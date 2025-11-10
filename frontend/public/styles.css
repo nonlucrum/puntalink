@@ -23,6 +23,9 @@
     --shadow: 0 8px 24px rgba(82, 77, 77, 0.35);
   }
 }
+/* El slideshow va detrás de todo */
+.bg-slideshow { z-index: -10 !important; }
+main, header, .app-main, .dashboard-root { position: relative; z-index: 1; }
 
 input[type=number] {
   -webkit-appearance: textfield;
