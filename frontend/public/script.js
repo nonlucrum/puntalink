@@ -790,7 +790,7 @@ async function mostrarResultadosViento(data) {
       <thead>
         <tr>
           <th rowspan="2">Muro</th>
-          <th colspan="5" style="background: #e3f2fd;">Datos del Muro</th>
+          <th colspan="4" style="background: #e3f2fd;">Datos del Muro</th>
           <th colspan="4" style="background: #fff3e0;">Cálculos de Viento</th>
           <th colspan="5" style="background: #f3e5f5;">Parámetros Braces (Editables)</th>
           <th colspan="3" style="background: #e8f5e9;">Geometría Inserto</th>
