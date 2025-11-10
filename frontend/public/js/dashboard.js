@@ -1304,12 +1304,32 @@ export async function confirmarImportacionFiltrada() {
   
   const rangosValidos = obtenerRangosEliminacion();
   
+  // Si no hay rangos definidos, importar todos los muros sin eliminar ninguno
   if (rangosValidos.length === 0) {
-    await mostrarModalConfirmacion(
-      'Sin rangos de eliminación',
-      '⚠️ No has definido ningún rango de eliminación.\n\nHaz clic en "Agregar Rango" para definir qué muros deseas eliminar.',
-      { tipo: 'warning', mostrarCancelar: false }
+    const confirmarSinEliminar = await mostrarModalConfirmacion(
+      'Importar sin eliminar',
+      '⚠️ No has definido ningún rango de eliminación.\n\n¿Deseas importar TODOS los muros detectados sin eliminar ninguno?',
+      { tipo: 'info', textoAceptar: 'Sí, importar todos', textoCancelar: 'Cancelar' }
     );
+    
+    if (!confirmarSinEliminar) {
+      console.log('[DASHBOARD] Usuario canceló importación sin rangos');
+      return;
+    }
+    
+    // Importar todos los muros sin eliminar
+    console.log('[DASHBOARD] Importando todos los muros sin eliminación');
+    finalizarImportacion(murosOriginales);
+    
+    // Ocultar sección de eliminación
+    document.getElementById('eliminarMurosAccordion').style.display = 'none';
+    
+    await mostrarModalConfirmacion(
+      'Mensaje',
+      `✅ Importación exitosa!\n\n• Muros importados: ${murosOriginales.length}`,
+      { tipo: 'success', mostrarCancelar: false }
+    );
+    
     return;
   }
   
@@ -2113,6 +2133,81 @@ async function ejecutarCalculosArmado() {
     // 6. Guardar resultados globalmente
     window.ultimosResultadosMacizos = resultados;
     console.log('[DASHBOARD] ✅ ejecutarCalculosArmado - Completado');
+    
+    // 7. LOG DETALLADO: Verificar todos los valores de las tablas del proyecto
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('📊 VERIFICACIÓN COMPLETA DE DATOS DEL PROYECTO');
+    console.log('═══════════════════════════════════════════════════════════');
+    
+    // Obtener proyecto actual
+    const projectConfig = JSON.parse(localStorage.getItem('projectConfig') || '{}');
+    console.log('🔧 Proyecto:', projectConfig);
+    
+    // Verificar muros en la base de datos
+    try {
+      const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:4008' : '';
+      const murosResponse = await fetch(`${API_BASE}/api/importar-muros/muros?pk_proyecto=${projectConfig.pid}`);
+      const murosData = await murosResponse.json();
+      
+      console.log(`📋 TABLA MURO - Total registros: ${murosData.muros?.length || 0}`);
+      murosData.muros?.forEach((muro, index) => {
+        console.log(`   Muro ${index + 1} (PID: ${muro.pid}):`);
+        console.log(`      ID: ${muro.id_muro}`);
+        console.log(`      Eje: ${muro.eje || 'sin asignar'}`);
+        console.log(`      Ángulo: ${muro.angulo_brace}°`);
+        console.log(`      NPT: ${muro.npt}m`);
+        console.log(`      Tipo brace: ${muro.tipo_brace_seleccionado}`);
+        console.log(`      X braces: ${muro.x_braces}`);
+        console.log(`      FB: ${muro.fb} kN`);
+        console.log(`      FBX: ${muro.fbx} kN`);
+        console.log(`      FBY: ${muro.fby} kN`);
+        console.log(`      Cant B14: ${muro.cant_b14}`);
+        console.log(`      Cant B12: ${muro.cant_b12}`);
+        console.log(`      Cant B04: ${muro.cant_b04}`);
+        console.log(`      Cant B15: ${muro.cant_b15}`);
+        console.log(`      X inserto: ${muro.x_inserto}m`);
+        console.log(`      Y inserto: ${muro.y_inserto}m`);
+        console.log(`      Área: ${muro.area}m²`);
+        console.log(`      Peso: ${muro.peso} ton`);
+        console.log(`      Grosor: ${muro.grosor}m`);
+        console.log(`      Altura: ${muro.overall_height}m`);
+        console.log(`      FK grupo muerto: ${muro.fk_grupo_muerto || 'sin asignar'}`);
+        console.log(`   ───────────────────────────────────────`);
+      });
+      
+      // Verificar grupos de muertos
+      const gruposResponse = await fetch(`${API_BASE}/api/grupos-muertos/${projectConfig.pid}`);
+      const gruposData = await gruposResponse.json();
+      
+      console.log(`📦 TABLA GRUPO_MUERTO - Total registros: ${gruposData.grupos?.length || 0}`);
+      gruposData.grupos?.forEach((grupo, index) => {
+        console.log(`   Grupo ${index + 1} (PID: ${grupo.pid}):`);
+        console.log(`      Número muerto: M${grupo.numero_muerto}`);
+        console.log(`      Nombre: ${grupo.nombre || 'sin nombre'}`);
+        console.log(`      Eje: ${grupo.eje}`);
+        console.log(`      X braces: ${grupo.x_braces}`);
+        console.log(`      Ángulo: ${grupo.angulo_brace}°`);
+        console.log(`      Tipo construcción: ${grupo.tipo_construccion}`);
+        console.log(`      Cantidad muros: ${grupo.cantidad_muros}`);
+        console.log(`      Profundidad: ${grupo.profundidad}m`);
+        console.log(`      Largo: ${grupo.largo}m`);
+        console.log(`      Ancho: ${grupo.ancho}m`);
+        console.log(`      Fuerza total: ${grupo.fuerza_total} kN`);
+        console.log(`      Volumen concreto: ${grupo.volumen_concreto}m³`);
+        console.log(`      Peso muerto: ${grupo.peso_muerto} kN`);
+        console.log(`   ───────────────────────────────────────`);
+      });
+      
+      // Verificar datos en memoria
+      console.log(`💾 DATOS EN MEMORIA:`);
+      console.log(`   gruposMuertosGlobal:`, window.gruposMuertosGlobal);
+      console.log(`   ultimosResultadosMacizos:`, window.ultimosResultadosMacizos);
+      
+    } catch (error) {
+      console.error('❌ Error al verificar tablas:', error);
+    }
+    
+    console.log('═══════════════════════════════════════════════════════════');
     
   } catch (error) {
     console.error('❌ Error al calcular armado:', error);

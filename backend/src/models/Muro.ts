@@ -129,16 +129,23 @@ export async function updateMuroEditableFields(
   x_braces?: number,
   tipo_construccion?: string,
   tipo_brace_seleccionado?: string,
-  eje?: string
+  eje?: string,
+  fb?: number,
+  fbx?: number,
+  fby?: number,
+  x_inserto?: number,
+  y_inserto?: number,
+
+
 ) {
   const query = `
     UPDATE muro
-    SET angulo_brace = $2, npt = $3, x_braces = $4, tipo_construccion = $5, tipo_brace_seleccionado = $6, eje = $7
+    SET angulo_brace = $2, npt = $3, x_braces = $4, tipo_construccion = $5, tipo_brace_seleccionado = $6, eje = $7 , fb = $8, fbx = $9, fby = $10, x_inserto = $11, y_inserto = $12
     WHERE pid = $1
     RETURNING *;
   `;
 
-  const values = [pid, angulo_brace, npt, x_braces, tipo_construccion, tipo_brace_seleccionado, eje];
+  const values = [pid, angulo_brace, npt, x_braces, tipo_construccion, tipo_brace_seleccionado, eje, fb, fbx, fby, x_inserto, y_inserto];
 
   try {
     const result = await pool.query(query, values);

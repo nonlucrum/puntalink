@@ -1403,7 +1403,7 @@ async function guardarTodosBraces() {
           tipo_brace_seleccionado: tipoBrace
         };
         
-        console.log(`[BRACES] Calculando PID ${pid} con datos:`, calcData);
+        console.log(`[BRACES] Calculando PID ${pid} con datos:`, JSON.stringify(calcData, null, 2));
         
         const calcResponse = await fetch(`${API_BASE}/api/calculos/muros/${pid}/calcular-braces`, {
           method: 'POST',
@@ -1411,9 +1411,12 @@ async function guardarTodosBraces() {
           body: JSON.stringify(calcData)
         });
         
+        console.log(`[BRACES] Response status para PID ${pid}:`, calcResponse.status, calcResponse.statusText);
+        
         if (calcResponse.ok) {
+          const calcResultado = await calcResponse.json();
+          console.log(`[BRACES] ✓ PID ${pid} guardado y calculado. Resultado:`, calcResultado);
           exitosos++;
-          console.log(`[BRACES] ✓ PID ${pid} guardado y calculado`);
         } else {
           errores++;
           const errorData = await calcResponse.json().catch(() => ({ error: 'Error desconocido' }));
@@ -2063,7 +2066,22 @@ async function reagruparMuertosDesdeBaseDatos() {
       
       // Valores del muro
       eje: muro.eje || `Eje_${index + 1}`,
-      tipo_construccion: muro.tipo_construccion || 'TILT-UP'
+      tipo_construccion: muro.tipo_construccion || 'TILT-UP',
+      
+      // ✅ CAMPOS CALCULADOS (fuerza de braces y cantidades por tipo)
+      fb: parseFloat(muro.fb) || 0,              // Fuerza total del brace (kN)
+      fbx: parseFloat(muro.fbx) || 0,            // Fuerza en X (kN)
+      fby: parseFloat(muro.fby) || 0,            // Fuerza en Y (kN)
+      cant_b14: parseInt(muro.cant_b14) || 0,    // Cantidad de braces B14
+      cant_b12: parseInt(muro.cant_b12) || 0,    // Cantidad de braces B12
+      cant_b04: parseInt(muro.cant_b04) || 0,    // Cantidad de braces B04
+      cant_b15: parseInt(muro.cant_b15) || 0,    // Cantidad de braces B15
+      
+      // Campos adicionales útiles
+      grosor: parseFloat(muro.grosor) || 0.17,   // Grosor del muro (m)
+      area: parseFloat(muro.area) || 0,          // Área del muro (m²)
+      peso: parseFloat(muro.peso) || 0,          // Peso del muro (kN)
+      volumen: parseFloat(muro.volumen) || 0     // Volumen del muro (m³)
     }));
     
     console.log(`[MUERTOS-BD] Procesando ${resultadosActualizados.length} muros con valores de BD`);

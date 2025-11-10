@@ -235,7 +235,7 @@ export const actualizarCamposEditables = async (req: Request, res: Response) => 
 export const calcularBraces = async (req: Request, res: Response) => {
   try {
     const { pid } = req.params;
-    let { angulo_brace, x_braces, tipo_brace_seleccionado, npt } = req.body;
+    let { angulo_brace, x_braces, tipo_brace_seleccionado, npt } = req.body; //aqui se agregan a la bd e
 
     console.log(`[CALCULOS] Calculando braces para muro PID: ${pid}`);
 
@@ -496,7 +496,13 @@ export const aplicarValoresGlobales = async (req: Request, res: Response) => {
           muro.x_braces,
           muro.tipo_construccion,
           muro.tipo_brace_seleccionado,
-          muro.eje
+          muro.eje,
+          muro.fb,
+          muro.fbx,
+          muro.fby,
+          muro.x_inserto,
+          muro.y_inserto,
+
         )
       )
     );

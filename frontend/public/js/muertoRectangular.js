@@ -455,12 +455,22 @@ export function calcularMacizosRectangulares(gruposPreparados, config = {}) {
     // ===== PASO 1: CALCULAR FUERZA TOTAL DEL BRACE =====
     let fuerzaBraceTotal_kN = 0;
     grupo.muros.forEach(muro => {
-      const fuerzaMuro = parseFloat(muro.fb) || 0;
+      console.log(`[MUERTO-RECTANGULAR]     Diagnóstico muro:`, {
+        id: muro.id_muro || muro.id,
+        fb: muro.fb,
+        fuerza_brace: muro.fuerza_brace,
+        fuerza_braces_kN: muro.fuerza_braces_kN,
+        campos_disponibles: Object.keys(muro)
+      });
+      
+      // Intentar múltiples campos posibles para la fuerza
+      const fuerzaMuro = parseFloat(muro.fuerza_braces_kN) || 
+                         parseFloat(muro.fuerza_brace) || 
+                         parseFloat(muro.fb) || 0;
       fuerzaBraceTotal_kN += fuerzaMuro;
     });
-    fuerzaBraceTotal_kN = fuerzaBraceTotal_kN * 1000; // Convertir a N (de kN)
     
-    console.log(`[MUERTO-RECTANGULAR]   Fuerza total brace: ${fuerzaBraceTotal_kN / 1000} kN`);
+    console.log(`[MUERTO-RECTANGULAR]   Fuerza total brace: ${fuerzaBraceTotal_kN} kN`);
     
     // ===== PASO 2: CALCULAR PESO DEL MUERTO =====
     // Fórmula: pesoMuerto = fuerza * (sin(ángulo) - fricción * cos(ángulo))
@@ -469,8 +479,19 @@ export function calcularMacizosRectangulares(gruposPreparados, config = {}) {
     const cos_ang = Math.cos(anguloRad);
     const friccion = configGrupo.friccion || 0.3;
     
-    const pesoMuerto_N = fuerzaBraceTotal_kN * (sin_ang - friccion * cos_ang);
+    // Convertir kN a N para el cálculo
+    const fuerzaBrace_N = fuerzaBraceTotal_kN * 1000;
+    const pesoMuerto_N = fuerzaBrace_N * (sin_ang - friccion * cos_ang);
     const pesoMuerto_kg = pesoMuerto_N / 9.81;
+
+    console.log(`[MUERTO-RECTANGULAR]   Cálculo peso muerto:`);
+    console.log(`[MUERTO-RECTANGULAR]     Ángulo (rad): ${anguloRad.toFixed(4)}`);
+    console.log(`[MUERTO-RECTANGULAR]     sin(ángulo): ${sin_ang.toFixed(4)}`);
+    console.log(`[MUERTO-RECTANGULAR]     cos(ángulo): ${cos_ang.toFixed(4)}`);
+    console.log(`[MUERTO-RECTANGULAR]     Fuerza brace (N): ${fuerzaBrace_N.toFixed(2)}`);
+    console.log(`[MUERTO-RECTANGULAR]     Peso muerto (N): ${pesoMuerto_N.toFixed(2)} N`);
+    console.log(`[MUERTO-RECTANGULAR]     Peso muerto (kg): ${pesoMuerto_kg.toFixed(2)} kg`);
+    console.log(`[MUERTO-RECTANGULAR]     Fuerza total brace: ${fuerzaBraceTotal_kN}`);
     
     console.log(`[MUERTO-RECTANGULAR]   Peso del muerto: ${pesoMuerto_kg.toFixed(2)} kg`);
     
