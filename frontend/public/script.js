@@ -750,8 +750,9 @@ async function calcularCargasViento() {
  * Función para mostrar resultados de viento en la interfaz
  * Implementa la visualización según los resultados del Excel
  */
-async function mostrarResultadosViento(data) {
+export async function mostrarResultadosViento(data) {
   console.log('[WIND] Mostrando resultados de viento');
+  console.log('[WIND] Datos recibidos para mostrar:', data);
   
   // Normalizar data - puede venir como array directo o como objeto con propiedad resultados
   let resultados;
@@ -963,105 +964,107 @@ async function mostrarResultadosViento(data) {
   // Crear detalle de cálculos
   let htmlDetalle = '';
   
-  resultados.forEach(resultado => {
-    htmlDetalle += `
-      <div class="calculation-detail">
-        <div class="calculation-detail-header" onclick="toggleCalculationDetail(this)">
-          <span>Muro ${resultado.id_muro} - Detalle de Cálculos</span>
-          <span>▼</span>
-        </div>
-        <div class="calculation-detail-content">
-    `;
+  if (resultados.parametros_utilizados !== undefined) {
+    resultados.forEach(resultado => {
+        htmlDetalle += `
+        <div class="calculation-detail">
+            <div class="calculation-detail-header" onclick="toggleCalculationDetail(this)">
+            <span>Muro ${resultado.id_muro} - Detalle de Cálculos</span>
+            <span>▼</span>
+            </div>
+            <div class="calculation-detail-content">
+        `;
 
-    // Mostrar advertencias si las hay
-    if (resultado.advertencias.length > 0) {
-      resultado.advertencias.forEach(advertencia => {
-        const esAlerta = resultado.requiere_analisis_dinamico;
-        htmlDetalle += `<div class="${esAlerta ? 'wind-alert' : 'wind-warning'}">${advertencia}</div>`;
-      });
-    }
-
-    // Debug: Verificar qué valores están llegando
-    console.log('[DEBUG] Resultado completo:', resultado);
-    console.log('[DEBUG] Alpha:', resultado.alpha);
-    console.log('[DEBUG] Delta:', resultado.delta);
-    
-    // Usar valores por defecto si no llegan (temporal para debug)
-    const alphaValue = resultado.alpha || 'undefined';
-    const deltaValue = resultado.delta || 'undefined';
-    
-    // Detalle paso a paso con fórmulas y valores calculados por el backend
-    htmlDetalle += `<ol>`;
-    htmlDetalle += `<li><strong>Datos del Muro:</strong> Área = ${resultado.area_m2} m², Altura = ${resultado.altura_z_m} m</li>`;
-    htmlDetalle += `<li><strong>Factor de rugosidad:</strong> Frz = 1.56 × (Z/δ)^α = 1.56 × (${resultado.altura_z_m}/${deltaValue})^${alphaValue} = ${resultado.Frz}</li>`;
-    htmlDetalle += `<li><strong>Factor de exposición:</strong> Fα = FC × Frz × FT = ${resultado.FC} × ${resultado.Frz} × ${data.parametros_utilizados.FT} = ${resultado.Falpha}</li>`;
-    htmlDetalle += `<li><strong>Velocidad de diseño:</strong> Vd = VR × Fα = ${data.parametros_utilizados.VR_kmh} × ${resultado.Falpha} = ${resultado.Vd_kmh} km/h</li>`;
-    htmlDetalle += `<li><strong>Corrección atmosférica:</strong> Corrección = ${resultado.correccion}</li>`;
-    htmlDetalle += `<li><strong>Factor G:</strong> G = ${resultado.G} (corrección por temperatura y altura)</li>`;
-    htmlDetalle += `<li><strong>Presión dinámica:</strong> qz = 0.0048 × G × (VD)² = 0.0048 × ${resultado.G} × (${resultado.Vd_kmh})² = ${resultado.qz_kPa} kPa</li>`;
-    htmlDetalle += `<li><strong>Presión neta:</strong> P = qz × (Cpi - Cpe) × Factor = ${resultado.qz_kPa} × (${data.parametros_utilizados.Cp_int} - ${data.parametros_utilizados.Cp_ext}) × ${data.parametros_utilizados.factor_succion} = ${resultado.presion_kPa} kPa</li>`;
-    htmlDetalle += `<li><strong>Fuerza de viento:</strong> F = qz × Área = ${resultado.qz_kPa} × ${resultado.area_m2} = ${resultado.fuerza_kN} kN</li>`;
-    
-    if (resultado.YCG !== undefined) {
-      htmlDetalle += `<li><strong>Centro de gravedad (YCG):</strong> YCG = H/2 = ${resultado.altura_z_m}/2 = ${resultado.YCG} m</li>`;
-    }
-    
-    
-    
-    if (resultado.grados_inclinacion_brace !== undefined) {
-      htmlDetalle += `<li><strong>Inclinación brace:</strong> θ = arctan(altura_anclaje/distancia_horizontal) = ${resultado.grados_inclinacion_brace}°</li>`;
-    }
-    if (resultado.tipo_brace !== undefined) {
-      htmlDetalle += `<li><strong>Especificaciones del brace:</strong></li>`;
-      htmlDetalle += `<ul>`;
-      htmlDetalle += `<li><strong>Tipo:</strong> ${resultado.tipo_brace}</li>`;
-      if (resultado.longitud_brace_m !== undefined) {
-        htmlDetalle += `<li><strong>Longitud estimada:</strong> ${resultado.longitud_brace_m} m</li>`;
-      }
-      if (resultado.modelo_brace !== undefined) {
-        htmlDetalle += `<li><strong>Modelo sugerido:</strong> ${resultado.modelo_brace}</li>`;
-      }
-      
-      if (resultado.total_braces !== undefined) {
-        htmlDetalle += `<li><strong>Distribución de braces:</strong></li>`;
-        htmlDetalle += `<ul>`;
-        htmlDetalle += `<li><strong>Total braces necesarios:</strong> ${resultado.total_braces}</li>`;
-        if (resultado.modelo_principal_brace) {
-          htmlDetalle += `<li><strong>Modelo principal:</strong> ${resultado.modelo_principal_brace}</li>`;
-        }
-        if (resultado.resumen_distribucion_braces) {
-          htmlDetalle += `<li><strong>Resumen distribución:</strong> ${resultado.resumen_distribucion_braces}</li>`;
-        }
-        if (resultado.distribucion_braces) {
-          htmlDetalle += `<li><strong>Detalle por modelo:</strong></li>`;
-          htmlDetalle += `<ul>`;
-          Object.entries(resultado.distribucion_braces).forEach(([modelo, cantidad]) => {
-            if (cantidad > 0) {
-              htmlDetalle += `<li>${modelo}: ${cantidad} unidades</li>`;
-            }
-          });
-          htmlDetalle += `</ul>`;
-        }
-        htmlDetalle += `</ul>`;
-      }
-      
-      if (resultado.observaciones_brace && resultado.observaciones_brace.length > 0) {
-        htmlDetalle += `<li><strong>Observaciones:</strong></li>`;
-        htmlDetalle += `<ul>`;
-        resultado.observaciones_brace.forEach(obs => {
-          htmlDetalle += `<li>${obs}</li>`;
+        // Mostrar advertencias si las hay
+        if (resultado.advertencias.length > 0) {
+        resultado.advertencias.forEach(advertencia => {
+            const esAlerta = resultado.requiere_analisis_dinamico;
+            htmlDetalle += `<div class="${esAlerta ? 'wind-alert' : 'wind-warning'}">${advertencia}</div>`;
         });
-        htmlDetalle += `</ul>`;
-      }
-      htmlDetalle += `</ul>`;
-    }
-    htmlDetalle += `</ol>`;
+        }
 
-    htmlDetalle += `
+        // Debug: Verificar qué valores están llegando
+        console.log('[DEBUG] Resultado completo:', resultado);
+        console.log('[DEBUG] Alpha:', resultado.alpha);
+        console.log('[DEBUG] Delta:', resultado.delta);
+        
+        // Usar valores por defecto si no llegan (temporal para debug)
+        const alphaValue = resultado.alpha || 'undefined';
+        const deltaValue = resultado.delta || 'undefined';
+        
+        // Detalle paso a paso con fórmulas y valores calculados por el backend
+        htmlDetalle += `<ol>`;
+        htmlDetalle += `<li><strong>Datos del Muro:</strong> Área = ${resultado.area_m2} m², Altura = ${resultado.altura_z_m} m</li>`;
+        htmlDetalle += `<li><strong>Factor de rugosidad:</strong> Frz = 1.56 × (Z/δ)^α = 1.56 × (${resultado.altura_z_m}/${deltaValue})^${alphaValue} = ${resultado.Frz}</li>`;
+        htmlDetalle += `<li><strong>Factor de exposición:</strong> Fα = FC × Frz × FT = ${resultado.FC} × ${resultado.Frz} × ${data.parametros_utilizados.FT} = ${resultado.Falpha}</li>`;
+        htmlDetalle += `<li><strong>Velocidad de diseño:</strong> Vd = VR × Fα = ${data.parametros_utilizados.VR_kmh} × ${resultado.Falpha} = ${resultado.Vd_kmh} km/h</li>`;
+        htmlDetalle += `<li><strong>Corrección atmosférica:</strong> Corrección = ${resultado.correccion}</li>`;
+        htmlDetalle += `<li><strong>Factor G:</strong> G = ${resultado.G} (corrección por temperatura y altura)</li>`;
+        htmlDetalle += `<li><strong>Presión dinámica:</strong> qz = 0.0048 × G × (VD)² = 0.0048 × ${resultado.G} × (${resultado.Vd_kmh})² = ${resultado.qz_kPa} kPa</li>`;
+        htmlDetalle += `<li><strong>Presión neta:</strong> P = qz × (Cpi - Cpe) × Factor = ${resultado.qz_kPa} × (${data.parametros_utilizados.Cp_int} - ${data.parametros_utilizados.Cp_ext}) × ${data.parametros_utilizados.factor_succion} = ${resultado.presion_kPa} kPa</li>`;
+        htmlDetalle += `<li><strong>Fuerza de viento:</strong> F = qz × Área = ${resultado.qz_kPa} × ${resultado.area_m2} = ${resultado.fuerza_kN} kN</li>`;
+        
+        if (resultado.YCG !== undefined) {
+        htmlDetalle += `<li><strong>Centro de gravedad (YCG):</strong> YCG = H/2 = ${resultado.altura_z_m}/2 = ${resultado.YCG} m</li>`;
+        }
+        
+        
+        
+        if (resultado.grados_inclinacion_brace !== undefined) {
+        htmlDetalle += `<li><strong>Inclinación brace:</strong> θ = arctan(altura_anclaje/distancia_horizontal) = ${resultado.grados_inclinacion_brace}°</li>`;
+        }
+        if (resultado.tipo_brace !== undefined) {
+        htmlDetalle += `<li><strong>Especificaciones del brace:</strong></li>`;
+        htmlDetalle += `<ul>`;
+        htmlDetalle += `<li><strong>Tipo:</strong> ${resultado.tipo_brace}</li>`;
+        if (resultado.longitud_brace_m !== undefined) {
+            htmlDetalle += `<li><strong>Longitud estimada:</strong> ${resultado.longitud_brace_m} m</li>`;
+        }
+        if (resultado.modelo_brace !== undefined) {
+            htmlDetalle += `<li><strong>Modelo sugerido:</strong> ${resultado.modelo_brace}</li>`;
+        }
+        
+        if (resultado.total_braces !== undefined) {
+            htmlDetalle += `<li><strong>Distribución de braces:</strong></li>`;
+            htmlDetalle += `<ul>`;
+            htmlDetalle += `<li><strong>Total braces necesarios:</strong> ${resultado.total_braces}</li>`;
+            if (resultado.modelo_principal_brace) {
+            htmlDetalle += `<li><strong>Modelo principal:</strong> ${resultado.modelo_principal_brace}</li>`;
+            }
+            if (resultado.resumen_distribucion_braces) {
+            htmlDetalle += `<li><strong>Resumen distribución:</strong> ${resultado.resumen_distribucion_braces}</li>`;
+            }
+            if (resultado.distribucion_braces) {
+            htmlDetalle += `<li><strong>Detalle por modelo:</strong></li>`;
+            htmlDetalle += `<ul>`;
+            Object.entries(resultado.distribucion_braces).forEach(([modelo, cantidad]) => {
+                if (cantidad > 0) {
+                htmlDetalle += `<li>${modelo}: ${cantidad} unidades</li>`;
+                }
+            });
+            htmlDetalle += `</ul>`;
+            }
+            htmlDetalle += `</ul>`;
+        }
+        
+        if (resultado.observaciones_brace && resultado.observaciones_brace.length > 0) {
+            htmlDetalle += `<li><strong>Observaciones:</strong></li>`;
+            htmlDetalle += `<ul>`;
+            resultado.observaciones_brace.forEach(obs => {
+            htmlDetalle += `<li>${obs}</li>`;
+            });
+            htmlDetalle += `</ul>`;
+        }
+        htmlDetalle += `</ul>`;
+        }
+        htmlDetalle += `</ol>`;
+
+        htmlDetalle += `
+            </div>
         </div>
-      </div>
-    `;
-  });
+        `;
+    });
+    }
 
   detalleCalculos.innerHTML = htmlDetalle;
 

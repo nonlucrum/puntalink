@@ -7,6 +7,8 @@ import {
   generarTablaResultadosMacizos
 } from './muertoRectangular.js';
 
+import {mostrarResultadosViento} from '../script.js';
+
 const API_BASE =
   window.location.hostname === "localhost"
     ? "http://localhost:4008"   // dev backend
@@ -171,6 +173,35 @@ export async function loadProjectInfo() {
             // Actualizar tabla de paneles usando la función global
             if (typeof updatePanelesDisplay === 'function') {
                 updatePanelesDisplay(globalVars.panelesActuales, uiElements, callbacks);
+            }
+            console.log('[FRONTEND] Paneles restaurados en la UI');
+            if (globalVars.panelesActuales.length > 0 && globalVars.panelesActuales[0].x_braces != 0) {
+                let tablaCalculada = [];
+                globalVars.panelesActuales.forEach(muro => {
+                    tablaCalculada.push({
+                        pid: muro.pid,
+                        id_muro: muro.id_muro,
+                        angulo_brace: parseFloat(muro.angulo_brace),
+                        npt: parseFloat(muro.npt),
+                        factor_w2: parseFloat(muro.factor_w2),
+                        tipo_brace_seleccionado: muro.tipo_brace_seleccionado,
+                        altura_z_m: parseFloat(muro.overall_height),
+                        presion_kPa: parseFloat(muro.presion_kpa),
+                        fuerza_kN: parseFloat(muro.fuerza_viento),
+                        area_m2: parseFloat(muro.area),
+                        peso_ton: parseFloat(muro.peso),
+                        YCG: muro.overall_height / 2, //no se tiene en la bd
+                        Vd_kmh: 0,
+                        qz_kPa: parseFloat(muro.qz_kpa),
+                        presion_kPa: parseFloat(muro.presion_kpa),
+                        eje: muro.eje,
+                        advertencias: []
+                    });
+                });
+                console.log('[FRONTEND] Mostrando resultados de viento desde datos guardados...');
+                console.log(tablaCalculada);
+                await mostrarResultadosViento(tablaCalculada);
+                console.log('[FRONTEND] Resultados de viento mostrados desde datos guardados');
             }
         }
         
