@@ -14,7 +14,7 @@
 @media (prefers-color-scheme: dark){
   :root{
     --bg: #0f1523;
-    --card: #141b2d;
+    --card: #252d41;
     --text: #f1f1f1;
     --muted: #95a3b8;
     --primary: #4aa3ff;
@@ -2986,7 +2986,7 @@ pre{
 }
 
 .project-info-section {
-  background-color: #0f172a;
+  background-color: #252d41;
   border: 1px solid #223049;
   border-radius: 10px;
   padding: 1.5rem;
