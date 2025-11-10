@@ -2078,10 +2078,101 @@ async function reagruparMuertos() {
 async function ejecutarCalculosArmado() {
   try {
     console.log('[DASHBOARD] ejecutarCalculosArmado - Iniciando cálculos de macizos de anclaje');
+    
+    // PASO 0: Guardar todos los cambios en la BD antes de calcular
+    console.log('[DASHBOARD] Guardando todos los cambios en la BD antes de calcular armado...');
+    try {
+      // Ejecutar el botón de guardar si existe (simular click)
+      const btnGuardarTop = document.getElementById('btnGuardarTodosBracesTop');
+      const btnGuardarBottom = document.getElementById('btnGuardarTodosBraces');
+      
+      if (btnGuardarTop && btnGuardarTop.onclick) {
+        console.log('[DASHBOARD] Ejecutando guardar cambios automáticamente...');
+        await btnGuardarTop.onclick();
+        console.log('[DASHBOARD] Cambios guardados exitosamente');
+      } else if (btnGuardarBottom && btnGuardarBottom.onclick) {
+        console.log('[DASHBOARD] Ejecutando guardar cambios automáticamente (botón inferior)...');
+        await btnGuardarBottom.onclick();
+        console.log('[DASHBOARD] Cambios guardados exitosamente');
+      } else {
+        console.log('[DASHBOARD] No se encontró botón de guardar, intentando función directa...');
+        // Intentar llamar la función directamente desde el scope global
+        if (window.guardarTodosBraces && typeof window.guardarTodosBraces === 'function') {
+          await window.guardarTodosBraces();
+          console.log('[DASHBOARD] Cambios guardados con función global');
+        }
+      }
+      
+      // Pausa para asegurar que los cambios se han procesado en la BD
+      console.log('[DASHBOARD] Esperando 1 segundo para que la BD procese los cambios...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // RECARGAR datos desde la BD para tener los valores actualizados
+      console.log('[DASHBOARD] Recargando datos actualizados desde la base de datos...');
+      
+      const projectConfig = localStorage.getItem('projectConfig');
+      if (!projectConfig) {
+        throw new Error('No hay proyecto seleccionado');
+      }
+      
+      const project = JSON.parse(projectConfig);
+      const pid = project.pid || project.id;
+      console.log('[DASHBOARD] PID para cargar muros:', pid);
+      
+      if (!pid) {
+        throw new Error('No se encontró ID del proyecto');
+      }
+      
+      // Recargar datos de muros desde la BD
+      const response = await fetch(`${API_BASE}/api/importar-muros/muros?pk_proyecto=${pid}`);
+      if (!response.ok) {
+        throw new Error('Error al recargar datos de muros');
+      }
+      
+      const responseData = await response.json();
+      const murosActualizados = responseData.muros || responseData;
+      console.log('[DASHBOARD] Datos recargados desde BD:', murosActualizados.length, 'muros');
+      console.log('[DASHBOARD] Primer muro de BD (con fb):', murosActualizados[0]);
+      
+      // Regenerar gruposMuertosGlobal con los datos actualizados
+      console.log('[DASHBOARD] Regenerando gruposMuertosGlobal con datos actualizados...');
+      const gruposMuertosActualizados = {};
+      
+      murosActualizados.forEach(muro => {
+        const xBraces = muro.x_braces || 2;
+        const angulo = Math.round(muro.angulo_brace || muro.angulo || 55);
+        const eje = muro.eje || 1;
+        
+        // Usar formato script.js (clave: x_ang_eje)
+        const clave = `${xBraces}_${angulo}_${eje}`;
+        
+        if (!gruposMuertosActualizados[clave]) {
+          gruposMuertosActualizados[clave] = {
+            x_braces: xBraces,
+            angulo: angulo,
+            eje: eje,
+            muros: []
+          };
+        }
+        
+        gruposMuertosActualizados[clave].muros.push(muro);
+      });
+      
+      // Actualizar global
+      window.gruposMuertosGlobal = gruposMuertosActualizados;
+      console.log('[DASHBOARD] gruposMuertosGlobal actualizado con datos de BD');
+      console.log('[DASHBOARD] Claves:', Object.keys(gruposMuertosActualizados));
+      console.log('[DASHBOARD] Primer grupo (debug):', Object.values(gruposMuertosActualizados)[0]);
+      
+    } catch (errorGuardar) {
+      console.error('[DASHBOARD] Error al guardar/recargar cambios:', errorGuardar);
+      alert('⚠️ Advertencia: No se pudieron guardar los cambios automáticamente. Los cálculos pueden usar datos desactualizados.');
+    }
+    
     console.log('[DASHBOARD] window.gruposMuertosGlobal:', window.gruposMuertosGlobal);
     console.log('[DASHBOARD] window.lastResultadosMuertos:', window.lastResultadosMuertos);
     
-    // 1. Obtener datos de gruposMuertos desde el global
+    // 1. Obtener datos de gruposMuertos desde el global (ya actualizado)
     const gruposMuertos = window.gruposMuertosGlobal;
     
     if (!gruposMuertos || Object.keys(gruposMuertos).length === 0) {
