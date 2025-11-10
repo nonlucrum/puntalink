@@ -238,7 +238,7 @@ body{
 .field{ display:flex; flex-direction: column; gap:.35rem; }
 label{ font-size: .9rem; color: var(--muted); }
 input, select, textarea{
-  background: var(--bg);
+  background: #252d41;;
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -3090,7 +3090,7 @@ label {
   max-width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  background: #0f172a;   /* mismo color que tu tema */
+  background:  #252d41;   /* mismo color que tu tema */
   border: 1px solid #242629
 ;
   border-radius: 6px;
