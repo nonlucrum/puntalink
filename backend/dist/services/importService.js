@@ -53,6 +53,12 @@ async function parseTxtRobusto(pk_proyecto, txt) {
         const areaCol = parts[2]; // "17,0" (con coma decimal)
         const pesoCol = parts[3]; // "8,6" (Weight con coma decimal)
         const volumenCol = parts[4]; // "3,6" (Volume con coma decimal)
+        // Otros datos opcionales que pueden ser útiles:
+        const cgxCol = parts[5]; // "750" (CGx)
+        const cgyCol = parts[6]; // "5677" (CGy)
+        // Otros datos que pueden ser útiles pero no necesarios para el procesamiento:
+
+        const overallWidthCol = parts.length >= 14 ? parts[13] : null; // Columna 14 (índice 13)
         // CGx = parts[5], CGy = parts[6], luego más datos...
         // Overall Width = parts[13], Overall Height = parts[14]
         const overallHeightCol = parts.length >= 15 ? parts[14] : null; // Columna 15 (índice 14)
@@ -61,6 +67,12 @@ async function parseTxtRobusto(pk_proyecto, txt) {
         console.log(`[service - importService] Debug - grosor:"${grosorCol}", area:"${areaCol}", peso:"${pesoCol}", volumen:"${volumenCol}", height:"${overallHeightCol}"`);
         console.log(`[service - importService] Debug - overallHeight columna 14: "${overallHeightCol}"`);
         console.log(`[service - importService] Debug - partes totales: ${parts.length}`);
+        console.log(`[service - importService] Debug - CGx: "${cgxCol}", CGy: "${cgyCol}"`);
+        console.log(`[service - importService] Debug - overallWidth: "${overallWidthCol}", overallHeight: "${overallHeightCol}"`);
+        console.log(`[service - importService] Debug - columnas extra: ${parts.slice(15).map((p, idx) => `col${idx + 16}:"${p}"`).join(', ')}`);
+        
+        // Validar que tenemos los datos mínimos necesarios
+        
         // Patrón mejorado para extraer número y nombre del panel
         const panelMatch = /^\((\d+)\)\s*(.*)/.exec(panelIdCol || "");
         if (!panelMatch) {
@@ -101,6 +113,24 @@ async function parseTxtRobusto(pk_proyecto, txt) {
             console.log(`[service - importService] grosor:${grosorNum}, area:${areaNum}, peso:${pesoNum}, volumen:${volumenNum}`);
             continue;
         }
+
+        const cgxNum = cgxCol ? Number(cgxCol) : null;
+        const cgyNum = cgyCol ? Number(cgyCol) : null;
+        if (cgxNum === undefined || cgxNum === null || isNaN(cgxNum) ||
+            cgyNum === undefined || cgyNum === null || isNaN(cgyNum)) {
+            console.log(`[service - importService] Panel ${num} (${panelName}) omitido - CGx o CGy inválidos`);
+            console.log(`[service - importService] cgx:${cgxNum}, cgy:${cgyNum}`);
+            continue;
+        }
+
+        const overallWidthColNum = overallWidthCol ? Number(overallWidthCol) : null;
+        if (overallWidthCol && (overallWidthColNum === undefined || overallWidthColNum === null || isNaN(overallWidthColNum))) {
+            console.log(`[service - importService] Panel ${num} (${panelName}) omitido - Overall Width inválido`);
+            console.log(`[service - importService] overallWidth:${overallWidthCol}`);
+            continue;
+        }
+
+
         console.log(`[service - importService] PROCESADO: Panel ${num} procesado: ${panelName}`);
         console.log(`[service - importService]    Valores exactos: grosor=${grosorNum}, area=${areaNum}, peso=${pesoNum}, volumen=${volumenNum}`);
         console.log(`[service - importService]    Overall Height: "${overallHeightValue}"`);
@@ -114,6 +144,11 @@ async function parseTxtRobusto(pk_proyecto, txt) {
             peso: pesoNum,
             volumen: volumenNum,
             overall_height: overallHeightValue,
+            cgx: cgxCol,
+            cgy: cgyCol ? Number(cgyCol) : null,
+            // Otros datos opcionales que pueden ser útiles:
+            overall_width: overallWidthCol ? Number(overallWidthCol) : null,
+            // Otros datos que pueden ser útiles pero no necesarios para el procesamiento:
         });
         const nuevoMuro = await (0, Muro_1.addMuro)(pk_proyecto, // pk_proyecto
         num, // número secuencial del panel
