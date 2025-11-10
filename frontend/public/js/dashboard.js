@@ -127,7 +127,7 @@ export function validateTxtFile(file) {
 }
 
 // ===== FUNCIÓN PARA CARGAR INFORMACIÓN DEL PROYECTO =====
-export function loadProjectInfo() {
+export async function loadProjectInfo() {
 
   endEditarProyecto();
   
@@ -145,6 +145,34 @@ export function loadProjectInfo() {
         document.getElementById('proyectoVelViento').value = project.vel_viento || '-';
         document.getElementById('proyectoTempPromedio').value = project.temp_promedio || '-';
         document.getElementById('proyectoPresionAtm').value = project.presion_atmo || '-';
+
+        if (project.texto_entrada != null && project.texto_entrada !== undefined) {
+            console.log('[FRONTEND] Cargando paneles guardados...');
+            const murosCompletos = await fetchMurosFromDatabase();
+    
+            if (murosCompletos.length > 0) {
+            globalVars.panelesActuales = murosCompletos;
+            console.log('[DASHBOARD] Muros completos obtenidos desde BD:', globalVars.panelesActuales.length);
+            console.log('[DASHBOARD] Primer muro con overall_height:', globalVars.panelesActuales[0]);
+            } else {
+            // Fallback: usar los paneles del response de importación
+            globalVars.panelesActuales = json.paneles;
+            console.log('[DASHBOARD] Usando paneles del import response:', globalVars.panelesActuales.length);
+            }
+            // Obtener elementos de UI necesarios
+            const tablaPaneles = document.getElementById('tablaPaneles');
+            const tablaAccordion = document.getElementById('tablaAccordion');
+            const panelesInfo = document.getElementById('panelesInfo');
+            const btnCalcular = document.getElementById('btnCalcular');
+            
+            const uiElements = { tablaPaneles, tablaAccordion, panelesInfo, btnCalcular };
+            const callbacks = { openSection: (id) => {} }; // Función dummy para openSection
+            
+            // Actualizar tabla de paneles usando la función global
+            if (typeof updatePanelesDisplay === 'function') {
+                updatePanelesDisplay(globalVars.panelesActuales, uiElements, callbacks);
+            }
+        }
         
         console.log('[FRONTEND] Información del proyecto cargada:', project);
       } catch (parseError) {
