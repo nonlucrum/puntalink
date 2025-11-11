@@ -4,6 +4,7 @@ import PDFDocument from 'pdfkit';
 
 import { PanelCalculado as PanelCalculadoPaneles } from './panelesService';
 import type { ParametrosProyecto } from './panelesService';
+import { Project } from '../models/Project';
 
 interface PanelCalculado {
   id_muro: string;
@@ -42,9 +43,9 @@ export interface UsuarioInfo {
   email: string;         // requerido para mostrar al menos el correo
 }
 
-interface ProjectInfo extends ParametrosProyecto {
-  nombreProyecto?: string;
-  empresaConstructora?: string;
+interface ProjectInfo extends Project {
+  nombre: string;
+  empresa?: string;
   tipo_muerto?: string;
   vel_viento?: number;
   temp_promedio?: number;
@@ -265,15 +266,15 @@ function crearPortada(doc: any, projectInfo?: ProjectInfo) {
   // ========= 4) INFO DEL PROYECTO EN PORTADA =========
   let currentY = afterTitleY + 140;
 
-  if (projectInfo?.nombreProyecto) {
+  if (projectInfo?.nombre) {
     doc.fontSize(18).fillColor('#2E86AB').text('PROYECTO:', 0, currentY, { align: 'center' });
-    doc.fontSize(16).fillColor('#333333').text(projectInfo.nombreProyecto, 0, currentY + 25, { align: 'center' });
+    doc.fontSize(16).fillColor('#333333').text(projectInfo.nombre, 0, currentY + 25, { align: 'center' });
     currentY += 70;
   }
 
-  if (projectInfo?.empresaConstructora) {
+  if (projectInfo?.empresa) {
     doc.fontSize(16).fillColor('#2E86AB').text('CONSTRUCTORA:', 0, currentY, { align: 'center' });
-    doc.fontSize(14).fillColor('#333333').text(projectInfo.empresaConstructora, 0, currentY + 20, { align: 'center' });
+    doc.fontSize(14).fillColor('#333333').text(projectInfo.empresa, 0, currentY + 20, { align: 'center' });
     currentY += 60;
   }
 
@@ -325,8 +326,8 @@ function crearPaginaProyecto(doc: any, projectInfo?: ProjectInfo, user?: { name?
     currentY += lineHeight;
   };
   
-  drawField('NOMBRE PROYECTO', projectInfo?.nombreProyecto);
-  drawField('EMPRESA CONSTRUCTORA', projectInfo?.empresaConstructora);
+  drawField('NOMBRE PROYECTO', projectInfo?.nombre);
+  drawField('EMPRESA CONSTRUCTORA', projectInfo?.empresa);
   drawField('TIPO DE MUERTO', projectInfo?.tipo_muerto);
   drawField('VELOCIDAD DEL VIENTO (km/h)', projectInfo?.vel_viento);
   drawField('TEMPERATURA PROMEDIO (°C)', projectInfo?.temp_promedio);
@@ -492,23 +493,39 @@ function crearEsquema(doc: any) {
     const ih = img.height;
 
     const maxW = pageW - margin * 2;
-    const maxH = pageH - topY - margin; // desde topY hacia abajo
-    const scale = Math.min(maxW / iw, maxH / ih);
+    const maxH = pageH - topY - margin;
+
+    // reserva de espacio (alto) para el pie de figura
+    const captionText = 'Figura: Esquema referencial de armado del muerto';
+    const captionPadding = 6;       // separación imagen–pie
+    const captionHeight = 12 + 2;   // alto aproximado (font 10 ≈ 12px + holgura)
+
+    // escala considerando la reserva del pie
+    const scale = Math.min(
+      maxW / iw,
+      (maxH - captionPadding - captionHeight) / ih
+    );
 
     const drawW = iw * scale;
     const drawH = ih * scale;
     const x = (pageW - drawW) / 2;
-    const y = topY + (maxH - drawH) / 2;
+    const y = topY + (maxH - (drawH + captionPadding + captionHeight)) / 2;
 
     doc.save();
     doc.image(imgPath, x, y, { width: drawW, height: drawH });
     doc.restore();
 
-    // Pie de figura (opcional)
-    doc.fontSize(10).fillColor('#555')
-       .text('Figura: Esquema referencial de armado del muerto', margin, pageH - margin - 10, {
-         width: pageW - margin * 2, align: 'center'
-       });
+    // Pie de figura inmediatamente debajo de la imagen, sin permitir salto de página
+    doc.fontSize(10).fillColor('#555').text(
+      captionText,
+      margin,
+      y + drawH + captionPadding,
+      {
+        width: pageW - margin * 2,
+        align: 'center',
+        lineBreak: false    // ← evita que PDFKit lo pase a otra página
+      }
+    );
 
   } catch (err) {
     console.warn('[pdfService] No se pudo dibujar esquema:', (err as any)?.message || err);
