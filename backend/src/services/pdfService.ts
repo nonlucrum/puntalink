@@ -2,6 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import PDFDocument from 'pdfkit';
 import { PanelCalculado as PanelCalculadoPaneles } from './panelesService';
+import type { UserRow } from './auth.service';
 
 // Interfaz interna para compatibilidad con calculosService
 interface PanelCalculado {
@@ -36,6 +37,11 @@ function convertirPanelParaPDF(panel: PanelCalculadoPaneles): PanelCalculado {
   };
 }
 
+export type UsuarioInfo = {
+  name?: string | null;
+  email: string;
+};
+
 interface ProjectInfo {
   nombreProyecto?: string;
   empresaConstructora?: string;
@@ -58,9 +64,18 @@ interface MuertoResumen {
   muros_incluidos: string;
 }
 
-export function generarInformePaneles(paneles: PanelCalculado[], projectInfo?: ProjectInfo, tablaMuertos?: MuertoResumen[]): Promise<Buffer>;
-export function generarInformePaneles(paneles: PanelCalculadoPaneles[], projectInfo?: ProjectInfo, tablaMuertos?: MuertoResumen[]): Promise<Buffer>;
-export function generarInformePaneles(paneles: PanelCalculado[] | PanelCalculadoPaneles[], projectInfo?: ProjectInfo, tablaMuertos?: MuertoResumen[]): Promise<Buffer> {
+export function generarInformePaneles(
+  paneles: PanelCalculado[] | PanelCalculadoPaneles[],
+  projectInfo?: ProjectInfo,
+  tablaMuertos?: MuertoResumen[],
+  user?: UsuarioInfo
+): Promise<Buffer>;
+export function generarInformePaneles(
+  paneles: PanelCalculado[] | PanelCalculadoPaneles[],
+  projectInfo?: ProjectInfo,
+  tablaMuertos?: MuertoResumen[],
+  user?: UsuarioInfo
+): Promise<Buffer> {
   console.log('[pdfService] Generando informe para', paneles.length, 'paneles');
   if (projectInfo) {
     console.log('[pdfService] Con información del proyecto:', projectInfo);
@@ -83,7 +98,11 @@ export function generarInformePaneles(paneles: PanelCalculado[] | PanelCalculado
   return new Promise((resolve) => {
     const doc = new PDFDocument({ size: 'A4', margin: 40 });
     const buffers: Buffer[] = [];
-    
+
+    // === Fondo o marca de agua en todas las páginas ===
+    addBackgroundImage(doc); // primera página
+    (doc as any).on('pageAdded', () => addBackgroundImage(doc));
+
     doc.on('data', buffers.push.bind(buffers));
     doc.on('end', () => {
       console.log('[pdfService] PDF generado exitosamente');
@@ -110,6 +129,9 @@ export function generarInformePaneles(paneles: PanelCalculado[] | PanelCalculado
     // ===== DESCRIPCIÓN DE PARÁMETROS =====
     doc.addPage();
     crearDescripcionParametros(doc, projectInfo);
+
+    // ===== FIRMA =====
+    addSignatureSection(doc, user);
 
     doc.end();
   });
@@ -220,54 +242,85 @@ function crearPortada(doc: any, projectInfo?: ProjectInfo) {
 }
 
 function crearPaginaProyecto(doc: any, projectInfo?: ProjectInfo) {
-  doc.fontSize(24)
-    .fillColor('#2E86AB')
-    .text('INFORMACIÓN DEL PROYECTO', 0, 80, { align: 'center' });
-  
-  doc.strokeColor('#2E86AB')
-    .lineWidth(2)
-    .moveTo(50, 120)
-    .lineTo(550, 120)
-    .stroke();
-  
-  let currentY = 160;
-  const lineHeight = 35;
-  
-  doc.fontSize(14).fillColor('#333333');
-  
-  if (projectInfo?.nombreProyecto) {
-    doc.fontSize(16).text('NOMBRE DEL PROYECTO:', 80, currentY)
-      .fontSize(14).text(projectInfo.nombreProyecto, 80, currentY + 20);
-    currentY += lineHeight * 1.5;
+  const pageW = doc.page.width;
+  const pageH = doc.page.height;
+  const marginX = 60;
+
+  // === LOGO DE PUNTALINK ===
+  const logoPath = getAssetPath('logo.png');
+  if (fs.existsSync(logoPath)) {
+    const img = doc.openImage(logoPath);
+    const iw = img.width;
+    const ih = img.height;
+    const scale = Math.min(180 / iw, 80 / ih);
+    const drawW = iw * scale;
+    const drawH = ih * scale;
+    const logoX = (pageW - drawW) / 2;
+    doc.image(logoPath, logoX, 70, { width: drawW });
   }
+
+  // === TÍTULO CENTRAL ===
+  doc.fontSize(22).fillColor('#000000').text('PUNTALINK', 0, 160, { align: 'center' });
+
+  // === BLOQUE DE INFORMACIÓN ===
+
+  let currentY = 210; // posición inicial vertical del bloque
+  const lineHeight = 32; // espacio vertical entre líneas
+  const labelWidth = 160; // ancho fijo para etiquetas
+
+  const drawField = (labelEs: string, value?: string | number | undefined) => {
+    const displayValue = value === undefined || value === null? '—': (typeof value === 'string' ? (value.trim() === '' ? '—' : value.trim()) : String(value));
+    doc.fontSize(10).fillColor('#888888')
+       .text(`${labelEs.toUpperCase()}`, marginX, currentY, { width: labelWidth });
+    doc.fontSize(12).fillColor('#000000')
+       .text(displayValue, marginX + labelWidth + 10, currentY);
+    currentY += lineHeight;
+  };
   
-  if (projectInfo?.empresaConstructora) {
-    doc.fontSize(16).text('EMPLEADOR:', 80, currentY)
-      .fontSize(14).text(projectInfo.empresaConstructora, 80, currentY + 20);
-    currentY += lineHeight * 1.5;
+  drawField('NOMBRE PROYECTO', projectInfo?.nombreProyecto);
+  drawField('EMPRESA CONSTRUCTORA', projectInfo?.empresaConstructora);
+  drawField('TIPO DE MUERTO', projectInfo?.tipoMuerto);
+  drawField('VELOCIDAD DEL VIENTO (km/h)', projectInfo?.velViento);
+  drawField('TEMPERATURA PROMEDIO (°C)', projectInfo?.tempPromedio);
+  drawField('PRESIÓN ATMOSFÉRICA (mmHg)', projectInfo?.presionAtm);
+  drawField('CREADOR DEL PROYECTO', projectInfo?.creadorProyecto);
+  drawField('VERSIÓN', projectInfo?.version);
+  drawField('FECHA', new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }));
+
+  // === LÍNEA SEPARADORA ===
+  doc.strokeColor('#999999')
+     .lineWidth(1)
+     .moveTo(marginX, currentY + 10)
+     .lineTo(pageW - marginX, currentY + 10)
+     .stroke();
+
+  // === IMAGEN INFERIOR ===
+  const imgPath = getAssetPath('imagenInfo.png');
+  if (fs.existsSync(imgPath)) {
+    try {
+      const img = doc.openImage(imgPath);
+      const iw = img.width;
+      const ih = img.height;
+
+      // Escala proporcional para ocupar todo el ancho
+      const scale = pageW / iw;
+      const drawW = pageW;
+      const drawH = ih * scale;
+
+      // Coordenadas: inicia desde el borde inferior
+      const y = pageH - drawH;
+
+      doc.save();
+      doc.image(imgPath, 0, y, { width: drawW, height: drawH });
+      doc.restore();
+    } catch (err) {
+      console.warn('[pdfService] No se pudo insertar imagenInfo.png sin bordes:', (err as any)?.message || err);
+    }
   }
-  
-  if (projectInfo?.tipoMuerto) {
-    doc.fontSize(16).text('TIPO DE MUERTO:', 80, currentY)
-      .fontSize(14).text(projectInfo.tipoMuerto, 80, currentY + 20);
-    currentY += lineHeight * 1.5;
-  }
-  
-  if (projectInfo?.version) {
-    doc.fontSize(16).text('VERSIÓN:', 80, currentY)
-      .fontSize(14).text(projectInfo.version, 80, currentY + 20);
-    currentY += lineHeight * 1.5;
-  }
-  
-  // Fecha del informe
-  doc.fontSize(16).text('FECHA DEL INFORME:', 80, currentY)
-    .fontSize(14).text(new Date().toLocaleDateString('es-ES'), 80, currentY + 20);
-  currentY += lineHeight * 1.5;
-  
-  if (projectInfo?.creadorProyecto) {
-    doc.fontSize(16).text('ELABORADO POR:', 80, currentY)
-      .fontSize(14).text(projectInfo.creadorProyecto, 80, currentY + 20);
-  }
+
+  // === PIE DE PÁGINA ===
+  // doc.fontSize(9).fillColor('#555555')
+  //    .text('PUNTALINK - SISTEMA DE ANÁLISIS Y CÁLCULO ESTRUCTURAL', 0, pageH - 40, { align: 'center' });
 }
 
 function crearPaginasCalculos(doc: any, paneles: PanelCalculado[]) {
@@ -561,4 +614,89 @@ function registerFontIfExists(doc: any, name: string, assetsRelPath: string) {
     return name;
   }
   return null;
+}
+
+function addBackgroundImage(doc: any) {
+  const bgPath = getAssetPath('marca_de_agua.png');
+  if (!fs.existsSync(bgPath)) {
+    console.warn('[pdfService] No se encontró la imagen de fondo en:', bgPath);
+    return;
+  }
+
+  const pageW = doc.page.width;
+  const pageH = doc.page.height;
+
+  try {
+    const img = doc.openImage(bgPath);
+    const iw = img.width;
+    const ih = img.height;
+
+    // Escala para cubrir toda la página (manteniendo proporción)
+    const scale = Math.max(pageW / iw, pageH / ih);
+    const drawW = iw * scale;
+    const drawH = ih * scale;
+    const offsetX = (pageW - drawW) / 2;
+    const offsetY = (pageH - drawH) / 2;
+
+    doc.save();
+    doc.image(bgPath, offsetX, offsetY, { width: drawW, height: drawH });
+    doc.restore();
+  } catch (err) {
+    console.warn('[pdfService] Error al aplicar fondo:', (err as any)?.message || err);
+  }
+}
+
+function addSignatureSection(doc: any, user?: { name?: string | null; email?: string }) {
+  if (!user) return; // si no hay datos, no se agrega nada
+
+  const pageH = doc.page.height;
+  const currentY = doc.y; // posición vertical actual del cursor
+
+  // Si no hay espacio suficiente, no agregar (no crea página nueva)
+  const spaceNeeded = 120;
+  if (currentY + spaceNeeded > pageH - 60) return;
+
+  const centerX = doc.page.width / 2;
+
+  const lineWidth = 160;
+  const lineY = Math.max(currentY + 60, pageH - 160);
+  const lineX = centerX - lineWidth / 2;
+
+  // Línea de firma
+  doc.strokeColor('#000000')
+     .lineWidth(1)
+     .moveTo(lineX, lineY)
+     .lineTo(lineX + lineWidth, lineY)
+     .stroke();
+
+  // Si tienes una imagen de firma, colócala centrada sobre la línea
+  const firmaPath = getAssetPath('firma.png');
+  if (fs.existsSync(firmaPath)) {
+    try {
+      const img = doc.openImage(firmaPath);
+      const iw = img.width;
+      const ih = img.height;
+      const maxW = 120;
+      const scale = Math.min(maxW / iw, 40 / ih);
+      const drawW = iw * scale;
+      const drawH = ih * scale;
+      const imgX = centerX - drawW / 2;
+      const imgY = lineY - drawH - 8;
+      doc.image(firmaPath, imgX, imgY, { width: drawW });
+    } catch (err) {
+      console.warn('[pdfService] Error al insertar firma:', (err as any)?.message || err);
+    }
+  }
+
+  // Nombre y correo
+  const displayName = user.name ?? '__________________';
+  const displayEmail = user.email ?? '';
+
+  doc.fontSize(11)
+     .fillColor('#000000')
+     .text(displayName, 0, lineY + 8, { align: 'center' });
+
+  doc.fontSize(10)
+     .fillColor('#444444')
+     .text(displayEmail, 0, lineY + 24, { align: 'center' });
 }
