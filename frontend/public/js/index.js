@@ -66,11 +66,11 @@ export async function loadPreviousProjects(userId) {
                         <svg width="40" height="77">
                     `;
                 if (project.tipo_muerto === 'Cilindrico') {
-                    htmlDetalle += `<circle cx="0" cy="38.5" r="30" stroke="#ccc" stroke-width="3" fill="transparent" />`;
+                    htmlDetalle += `<circle cx="0" cy="38.5" r="30" stroke="var(--muted)" stroke-width="3" fill="transparent" opacity="0.5" />`;
                 } else if (project.tipo_muerto === 'Corrido') {
-                    htmlDetalle += `<rect x="-30" y="8.5" width="60" height="60" stroke="#ccc" stroke-width="3" fill="transparent" />`;
+                    htmlDetalle += `<rect x="-30" y="8.5" width="60" height="60" stroke="var(--muted)" stroke-width="3" fill="transparent" opacity="0.5" />`;
                 } else if (project.tipo_muerto === 'Triangular') {
-                    htmlDetalle += `<polygon points="-30,12 30,12 0,64" style="fill:transparent;stroke:#ccc;stroke-width:3" />`;
+                    htmlDetalle += `<polygon points="-30,12 30,12 0,64" style="fill:transparent;stroke:var(--muted);stroke-width:3" opacity="0.5" />`;
                 }
                 htmlDetalle += `
                         </svg>

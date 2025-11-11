@@ -69,7 +69,8 @@ const { confirmar, mostrarNotificacion, BarraProgreso, ejecutarConLoading, debou
         height: '100vh',
         zIndex: '0',
         pointerEvents: 'none',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        opacity: '40%'
       });
     }
     return c;
@@ -1098,7 +1099,7 @@ export async function mostrarResultadosViento(data) {
   // Crear detalle de cálculos
   let htmlDetalle = '';
   
-  if (resultados.parametros_utilizados !== undefined) {
+  if (resultados[0].advertencias.length > 0) {
     resultados.forEach(resultado => {
         htmlDetalle += `
         <div class="calculation-detail">

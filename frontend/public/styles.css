@@ -7,20 +7,22 @@
   --primary: #1f6feb;
   --primary-600: #1a60ce;
   --border: #e5e7eb;
-  --shadow: 0 8px 24px rgba(0,0,0,.08);
+  --shadow-color: rgba(0,0,0,.1);
+  --shadow: 0 8px 24px var(--shadow-color);
   --radius: 16px;
 }
 
 @media (prefers-color-scheme: dark){
   :root{
-    --bg: #0f1523;
-    --card: #252d41;
+    --bg: #151a25;
+    --card: #1b2338;
     --text: #f1f1f1;
     --muted: #95a3b8;
     --primary: #4aa3ff;
     --primary-600: #3991ef;
-    --border: #263045;
-    --shadow: 0 8px 24px rgba(82, 77, 77, 0.35);
+    --border: #2d3952;
+    --shadow-color: rgba(0,0,0,.35);
+    --shadow: 0 8px 24px var(--shadow-color);
   }
 }
 /* El slideshow va detrás de todo */
@@ -238,7 +240,7 @@ body{
 .field{ display:flex; flex-direction: column; gap:.35rem; }
 label{ font-size: .9rem; color: var(--muted); }
 input, select, textarea{
-  background: #252d41;;
+  background: var(--bg);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -692,18 +694,11 @@ pre{
 
 .parameter-group h4 {
   margin: 0 0 1rem 0;
-  color: var(--primary);
+  color: var(--text);
   font-size: 1rem;
   font-weight: 600;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 2px solid var(--border);
   padding-bottom: 0.5rem;
-}
-
-.form-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
 }
 
 .form-row:last-child {
@@ -722,7 +717,7 @@ pre{
   padding: 0.5rem;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: var(--card);
+  background: var(--bg);
   color: var(--text);
   font-size: 0.875rem;
 }
@@ -734,9 +729,10 @@ pre{
 }
 
 .form-row span {
-  color: #ffffff;
+  color: var(--muted);
   font-size: 0.75rem;
   min-width: 40px;
+  margin: 0.5em;
 }
 
 /* Resultados de Viento */
@@ -1286,7 +1282,7 @@ pre{
 /* ====== Lista de proyectos para cargar ====== */
 
 .project-list{
-    background: #eeeeee;
+    background: var(--bg);
     display: flex;
     flex-direction: column;
     padding: 1em;
@@ -1298,15 +1294,20 @@ pre{
     display: flex;
     justify-content: space-between;
     padding: 1.3em 1em 1.3em 0em;
-    background: #fff;
+    background: var(--card);
     border-radius: 6px;
     border: 0px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    transition: box-shadow 0.2s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .project-card:hover{
-    box-shadow: 0 10px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 10px 12px var(--shadow-color);
+    transform: translateY(-3px);
+}
+
+.project-card:active{
+    transform: translateY(0);
 }
 
 .project-card-title{
@@ -1322,27 +1323,27 @@ pre{
     justify-content: center;
     padding: 0.3em;
     gap: 0.4em;
-    color: #425263;
+    color: var(--text);
     text-align: right;
 }
 
 .project-card h3 {
   text-align: left;
   margin: 0em;
-  color: #2c3e50;
+  color: var(--text);
   font-size: 1.4em;
 }
 
 .project-card h4 {
   text-align: left;
   margin: 0em;
-  color: #6b7f94;
+  color: var(--muted);
   font-size: 1em;
 }
 
 .project-card-var{
     font-size: 0.8em;
-    color: #425263;
+    color: var(--text);
 }
 
 /* ====== Formulario de creación de proyecto ====== */
@@ -1355,14 +1356,14 @@ pre{
     display: block;
     margin-bottom: 0.5em;
     font-weight: 500;
-    color: #333;
+    color: var(--text);
 }
 
 .form-group input[type="text"],
 .form-group input[type="number"] {
     width: 100%;
     padding: 0.75em;
-    border: 1px solid #ddd;
+    border: 1px solid var(--border);
     border-radius: 4px;
     font-size: 1em;
     transition: border-color 0.3s ease;
@@ -1402,7 +1403,7 @@ pre{
     max-width: 500px; 
     margin: 3em auto; 
     padding: 2.5em; 
-    background: #fff; 
+    background: var(--card); 
     border-radius: 8px; 
     box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
 }
@@ -1410,7 +1411,7 @@ pre{
 .card-project h1 {
     text-align: center;
     margin-bottom: 1.2em;
-    color: #2c3e50;
+    color: var(--text);
     font-size: 1.8em;
 }
 
@@ -1530,6 +1531,8 @@ pre{
   position: relative;
   vertical-align: middle;
   transition: all 0.2s ease;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .tooltip-icon:hover {
@@ -1543,8 +1546,8 @@ pre{
   bottom: calc(100% + 10px);
   left: 50%;
   transform: translateX(-50%) scale(0);
-  background: #1a1a2e;
-  color: white;
+  background: var(--bg);
+  color: var(--text);
   padding: 12px 16px;
   border-radius: 8px;
   font-size: 13px;
@@ -2785,17 +2788,16 @@ pre{
 }
 
 .configuracion-global {
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  color: #f1f1f1;
-  border: 1px solid #dee2e6;
-  border-radius: 12px;
-  padding: 2rem;
+  box-shadow: 0 2px 8px var(--shadow-color);
   margin-bottom: 2rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  padding: 1.5rem;
+  background: var(--bg);
+  border-radius: 8px;
+  border: 1px solid var(--border);
 }
 
 .configuracion-global h3 {
-  color: #495057;
+  color: var(--text);
   margin-bottom: 1.5rem;
   display: flex;
   align-items: center;
@@ -2808,29 +2810,10 @@ pre{
   gap: 2rem;
 }
 
-.parameter-group {
-  background: white;
-  padding: 1.5rem;
-  border-radius: 8px;
-  border: 1px solid #e3e6ea;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-}
-
-.parameter-group h4 {
-  color: #2e2f31;
-  margin-bottom: 1rem;
-  font-size: 1rem;
-  font-weight: 600;
-  border-bottom: 2px solid #e9ecef;
-  padding-bottom: 0.5rem;
-}
-
 .form-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .form-row:last-child {
@@ -2839,7 +2822,7 @@ pre{
 
 .form-row label {
   font-weight: 500;
-  color: #495057;
+  color: var(--text);
   font-size: 0.9rem;
 }
 
@@ -2968,16 +2951,6 @@ pre{
   overflow: hidden;
 }
 
-.project-field-unit input {
-  flex: 1;
-  border: none;
-  outline: none;
-  padding: 0.5rem 0.75rem;
-  color: #fff;
-  background: transparent;
-  min-width: 0;
-}
-
 .project-value-unit {
   white-space: nowrap;
   font-size: 0.85rem;
@@ -2986,8 +2959,8 @@ pre{
 }
 
 .project-info-section {
-  background-color: #252d41;
-  border: 1px solid #223049;
+  background-color: var(--card);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 1.5rem;
   color: #fff;
@@ -3008,13 +2981,13 @@ pre{
 .parametros-card,
 .config-card,
 .project-field {
-  background: #0f172a;
-  border: 1px solid #223049;
+  background: var(--card);
+  border: 1px solid var(--shadow-color);
   border-radius: 10px;
   padding: 1rem;
   color: #fff;
   box-sizing: border-box;
-  overflow: hidden; /* 🔧 evita que el input sobresalga */
+  box-shadow: 0 10px 10px var(--shadow-color);
 }
 
 /* === INPUTS Y SELECTS === */
@@ -3027,10 +3000,9 @@ pre{
   width: 100%;             /* 🔧 ocupa todo el espacio del contenedor */
   min-width: 0;            /* 🔧 evita que se salga al crecer */
   box-sizing: border-box;
-  background-color: #242629;
-  border: 1px solid #334155;
+  background-color: var(--bg);
+  border: 1px solid var(--border);
   border-radius: 6px;
-  color: #fff;
   padding: 0.45rem 0.6rem;
   font-size: 0.9rem;
   outline: none;
@@ -3041,9 +3013,8 @@ pre{
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: #242629
-;
-  border: 1px solid #334155;
+  background-color: var(--bg);
+  border: 1px solid var(--border);
   border-radius: 6px;
   overflow: hidden; /* 🔧 evita desborde horizontal */
 }
@@ -3053,36 +3024,23 @@ pre{
   min-width: 0; /* 🔧 evita que el texto empuje la unidad */
   border: none;
   background: transparent;
-  color: #fff;
   padding: 0.45rem 0.6rem;
   font-size: 0.9rem;
 }
 
 .project-value-unit {
   white-space: nowrap; /* 🔧 evita salto de línea */
-  color: #94a3b8;
+  color: var(--text);
   font-size: 0.85rem;
   padding-right: 0.5rem;
 }
 
 /* === OPCIONAL: Ajuste visual general === */
 label {
-  font-size: 0.8rem;
   font-weight: 600;
-  color: #cbd5e1;
+  color: var(--muted);
   margin-bottom: 0.25rem;
   display: block;
-}
-
-.parameter-group {
-  overflow: hidden;      /* evita que el contenido se salga */
-  box-sizing: border-box;
-}
-
-.form-row {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;          /* permite que el select se reduzca si es largo */
 }
 
 .form-row select {
@@ -3090,11 +3048,10 @@ label {
   max-width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  background:  #252d41;   /* mismo color que tu tema */
-  border: 1px solid #242629
-;
+  background:  var(--bg);   /* mismo color que tu tema */
+  border: 1px solid var(--border);
   border-radius: 6px;
-  color: #fff;
+  color: var(--text);
   padding: 0.45rem 0.6rem;
   font-size: 0.9rem;
   white-space: nowrap;       /* 🔧 el texto no se parte en dos líneas */
@@ -3142,8 +3099,9 @@ label {
   align-items: center;
   justify-content: space-between;
   gap: .75rem;
-  background: #0b101b;
-  border: 1px solid #1a2333;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
   border-radius: 10px;
   padding: .85rem 1rem;
   cursor: pointer;
@@ -3157,12 +3115,11 @@ label {
   text-overflow: ellipsis;  /* muestra … si no cabe */
   font-size: .95rem;
   font-weight: 500;
-  color: #fff;
 }
 
 .sub-accordion-toggle {
   flex: 0 0 auto;
-  color: #cbd5e1;
+  color: var(--muted);
   font-size: .85rem;
 }
 
@@ -3174,11 +3131,11 @@ label {
 }
 
 .parameter-group {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 1rem 1.25rem;
-  color: #242629
+  color: var(--text)
 ;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
   box-sizing: border-box;
@@ -3241,6 +3198,7 @@ label {
   justify-content: center;
   cursor: help;
   vertical-align: middle;
+  z-index: 2;
 }
 
 
