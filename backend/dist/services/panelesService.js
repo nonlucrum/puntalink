@@ -38,7 +38,7 @@ function calcularPanel(p, parametros) {
     console.log('[service - panelesService] calcularPanel - Inicio para:', p.idMuro);
     console.log('[service - panelesService] Datos de entrada:', JSON.stringify(p, null, 2));
     console.log('[service - panelesService] Parámetros del proyecto (originales):', JSON.stringify(parametros, null, 2));
-    const t_m = p.grosor_mm / 1000;
+    const t_m = p.grosor / 1000;
     console.log('[service - panelesService] Grosor en metros:', t_m);
     // Calcular presión de viento usando los parámetros del proyecto (conversión km/h -> m/s incluida)
     const qViento_kN_m2 = calcularPresionViento(parametros?.vel_viento);
@@ -49,17 +49,17 @@ function calcularPanel(p, parametros) {
     console.log('  - Velocidad viento:', parametros?.vel_viento, 'km/h ->', vel_ms.toFixed(2), 'm/s');
     console.log('  - Presión atmosférica:', parametros?.presion_atmo, 'mmHg ->', presion_kPa.toFixed(2), 'kPa');
     console.log('  - Presión de viento calculada:', qViento_kN_m2.toFixed(3), 'kN/m²');
-    const volumen_m3 = p.area_m2 * t_m;
+    const volumen_m3 = p.area * t_m;
     const peso_kN = volumen_m3 * CONST.gammaConcreto_kN_m3;
     const gruaMin_kN = peso_kN * CONST.factorGruaMin;
-    const viento_kN = p.area_m2 * qViento_kN_m2;
-    const traccionPuntal_kN = viento_kN * CONST.factorPuntal;
+    const fuerza_kN = p.area * qViento_kN_m2;
+    const traccionPuntal_kN = fuerza_kN * CONST.factorPuntal;
     const resultado = {
         ...p,
         volumen_m3: r2(volumen_m3),
         peso_kN: r2(peso_kN),
         gruaMin_kN: r2(gruaMin_kN),
-        viento_kN: r2(viento_kN),
+        fuerza_kN: r2(fuerza_kN),
         traccionPuntal_kN: r2(traccionPuntal_kN),
     };
     console.log('[service - panelesService] Cálculos completados para', p.idMuro, ':', JSON.stringify(resultado, null, 2));

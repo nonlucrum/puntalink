@@ -1,4 +1,4 @@
-import pool from "../config/db";
+import pool from "../services/config/db";
 
 export interface Project {
   pid?: number;           // Opcional, lo asigna la base de datos
@@ -62,6 +62,26 @@ export async function updateProject(
     }
 }
 
+export async function saveTXT(
+    pid: number,
+    texto_entrada: object
+) {
+    const query = `
+    UPDATE proyecto
+    SET texto_entrada = $2
+    WHERE pid = $1
+    RETURNING row_to_json(proyecto.*);
+    `;
+    const values = [pid, texto_entrada];
+    try {
+        const result = await pool.query(query, values);
+        return result.rows[0].row_to_json; // devuelve la fila actualizada
+    } catch (error) {
+        console.error("Error saving project TXT:", error);
+        throw error;
+    } 
+}
+
 export async function getProjectById(pid: number, pk_usuario: number) {
     const query = `
       SELECT row_to_json(proyecto.*) FROM proyecto
@@ -73,6 +93,21 @@ export async function getProjectById(pid: number, pk_usuario: number) {
         return result.rows[0].row_to_json; // devuelve la fila encontrada
     } catch (error) {
         console.error("Error fetching project by ID:", error);
+        throw error;
+    }
+}
+
+export async function getProjectsByUser(pk_usuario: number) {
+    const query = `
+      SELECT row_to_json(proyecto.*) FROM proyecto
+      WHERE pk_usuario = $1;
+    `;
+    const values = [pk_usuario];
+    try {
+        const result = await pool.query(query, values);
+        return result.rows.map(row => row.row_to_json); // devuelve las filas encontradas
+    } catch (error) {
+        console.error("Error fetching projects by user:", error);
         throw error;
     }
 }

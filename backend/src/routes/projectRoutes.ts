@@ -1,6 +1,24 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { crearProyecto } from '../controllers/projectController';
 import { actualizarProyecto } from '../controllers/projectController';
+import { listarProyectos } from '../controllers/projectController';
+import { cargarProyecto } from '../controllers/projectController';
+import { guardarTXT } from '../controllers/projectController';
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype !== 'text/plain') {
+      cb(new Error('Solo archivos .txt'));
+    }
+    if (file.originalname.length > 255) {
+      cb(new Error('Nombre muy largo'));
+    }
+    cb(null, true);
+  }
+});
 
 const router = Router();
 
@@ -13,5 +31,10 @@ router.use((req, res, next) => {
 // POST /api/proyecto/crear -> crea un nuevo proyecto
 router.post("/crear", crearProyecto);
 router.put("/actualizar", actualizarProyecto);
+router.get("/listar", listarProyectos);
+router.get("/cargar", cargarProyecto);
+router.post(['/guardar-txt'], upload.single('file'), (req, res) => {
+  guardarTXT(req, res);
+});
 
 export default router;

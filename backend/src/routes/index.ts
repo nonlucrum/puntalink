@@ -3,6 +3,8 @@ import importRoutes from './import';
 import calculosRoutes from './calculosRoutes';
 import pdfRoutes from './pdfRoutes';
 import panelesRoutes from './panelesRoutes';
+import projectRoutes from './projectRoutes';
+import grupoMuertoRoutes from './grupoMuertoRoutes';
 
 const router = Router();
 
@@ -41,5 +43,17 @@ router.use('/paneles', (req, res, next) => {
   console.log('[routes - index] Redirigiendo a /paneles');
   next();
 }, panelesRoutes);
+
+// Rutas de proyecto
+router.use('/proyecto', (req, res, next) => {
+  console.log('[ROUTES - index] Redirigiendo a /proyecto');
+  next();
+}, projectRoutes);
+
+// Rutas de grupos de muertos
+router.use('/grupos-muertos', (req, res, next) => {
+  console.log('[ROUTES - index] Redirigiendo a /grupos-muertos');
+  next();
+}, grupoMuertoRoutes);
 
 export default router;

@@ -1,0 +1,70 @@
+EXPLICACION DE CALCULOS DE VIENTO - PUNTALINK (CORREGIDA)
+
+
+1. CATEGORIA DE TERRENO (1, 2, 3, 4)
+------------------------------------
+Determina las condiciones del entorno donde se construye:
+
+Categoria | Descripcion                           | δ
+----------|---------------------------------------|-----
+    1     | Terreno plano o ligeramente ondulado  | 245
+    2     | Terreno rugoso con obstaculos aislados| 315
+    3     | Terreno cubierto con obstaculos       | 390
+    4     | Terreno muy rugoso con obstaculos     | 455
+
+2. CLASE DE ESTRUCTURA (A, B, C)
+--------------------------------
+Determina el factor α segun la altura del muro:
+
+Clase | Altura      | FC   | α segun Categoria de Terreno
+------|-------------|------|----------------------------------
+  A   | h < 20m     | 1.00 | Cat1: 0.099, Cat2: 0.128, Cat3: 0.156, Cat4: 0.170
+  B   | 20m ≤ h ≤ 50m| 0.95 | Cat1: 0.101, Cat2: 0.131, Cat3: 0.160, Cat4: 0.177
+  C   | h > 50m     | 0.90 | Cat1: 0.105, Cat2: 0.138, Cat3: 0.171, Cat4: 0.193
+
+FORMULAS CORREGIDAS
+===================
+
+2.1 Factor de Rugosidad por Altura (Frz)
+-----------------------------------------
+Frz = (z / 10)^α × (δ / 245)
+
+- z: Altura del muro (m)
+- α: Segun tabla de categoria de terreno + clase de estructura
+- δ: Valor δ de la categoria de terreno (normalizado por 245)
+
+2.2 Factor de Exposicion (Fα)
+-----------------------------
+Fα = FC × Frz × FT
+
+- FC: Factor segun clase de estructura (1.00/0.95/0.90)
+- Frz: Factor calculado arriba
+- FT: Factor topografico (1.0 para terreno plano)
+
+EJEMPLO COMPLETO - Muro 15m altura, Categoria 2
+================================================
+
+Paso 1: Determinar Clase de Estructura
+---------------------------------------
+- Altura = 15m < 20m → Clase A
+- FC = 1.00
+
+Paso 2: Obtener α
+-----------------
+- Categoria 2 + Clase A → α = 0.128
+- δ = 315
+
+Paso 3: Calcular Frz
+--------------------
+Frz = (15 / 10)^0.128 × (315 / 245) = 1.5^0.128 × 1.286 = 1.051 × 1.286 = 1.352
+
+Paso 4: Calcular Fα
+-------------------
+Fα = 1.00 × 1.352 × 1.0 = 1.352
+
+Paso 5: Velocidad de Diseno
+---------------------------
+Vd = 128 × 1.352 = 173.1 km/h
+
+
+

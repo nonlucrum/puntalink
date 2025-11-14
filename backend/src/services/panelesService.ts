@@ -1,7 +1,7 @@
 export interface PanelEntrada {
   idMuro: string;      // ej: "P115"
-  grosor_mm: number;   // ej: 203
-  area_m2: number;     // ej: 66
+  grosor: number;   // ej: 203
+  area: number;     // ej: 66
 }
 
 export interface ParametrosProyecto {
@@ -15,8 +15,14 @@ export interface PanelCalculado extends PanelEntrada {
   volumen_m3: number;
   peso_kN: number;
   gruaMin_kN: number;
-  viento_kN: number;
+  fuerza_kN: number;
   traccionPuntal_kN: number;
+  grados_inclinacion_brace?: number;
+  modelo_brace?: string;
+  fbx?: number;
+  fby?: number;
+  fb?: number;
+  total_braces?: number;
 }
 
 const CONST = {
@@ -63,7 +69,7 @@ export function calcularPanel(p: PanelEntrada, parametros?: ParametrosProyecto):
   console.log('[service - panelesService] Datos de entrada:', JSON.stringify(p, null, 2));
   console.log('[service - panelesService] Parámetros del proyecto (originales):', JSON.stringify(parametros, null, 2));
 
-  const t_m = p.grosor_mm / 1000;
+  const t_m = p.grosor / 1000;
   console.log('[service - panelesService] Grosor en metros:', t_m);
 
   // Calcular presión de viento usando los parámetros del proyecto (conversión km/h -> m/s incluida)
@@ -78,18 +84,18 @@ export function calcularPanel(p: PanelEntrada, parametros?: ParametrosProyecto):
   console.log('  - Presión atmosférica:', parametros?.presion_atmo, 'mmHg ->', presion_kPa.toFixed(2), 'kPa');
   console.log('  - Presión de viento calculada:', qViento_kN_m2.toFixed(3), 'kN/m²');
 
-  const volumen_m3 = p.area_m2 * t_m;
+  const volumen_m3 = p.area * t_m;
   const peso_kN = volumen_m3 * CONST.gammaConcreto_kN_m3;
   const gruaMin_kN = peso_kN * CONST.factorGruaMin;
-  const viento_kN = p.area_m2 * qViento_kN_m2;
-  const traccionPuntal_kN = viento_kN * CONST.factorPuntal;
+  const fuerza_kN = p.area * qViento_kN_m2;
+  const traccionPuntal_kN = fuerza_kN * CONST.factorPuntal;
 
   const resultado = {
     ...p,
     volumen_m3: r2(volumen_m3),
     peso_kN: r2(peso_kN),
     gruaMin_kN: r2(gruaMin_kN),
-    viento_kN: r2(viento_kN),
+    fuerza_kN: r2(fuerza_kN),
     traccionPuntal_kN: r2(traccionPuntal_kN),
   };
 

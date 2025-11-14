@@ -13,16 +13,19 @@ function convertirPanelParaPDF(panel) {
         volumen_m3: panel.volumen_m3,
         peso_kN: panel.peso_kN,
         grua_min_kN_aprox: panel.gruaMin_kN,
-        viento_kN: panel.viento_kN,
+        fuerza_kN: panel.fuerza_kN,
         traccion_puntal_kN_aprox: panel.traccionPuntal_kN,
-        grosor_mm: panel.grosor_mm,
-        area_m2: panel.area_m2
+        grosor: panel.grosor,
+        area: panel.area
     };
 }
-function generarInformePaneles(paneles, projectInfo) {
+function generarInformePaneles(paneles, projectInfo, tablaMuertos) {
     console.log('[pdfService] Generando informe para', paneles.length, 'paneles');
     if (projectInfo) {
         console.log('[pdfService] Con información del proyecto:', projectInfo);
+    }
+    if (tablaMuertos) {
+        console.log('[pdfService] Con tabla de muertos:', tablaMuertos.length, 'grupos');
     }
     // Convertir paneles al formato interno si es necesario
     const panelesConvertidos = paneles.map(panel => {
@@ -44,39 +47,64 @@ function generarInformePaneles(paneles, projectInfo) {
             resolve(Buffer.concat(buffers));
         });
         // ===== PORTADA =====
-        crearPortada(doc);
+        crearPortada(doc, projectInfo);
         // ===== INFORMACIÓN DEL PROYECTO =====
         doc.addPage();
         crearPaginaProyecto(doc, projectInfo);
         // ===== CÁLCULOS =====
         doc.addPage();
         crearPaginasCalculos(doc, panelesConvertidos);
+        // ===== RESUMEN POR MUERTOS =====
+        if (tablaMuertos && tablaMuertos.length > 0) {
+            doc.addPage();
+            crearPaginaMuertos(doc, tablaMuertos);
+        }
         // ===== DESCRIPCIÓN DE PARÁMETROS =====
         doc.addPage();
         crearDescripcionParametros(doc, projectInfo);
         doc.end();
     });
 }
-function crearPortada(doc) {
+function crearPortada(doc, projectInfo) {
     // Logo/Título principal centrado
     doc.fontSize(36)
         .fillColor('#2E86AB')
-        .text('PUNTALINK', 0, 200, { align: 'center' });
+        .text('PUNTALINK', 0, 150, { align: 'center' });
     // Subtítulo
     doc.fontSize(18)
         .fillColor('#666666')
-        .text('Sistema de Análisis y Cálculo Estructural', 0, 260, { align: 'center' });
+        .text('Sistema de Análisis y Cálculo Estructural', 0, 200, { align: 'center' });
     // Línea decorativa
     doc.strokeColor('#2E86AB')
         .lineWidth(3)
-        .moveTo(150, 320)
-        .lineTo(450, 320)
+        .moveTo(150, 240)
+        .lineTo(450, 240)
         .stroke();
     // Informe de
     doc.fontSize(20)
         .fillColor('#333333')
-        .text('INFORME DE ANÁLISIS', 0, 400, { align: 'center' })
-        .text('DE MUERTOS CORRIDOS', 0, 430, { align: 'center' });
+        .text('INFORME DE ANÁLISIS', 0, 280, { align: 'center' })
+        .text('DE MUERTOS CORRIDOS', 0, 310, { align: 'center' });
+    // Información del proyecto en la portada
+    let currentY = 380;
+    if (projectInfo?.nombreProyecto) {
+        doc.fontSize(18)
+            .fillColor('#2E86AB')
+            .text('PROYECTO:', 0, currentY, { align: 'center' });
+        doc.fontSize(16)
+            .fillColor('#333333')
+            .text(projectInfo.nombreProyecto, 0, currentY + 25, { align: 'center' });
+        currentY += 70;
+    }
+    if (projectInfo?.empresaConstructora) {
+        doc.fontSize(16)
+            .fillColor('#2E86AB')
+            .text('CONSTRUCTORA:', 0, currentY, { align: 'center' });
+        doc.fontSize(14)
+            .fillColor('#333333')
+            .text(projectInfo.empresaConstructora, 0, currentY + 20, { align: 'center' });
+        currentY += 60;
+    }
     // Fecha en la parte inferior
     doc.fontSize(12)
         .fillColor('#666666')
@@ -138,9 +166,9 @@ function crearPaginasCalculos(doc, paneles) {
         .stroke();
     // Resumen general
     let currentY = 140;
-    const totalVolumen = paneles.reduce((sum, p) => sum + p.volumen_m3, 0);
-    const totalPeso = paneles.reduce((sum, p) => sum + p.peso_kN, 0);
-    const gruaMaxima = Math.max(...paneles.map(p => p.grua_min_kN_aprox));
+    const totalVolumen = paneles.reduce((sum, p) => sum + (p.volumen_m3 || 0), 0);
+    const totalPeso = paneles.reduce((sum, p) => sum + (p.peso_kN || 0), 0);
+    const gruaMaxima = Math.max(...paneles.map(p => p.grua_min_kN_aprox || 0));
     doc.fontSize(14)
         .fillColor('#333333')
         .text('RESUMEN GENERAL:', 50, currentY, { underline: true });
@@ -149,7 +177,7 @@ function crearPaginasCalculos(doc, paneles) {
         .text(`• Total de paneles analizados: ${paneles.length}`, 70, currentY)
         .text(`• Volumen total de concreto: ${totalVolumen.toFixed(2)} m³`, 70, currentY + 15)
         .text(`• Peso total: ${totalPeso.toFixed(2)} kN`, 70, currentY + 30)
-        .text(`• Capacidad máxima de grúa requerida: ${gruaMaxima.toFixed(2)} kN`, 70, currentY + 45);
+        .text(`• Capacidad máxima de grúa requerida: ${isFinite(gruaMaxima) ? gruaMaxima.toFixed(2) : '0.00'} kN`, 70, currentY + 45);
     currentY += 80;
     // Tabla de resultados
     doc.fontSize(14)
@@ -158,7 +186,7 @@ function crearPaginasCalculos(doc, paneles) {
     // Encabezados de tabla
     const tableTop = currentY;
     const colWidths = [60, 80, 70, 70, 80, 80, 80];
-    const headers = ['Panel', 'Grosor (mm)', 'Área (m²)', 'Vol. (m³)', 'Peso (kN)', 'Viento (kN)', 'Grúa (kN)'];
+    const headers = ['Panel', 'Ángulo (°)', 'Tipo Brace', 'FBx (kN)', 'FBy (kN)', 'FB (kN)', 'Cantidad'];
     doc.fontSize(10).fillColor('#2E86AB');
     let xPos = 50;
     headers.forEach((header, i) => {
@@ -181,13 +209,13 @@ function crearPaginasCalculos(doc, paneles) {
         }
         xPos = 50;
         const rowData = [
-            panel.id_muro,
-            panel.grosor_mm ? panel.grosor_mm.toString() : 'N/A',
-            panel.area_m2 ? panel.area_m2.toFixed(2) : 'N/A',
-            panel.volumen_m3.toFixed(2),
-            panel.peso_kN.toFixed(2),
-            panel.viento_kN.toFixed(2),
-            panel.grua_min_kN_aprox.toFixed(2)
+            panel.id_muro || 'N/A',
+            panel.grados_inclinacion_brace || null,
+            panel.modelo_brace || 'N/A',
+            panel.fbx || 'N/A',
+            panel.fby || 'N/A',
+            panel.fb || 'N/A',
+            panel.total_braces || 'N/A'
         ];
         rowData.forEach((data, j) => {
             doc.text(data, xPos, currentY, { width: colWidths[j], align: 'center' });
@@ -246,6 +274,87 @@ function crearDescripcionParametros(doc, projectInfo) {
     doc.fontSize(8)
         .fillColor('#666666')
         .text('Generado por PUNTALINK - Sistema de análisis y cálculo estructural', 0, 750, { align: 'center' });
+}
+function crearPaginaMuertos(doc, tablaMuertos) {
+    console.log('[pdfService] Creando página de resumen por muertos...');
+    // Título
+    doc.fontSize(20)
+        .fillColor('#2E86AB')
+        .text('RESUMEN POR MUERTOS', 50, 50);
+    doc.fontSize(12)
+        .fillColor('#000000')
+        .text('Agrupación de muros por características similares', 50, 80);
+    let currentY = 110;
+    // Headers de la tabla
+    const headers = ['#', 'Muerto', 'X Braces', 'Ángulo', 'Eje', 'Tipo Construcción', 'Cant. Muros'];
+    const colWidths = [30, 60, 60, 50, 60, 90, 60];
+    const startX = 50;
+    // Dibujar headers
+    doc.fontSize(10).fillColor('#2E86AB');
+    let currentX = startX;
+    headers.forEach((header, i) => {
+        doc.rect(currentX, currentY, colWidths[i], 20)
+            .fillAndStroke('#E8F4FD', '#2E86AB');
+        doc.fillColor('#000000')
+            .text(header, currentX + 5, currentY + 5, {
+            width: colWidths[i] - 10,
+            align: 'center'
+        });
+        currentX += colWidths[i];
+    });
+    currentY += 20;
+    // Datos de la tabla
+    doc.fontSize(9);
+    tablaMuertos.forEach((muerto, index) => {
+        // Nueva página si es necesario
+        if (currentY > 750) {
+            doc.addPage();
+            currentY = 50;
+        }
+        currentX = startX;
+        const data = [
+            muerto.numero,
+            muerto.muerto,
+            muerto.x_braces,
+            muerto.angulo,
+            muerto.eje,
+            muerto.tipo_construccion,
+            muerto.cantidad_muros
+        ];
+        // Alternar color de fondo
+        const bgColor = index % 2 === 0 ? '#FFFFFF' : '#F8F9FA';
+        data.forEach((value, i) => {
+            doc.rect(currentX, currentY, colWidths[i], 20)
+                .fillAndStroke(bgColor, '#CCCCCC');
+            doc.fillColor('#000000')
+                .text(value, currentX + 5, currentY + 5, {
+                width: colWidths[i] - 10,
+                align: i === 1 || i === 4 || i === 5 ? 'left' : 'center'
+            });
+            currentX += colWidths[i];
+        });
+        currentY += 20;
+        // Agregar fila de muros incluidos si hay espacio
+        if (muerto.muros_incluidos && muerto.muros_incluidos.length > 0 && currentY < 740) {
+            doc.fontSize(8)
+                .fillColor('#666666')
+                .text(`Muros: ${muerto.muros_incluidos}`, startX + 5, currentY + 2, {
+                width: 500
+            });
+            currentY += 15;
+            doc.fontSize(9).fillColor('#000000');
+        }
+    });
+    // Información adicional al final
+    currentY += 30;
+    if (currentY < 700) {
+        doc.fontSize(10)
+            .fillColor('#666666')
+            .text(`Total de grupos de muertos: ${tablaMuertos.length}`, startX, currentY);
+        const totalMuros = tablaMuertos.reduce((sum, m) => sum + parseInt(m.cantidad_muros), 0);
+        currentY += 15;
+        doc.text(`Total de muros: ${totalMuros}`, startX, currentY);
+    }
 }
 // Función legacy para compatibilidad
 function generarInforme(resultados) {

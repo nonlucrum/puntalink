@@ -1,0 +1,110 @@
+EXPLICACION DE CALCULOS DE VIENTO
+=================================================
+
+Caracteristicas Principales:
+- 7 formulas secuenciales automatizadas
+- 4 categorias de terreno (1,2,3,4)
+- 3 clases de estructura (A,B,C) segun altura
+- Procesamiento masivo de muros desde archivos TXT
+- Validacion automatica con advertencias
+
+2. CONCEPTOS FUNDAMENTALES
+==========================
+
+Variables Independientes del Sistema:
+
+A) Categoria de Terreno (1-4)
+-----------------------------
+Define las condiciones del entorno donde se construye:
+
+Categoria | Descripcion                           | δ   | Uso Tipico
+----------|---------------------------------------|-----|----------------
+    1     | Terreno plano/ligeramente ondulado    | 245 | Tilt-Up tipico
+    2     | Terreno rugoso con obstaculos aislados| 315 | Zonas industriales
+    3     | Terreno con obstaculos numerosos      | 390 | Zonas suburbanas
+    4     | Terreno muy rugoso con obstaculos     | 455 | Centros urbanos
+
+B) Clase de Estructura (A/B/C)
+-------------------------------
+Se determina automaticamente segun la altura del muro:
+
+Clase | Altura      | Factor Tamano (Fc) | α segun Categoria
+------|-------------|--------------------|---------------------------------
+  A   | h < 20m     | 1.00               | Cat1: 0.099, Cat2: 0.128, Cat3: 0.156, Cat4: 0.170
+  B   | 20m ≤ h ≤ 50m| 0.95               | Cat1: 0.101, Cat2: 0.131, Cat3: 0.160, Cat4: 0.177
+  C   | h > 50m     | 0.90               | Cat1: 0.105, Cat2: 0.138, Cat3: 0.171, Cat4: 0.193
+
+3. SECUENCIA DE CALCULOS (7 PASOS)
+===================================
+
+Paso 1: Factor de Rugosidad por Altura (Frz)
+---------------------------------------------
+Frz = 156 * (alto/δ)^α 
+
+- z: Altura del muro (metros)
+- α: Segun tabla categoria + clase
+- δ: Normalizado por categoria 1 (δ=245)
+
+Paso 2: Factor de Exposicion (Fα)
+----------------------------------
+Fα = Fc × Frz × FT
+
+- Fc: Factor de tamano segun altura (1.00/0.95/0.90)
+- Frz: Calculado en paso anterior
+- FT: Factor topografico (1.0 para terreno plano)
+
+Paso 3: Velocidad de Diseno (Vd)
+---------------------------------
+Vd = Vregional × Fα x Factor de topografia
+
+- Vregional: 128 km/h (velocidad regional de diseno)
+- Fα: Factor de exposicion calculado
+
+Paso 4: Correccion Atmosferica
+-------------------------------
+Correccion = (273 + T) / (273 + 15) × (P / 760)
+
+- T: 30°C (temperatura tipica)
+- P: 760 mmHg (presion estandar)
+
+Paso 5: Presion Dinamica (qz)
+------------------------------
+qz = 0.0048 × G × Vd² 
+
+- Resultado: Presion en kPa
+
+Paso 6: Presion Neta sobre Muro
+--------------------------------
+Presion = fv/area x 9.81/1000
+
+- Cp_int: -0.5 (coeficiente interior, Tomo III)
+- Cp_ext: 0.8 (coeficiente exterior, Tomo III)
+- Factor_succion: 1.3 (factor de seguridad)
+
+Paso 7: Fuerza Total de Viento
+-------------------------------
+Fuerza = qz × Area
+
+- Resultado final: Fuerza en kN
+
+4. EJEMPLO
+=============================
+
+Datos de Entrada:
+- Muro: 50 m², altura estimada 6m
+- Categoria de terreno: 2 (terreno rugoso)
+- Ubicacion: Terreno plano (FT = 1.0)
+
+Proceso de Calculo:
+
+Determinacion Automatica:
+- Altura 6m < 20m → Clase A
+- Fc = 1.00
+- Categoria 2 + Clase A → α = 0.128
+- δ = 315
+
+
+
+
+
+

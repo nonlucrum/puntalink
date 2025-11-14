@@ -1,33 +1,101 @@
-import pool from "../config/db";
+import pool from "../services/config/db";
 
 export interface Muro {
   pid?: number;           // Opcional, lo asigna la base de datos
+  num?: number;           // Número secuencial del panel
   pk_proyecto: number;
   id_muro: string;
   grosor?: number;
   area?: number;
   peso?: number;
   volumen?: number;
+  overall_width?: string;  // Cambiado a string para datos en bruto
+  overall_height?: string;  // Cambiado a string para datos en bruto
+  cgx?: number;        // Coordenada X del centro de gravedad
+  cgy?: number;        // Coordenada Y del centro de gravedad
+  
+  // Campos manuales editables por muro
+  angulo_brace?: number;   // Ángulo de inclinación del brace (grados) - Manual
+  npt?: number;            // Nivel de Piso Terminado (m) - Manual
+  tipo_brace_seleccionado?: string; // Tipo de brace seleccionado (B4, B12, B14, B15) - Manual
+  factor_w2?: number;      // Factor W2 para cálculo de tipo de brace
+  eje?: string;            // Eje del panel (A, B, C, etc.) - Manual
+  
+  // Campos de viento calculados (desde calcularVientoMuros)
+  qz_kpa?: number;         // Presión dinámica de viento (kPa)
+  presion_kpa?: number;    // Presión de viento (kPa)
+  fuerza_viento?: number;  // Fuerza de viento calculada (kN)
+  
+  // Campos de braces calculados
+  x_braces?: number;       // Cantidad total de braces
+  fbx?: number;            // Fuerza del brace en dirección X (kN)
+  fby?: number;            // Fuerza del brace en dirección Y (kN)
+  fb?: number;             // Fuerza total del brace (kN)
+  x_inserto?: number;      // Coordenada X del inserto (m)
+  y_inserto?: number;      // Coordenada Y del inserto (m)
+  
+  // Cantidades por tipo de brace
+  cant_b14?: number;       // Cantidad de braces tipo B14
+  cant_b12?: number;       // Cantidad de braces tipo B12
+  cant_b04?: number;       // Cantidad de braces tipo B04
+  cant_b15?: number;       // Cantidad de braces tipo B15
+  
+  // Campo fijo
+  muertos?: number;        // Siempre debe ser 1 para conteo de muertos
+  
+  // Tipo de construcción
+  tipo_construccion?: string;  // TILT-UP o PRECAZT
 }
 
 export async function addMuro(
   pk_proyecto: number,
+  num: number,            // Agregar número secuencial
   id_muro: string,
   grosor: number,
   area: number,
   peso: number,
-  volumen: number
+  volumen: number,
+  overall_width?: string,  // Cambiado a string
+  overall_height?: string,  // Cambiado a string
+  cgx?: number,
+  cgy?: number,
+  angulo_brace?: number,    // Nuevo: ángulo manual
+  npt?: number,             // Nuevo: NPT manual
+  tipo_brace_seleccionado?: string, // Nuevo: tipo de brace seleccionado
+  factor_w2?: number,       // Nuevo: factor W2
+  x_braces?: number,        // Nuevo: cantidad de braces
+  fbx?: number,             // Nuevo: fuerza X
+  fby?: number,             // Nuevo: fuerza Y
+  fb?: number,              // Nuevo: fuerza total
+  x_inserto?: number,       // Nuevo: coordenada X del inserto
+  y_inserto?: number,       // Nuevo: coordenada Y del inserto
+  cant_b14?: number,        // Nuevo: cantidad B14
+  cant_b12?: number,        // Nuevo: cantidad B12
+  cant_b04?: number,        // Nuevo: cantidad B04
+  cant_b15?: number,        // Nuevo: cantidad B15
+  muertos?: number,         // Nuevo: siempre 1
+  tipo_construccion?: string // Nuevo: TILT-UP o PRECAZT
 ) {
   const query = `
-    INSERT INTO muro (pk_proyecto, id_muro, grosor, area, peso, volumen)
-    VALUES ($1, $2, $3, $4, $5, $6)
+    INSERT INTO muro (
+      pk_proyecto, num, id_muro, grosor, area, peso, volumen, overall_width, overall_height, cgx, cgy,
+      angulo_brace, npt, tipo_brace_seleccionado, factor_w2, x_braces, fbx, fby, fb, x_inserto, y_inserto,
+      cant_b14, cant_b12, cant_b04, cant_b15, muertos, tipo_construccion
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
     RETURNING *;
   `;
 
-  const values = [pk_proyecto, id_muro, grosor, area, peso, volumen];
+  const values = [
+    pk_proyecto, num, id_muro, grosor, area, peso, volumen, overall_width || "S/N", overall_height || "S/N", cgx || "S/N", cgy || "S/N",
+    angulo_brace || null, npt || null, tipo_brace_seleccionado || null, factor_w2 || 0.6,
+    x_braces || 0, fbx || 0, fby || 0, fb || 0, x_inserto || 0, y_inserto || 0,
+    cant_b14 || 0, cant_b12 || 0, cant_b04 || 0, cant_b15 || 0, muertos || 1, tipo_construccion || 'TILT-UP'
+  ];
 
   try {
     const result = await pool.query(query, values);
+    console.log("Muro inserted with PID:", result.rows[0]);
     return result.rows[0]; // devuelve la fila insertada
   } catch (error) {
     console.error("Error inserting muro:", error);
@@ -37,4 +105,119 @@ export async function addMuro(
 
 export async function overrideMuros(pk_proyecto: number) {
   await pool.query('DELETE FROM muro WHERE pk_proyecto = $1', [pk_proyecto]);
+}
+
+export async function getMurosByProject(pk_proyecto: number): Promise<Muro[]> {
+  const query = `
+    SELECT 
+      pid, num, pk_proyecto, id_muro, grosor, area, peso, volumen, overall_width, overall_height, cgx, cgy,
+      angulo_brace, npt, tipo_brace_seleccionado, factor_w2, 
+      qz_kpa, presion_kpa, fuerza_viento,
+      x_braces, fbx, fby, fb, x_inserto, y_inserto,
+      cant_b14, cant_b12, cant_b04, cant_b15, muertos, tipo_construccion
+    FROM muro 
+    WHERE pk_proyecto = $1
+    ORDER BY num;
+  `;
+
+  try {
+    const result = await pool.query(query, [pk_proyecto]);
+    return result.rows;
+  } catch (error) {
+    console.error("Error getting muros:", error);
+    throw error;
+  }
+}
+
+export async function updateMuroEditableFields(
+  pid: number,
+  angulo_brace?: number,
+  npt?: number,
+  x_braces?: number,
+  tipo_construccion?: string,
+  tipo_brace_seleccionado?: string,
+  eje?: string,
+  fb?: number,
+  fbx?: number,
+  fby?: number,
+  x_inserto?: number,
+  y_inserto?: number,
+
+
+) {
+  const query = `
+    UPDATE muro
+    SET angulo_brace = $2, npt = $3, x_braces = $4, tipo_construccion = $5, tipo_brace_seleccionado = $6, eje = $7 , fb = $8, fbx = $9, fby = $10, x_inserto = $11, y_inserto = $12
+    WHERE pid = $1
+    RETURNING *;
+  `;
+
+  const values = [pid, angulo_brace, npt, x_braces, tipo_construccion, tipo_brace_seleccionado, eje, fb, fbx, fby, x_inserto, y_inserto];
+
+  try {
+    const result = await pool.query(query, values);
+    return result.rows[0];
+  } catch (error) {
+    console.error("Error updating muro editable fields:", error);
+    throw error;
+  }
+}
+
+export async function updateMuroBraceCalculations(
+  pid: number,
+  fbx: number,
+  fby: number,
+  fb: number,
+  cant_b14: number,
+  cant_b12: number,
+  cant_b04: number,
+  cant_b15: number,
+  x_inserto?: number,
+  y_inserto?: number
+) {
+  const query = `
+    UPDATE muro
+    SET fbx = $2, fby = $3, fb = $4, cant_b14 = $5, cant_b12 = $6, cant_b04 = $7, cant_b15 = $8,
+        x_inserto = $9, y_inserto = $10
+    WHERE pid = $1
+    RETURNING *;
+  `;
+
+  const values = [pid, fbx, fby, fb, cant_b14, cant_b12, cant_b04, cant_b15, x_inserto || null, y_inserto || null];
+
+  try {
+    const result = await pool.query(query, values);
+    return result.rows[0];
+  } catch (error) {
+    console.error("Error updating muro brace calculations:", error);
+    throw error;
+  }
+}
+
+/**
+ * Actualizar valores de viento calculados en la base de datos
+ * Debe ejecutarse después de calcularVientoMuros
+ */
+export async function updateMuroWindCalculations(
+  pid: number,
+  qz_kpa: number,
+  presion_kpa: number,
+  fuerza_viento: number
+) {
+  const query = `
+    UPDATE muro
+    SET qz_kpa = $2, presion_kpa = $3, fuerza_viento = $4
+    WHERE pid = $1
+    RETURNING *;
+  `;
+
+  const values = [pid, qz_kpa, presion_kpa, fuerza_viento];
+
+  try {
+    const result = await pool.query(query, values);
+    return result.rows[0];
+  } catch (error) {
+    console.error("Error updating muro wind calculations:", error);
+    throw error;
+  }
 }

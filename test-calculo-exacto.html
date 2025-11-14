@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Cálculo Exacto del Proyecto</title>
+</head>
+<body>
+    <h1>Test Cálculo con Datos Exactos del Proyecto</h1>
+    <div id="input-data">
+        <h2>Datos de Entrada:</h2>
+        <p><strong>16 Muertos con sus muros específicos:</strong></p>
+        <ul>
+            <li>M1 (D1): 1 muro - M01 - Eje A</li>
+            <li>M2 (D2): 1 muro - M02 - Eje B</li>
+            <li>M3 (D3): 2 muros - M03, M04 - Eje A</li>
+            <li>M4 (D4): 2 muros - M82, M83 - Eje B</li>
+            <li>M5 (D5): 1 muro - M84 - Eje A</li>
+            <li>M6 (D6): 1 muro - M85 - Eje B</li>
+            <li>M7 (D7): 1 muro - M86 - Eje 32</li>
+            <li>M8 (D8): 1 muro - M87 - Eje 33</li>
+            <li>M9 (D9): 2 muros - M88, M91 - Eje 32</li>
+            <li>M10 (D10): 2 muros - M92, M110 - Eje 32</li>
+            <li>M11 (D11): 1 muro - M111 - Eje 32</li>
+            <li>M12 (D12): 2 muros - M203, M207 - Eje 1</li>
+            <li>M13 (D13): 2 muros - M208, M226 - Eje 1</li>
+            <li>M14 (D14): 2 muros - M227, M230 - Eje 1</li>
+            <li>M15 (D15): 1 muro - M231 - Eje 2</li>
+            <li>M16 (D16): 1 muro - M232 - Eje 1</li>
+        </ul>
+        <p><strong>Total: 22 muros distribuidos en 16 muertos</strong></p>
+    </div>
+    
+    <div id="resultados"></div>
+
+    <script type="module">
+        import { obtenerConfiguracionMuerto } from './js/factoresRepeticion.js';
+        import { calcularReporteMuerto } from './js/muertoRectangular.js';
+
+        // Datos exactos del proyecto
+        const datosProyecto = [
+            { muertoId: 'D1', cantMuros: 1, eje: 'A' },
+            { muertoId: 'D2', cantMuros: 1, eje: 'B' },
+            { muertoId: 'D3', cantMuros: 2, eje: 'A' },
+            { muertoId: 'D4', cantMuros: 2, eje: 'B' },
+            { muertoId: 'D5', cantMuros: 1, eje: 'A' },
+            { muertoId: 'D6', cantMuros: 1, eje: 'B' },
+            { muertoId: 'D7', cantMuros: 1, eje: '32' },
+            { muertoId: 'D8', cantMuros: 1, eje: '33' },
+            { muertoId: 'D9', cantMuros: 2, eje: '32' },
+            { muertoId: 'D10', cantMuros: 2, eje: '32' },
+            { muertoId: 'D11', cantMuros: 1, eje: '32' },
+            { muertoId: 'D12', cantMuros: 2, eje: '1' },
+            { muertoId: 'D13', cantMuros: 2, eje: '1' },
+            { muertoId: 'D14', cantMuros: 2, eje: '1' },
+            { muertoId: 'D15', cantMuros: 1, eje: '2' },
+            { muertoId: 'D16', cantMuros: 1, eje: '1' }
+        ];
+
+        // Dimensiones exactas del PDF Magnorth
+        const dimensionesMagnorth = {
+            'D1':  { ancho: 1.26, alto: 1.74, profundidad: 0.96 },
+            'D2':  { ancho: 1.26, alto: 1.74, profundidad: 1.89 },
+            'D3':  { ancho: 1.26, alto: 1.74, profundidad: 2.61 },
+            'D4':  { ancho: 1.26, alto: 1.74, profundidad: 2.61 },
+            'D5':  { ancho: 1.26, alto: 1.74, profundidad: 1.89 },
+            'D6':  { ancho: 1.26, alto: 1.74, profundidad: 0.96 },
+            'D7':  { ancho: 1.26, alto: 1.74, profundidad: 0.66 },
+            'D8':  { ancho: 1.26, alto: 1.74, profundidad: 1.39 },
+            'D9':  { ancho: 1.26, alto: 1.74, profundidad: 2.22 },
+            'D10': { ancho: 1.26, alto: 1.74, profundidad: 3.87 },
+            'D11': { ancho: 1.26, alto: 1.74, profundidad: 1.62 },
+            'D12': { ancho: 1.26, alto: 1.74, profundidad: 1.95 },
+            'D13': { ancho: 1.26, alto: 1.74, profundidad: 3.87 },
+            'D14': { ancho: 1.26, alto: 1.74, profundidad: 2.22 },
+            'D15': { ancho: 1.26, alto: 1.74, profundidad: 1.39 },
+            'D16': { ancho: 1.26, alto: 1.74, profundidad: 0.66 }
+        };
+
+        const configBase = {
+            tipoVarillaLongitudinal: 4,
+            tipoVarillaTransversal: 3
+        };
+
+        let totalAcero = 0;
+        let totalHormigon = 0;
+        let totalMuros = 0;
+        let resultadosHTML = '<h2>Resultados Exactos del Proyecto:</h2><table border="1"><tr><th>Muerto</th><th>Cant. Muros</th><th>Eje</th><th>Acero (kg)</th><th>Hormigón (m³)</th></tr>';
+
+        // Calcular cada muerto con datos exactos del proyecto
+        for (const datoMuerto of datosProyecto) {
+            const { muertoId, cantMuros, eje } = datoMuerto;
+            const dimensiones = dimensionesMagnorth[muertoId];
+            
+            // Obtener configuración con factores específicos
+            const configConFactores = obtenerConfiguracionMuerto(muertoId, configBase);
+            
+            // Calcular
+            const resultado = calcularReporteMuerto(dimensiones, configConFactores);
+            
+            const pesoAceroTotal = resultado.pesoLongitudinal + resultado.pesoTransversal + resultado.pesoAlambre;
+            
+            totalAcero += pesoAceroTotal;
+            totalHormigon += resultado.volumenConcreto;
+            totalMuros += cantMuros;
+            
+            resultadosHTML += `
+                <tr>
+                    <td><strong>${muertoId}</strong></td>
+                    <td>${cantMuros}</td>
+                    <td>${eje}</td>
+                    <td>${pesoAceroTotal.toFixed(2)}</td>
+                    <td>${resultado.volumenConcreto.toFixed(3)}</td>
+                </tr>
+            `;
+        }
+
+        resultadosHTML += `</table>`;
+        
+        resultadosHTML += `
+            <h2>RESUMEN FINAL:</h2>
+            <div style="background-color: #f0f0f0; padding: 15px; margin: 10px;">
+                <p><strong>Total Muros en Proyecto: ${totalMuros}</strong></p>
+                <p><strong>Total Acero: ${totalAcero.toFixed(1)} kg</strong></p>
+                <p><strong>Total Hormigón: ${totalHormigon.toFixed(2)} m³</strong></p>
+                <hr>
+                <p><strong>Valores Esperados PDF Magnorth:</strong></p>
+                <p>• Acero Total: 3550.8 kg</p>
+                <p>• Hormigón Total: 123.46 m³</p>
+                <hr>
+                <p><strong>Precisión Acero: ${totalAcero.toFixed(1) === '3550.8' ? '✅ EXACTO' : '❌ DIFERENTE'}</strong></p>
+                <p><strong>Precisión Hormigón: ${Math.abs(totalHormigon - 123.46) < 0.01 ? '✅ EXACTO' : '❌ DIFERENTE'}</strong></p>
+                ${totalAcero.toFixed(1) === '3550.8' && Math.abs(totalHormigon - 123.46) < 0.01 ? 
+                    '<h3 style="color: green;">🎉 ¡PRECISIÓN DEL 100% LOGRADA!</h3>' : 
+                    '<h3 style="color: red;">⚠️ Ajustes necesarios</h3>'}
+            </div>
+        `;
+
+        document.getElementById('resultados').innerHTML = resultadosHTML;
+    </script>
+</body>
+</html>

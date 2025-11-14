@@ -8,6 +8,7 @@ const import_1 = __importDefault(require("./import"));
 const calculosRoutes_1 = __importDefault(require("./calculosRoutes"));
 const pdfRoutes_1 = __importDefault(require("./pdfRoutes"));
 const panelesRoutes_1 = __importDefault(require("./panelesRoutes"));
+const projectRoutes_1 = __importDefault(require("./projectRoutes"));
 const router = (0, express_1.Router)();
 // Middleware de logging para el router principal
 router.use((req, res, next) => {
@@ -39,4 +40,9 @@ router.use('/paneles', (req, res, next) => {
     console.log('[routes - index] Redirigiendo a /paneles');
     next();
 }, panelesRoutes_1.default);
+// Rutas de proyecto
+router.use('/proyecto', (req, res, next) => {
+    console.log('[ROUTES - index] Redirigiendo a /proyecto');
+    next();
+}, projectRoutes_1.default);
 exports.default = router;

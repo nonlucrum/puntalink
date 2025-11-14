@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.informePaneles = informePaneles;
-const calculosService_1 = require("../services/calculosService");
+const panelesService_1 = require("../services/panelesService");
 const pdfService_1 = require("../services/pdfService");
 const Project_1 = require("../models/Project");
 async function informePaneles(req, res) {
@@ -10,7 +10,7 @@ async function informePaneles(req, res) {
         if (!Array.isArray(paneles) || paneles.length === 0) {
             return res.status(400).json({ ok: false, error: "Faltan los paneles." });
         }
-        const resultados = (0, calculosService_1.estimarPaneles)(paneles);
+        const resultados = (0, panelesService_1.calcularPaneles)(paneles);
         // Enriquecer los resultados con información original de los paneles
         const resultadosEnriquecidos = resultados.map((resultado, index) => ({
             ...resultado,

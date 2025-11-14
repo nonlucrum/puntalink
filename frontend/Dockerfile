@@ -10,4 +10,5 @@ COPY . .
 
 EXPOSE 3008
 
+# Usar serve.json para configuración sin cache
 CMD ["serve", "public", "-l", "3008"]

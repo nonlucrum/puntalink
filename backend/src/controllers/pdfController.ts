@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { estimarPaneles } from '../services/calculosService';
+import { calcularPaneles } from '../services/panelesService';
 import { generarInformePaneles } from '../services/pdfService';
 import { getProjectById } from '../models/Project';
 
@@ -11,7 +11,7 @@ export async function informePaneles(req: Request, res: Response) {
       return res.status(400).json({ ok: false, error: "Faltan los paneles." });
     }
     
-    const resultados = estimarPaneles(paneles);
+    const resultados = calcularPaneles(paneles);
     
     // Enriquecer los resultados con información original de los paneles
     const resultadosEnriquecidos = resultados.map((resultado, index) => ({

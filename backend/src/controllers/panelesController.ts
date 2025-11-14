@@ -39,7 +39,14 @@ export class PanelesController {
 
   static pdf = async (req: Request, res: Response) => {
     console.log('[controller - panelesController] pdf - Inicio');
-    console.log('[controller - panelesController] Body recibido para PDF:', JSON.stringify(req.body, null, 2));
+    // LIMITADO: Solo mostrar tamaño para evitar overflow de logs
+    console.log('[controller - panelesController] Body recibido - Paneles:', req.body?.paneles?.length || 0);
+    console.log('[controller - panelesController] Body recibido - ProjectInfo existe:', !!req.body?.projectInfo);
+    
+    // DEBUG: Log de primer panel para ver estructura
+    if (req.body?.paneles?.length > 0) {
+      console.log('[DEBUG] Estructura del primer panel:', JSON.stringify(req.body.paneles[0], null, 2));
+    }
     
     const paneles = (req.body?.paneles ?? []) as PanelCalculado[];
     const projectInfo = req.body?.projectInfo ?? null;
@@ -55,7 +62,7 @@ export class PanelesController {
       console.log('[controller - panelesController] Llamando al servicio PDF');
       const pdfBuffer = await pdfService.generarInformePaneles(paneles, projectInfo);
       
-      console.log('[controller - panelesController] PDF generado, configurando headers');
+      console.log('[controller - panelesController] PDF generado exitosamente, tamaño:', pdfBuffer.length, 'bytes');
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader("Content-Disposition", 'attachment; filename="informe_paneles.pdf"');
       res.setHeader("Content-Length", pdfBuffer.length);
