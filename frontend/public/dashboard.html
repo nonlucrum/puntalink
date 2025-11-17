@@ -13,89 +13,142 @@
   <title>PuntaLink - Sistema de Análisis</title>
   <link rel="stylesheet" href="styles.css"/>
 </head>
+
+
 <body>
-  <header class="header">
-    <div class="container header__inner">
-      <h1 class="brand">PuntaLink</h1>
-      <span class="muted">Sistema de análisis y cálculo</span>
-    </div>
-  </header>
+  <!-- Botón hamburguesa (siempre visible arriba) -->
+  <button id="toggleSidebar" class="toggle-btn">☰</button>
 
-  <main class="container space-y">
-    <!-- ===== Información del Proyecto ===== -->
-    <section class="project-info-section">
-      <div class="project-info-header">
-        <h2>Información del Proyecto</h2>
-        <div class="actions">
-            <button id="btnEditProject" class="btn btn--ghost"> Editar</button>
-            <button id="btnCancelUpdateProject" class="btn btn--ghost" style="display: none;">Cancelar</button>
-            <button id="btnUpdateProject" class="btn" style="display: none;">Guardar</button>
-        </div>
+  <!-- Sidebar ocultable -->
+  <div class="sidebar collapsed" id="sidebar">
+    <h2 class="sidebar-title">Menú</h2>
+    <ul class="sidebar-nav">
+      <li>
+        <a href="#import-section" id="menu-importar" data-target="import-section">Importar TXT</a>
+        <ul class="submenu" id="submenu-importar" style="display: none;">
+          <li><a href="#tabla-section">↳ Ver Tabla</a></li>
+          <li><a href="#eliminar-muros-section">↳ Eliminar Muros</a></li>
+        </ul>
+      </li>
+      <li>
+        <a href="#results-section" id="menu-paneles" data-target="results-section">Paneles</a>
+        <ul class="submenu" id="submenu-paneles" style="display: none;">
+          <li><a href="#panelesInfo">↳ Ver Paneles</a></li>
+        </ul>
+      </li>
+      <li>
+        <a href="#wind-section" id="menu-viento" data-target="wind-section">Cálculos Libro III</a>
+        <ul class="submenu" id="submenu-viento" style="display: none;">
+          <li><a href="#bracesConfigPanel">↳ Configuración Braces</a></li>
+          <li><a href="#ejesRangoPanel">↳ Ejes por Rangos</a></li>
+        </ul>
+      </li>
+      <li>
+        <a href="#calculations-section" id="menu-resultados" data-target="calculations-section">Resultados</a>
+        <ul class="submenu" id="submenu-resultados" style="display: none;">
+          <li><a href="#resultadosViento">↳ Ver Resultados del Cálculo de Viento</a></li>
+          <li><a href="#muertos-section">↳ Resumen por muertos</a></li>
+        </ul>
+      </li>
+      <li>
+        <a href="#armado-section" id="menu-armado" data-target="armado-section">Armado</a>
+        <ul class="submenu" id="submenu-armado" style="display: none;">
+          <li><a href="#tablaArmadoResultados">↳ Tabla Armado por muerto</a></li>
+        </ul>
+      </li>
+      <li>
+        <a href="#info-proyecto" id="menu-proyecto" data-target="info-proyecto">Proyecto</a>
+        <ul class="submenu" id="submenu-proyecto" style="display: none;">
+          <li><a href="#formProyecto">↳ Editar Proyecto</a></li>
+        </ul>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Todo el contenido actual, encerrado -->
+  <div class="content">
+    <header class="header">
+      <div class="container header__inner">
+        <h1 class="brand">PuntaLink</h1>
+        <span class="muted">Sistema de análisis y cálculo</span>
       </div>
-      
-      <form id="formProyecto" autocomplete="off">
-        <div class="project-info-grid">
-          <div class="project-field">
-            <label>NOMBRE DEL PROYECTO</label>
-            <input type="text" id="proyectoNombre" class="project-value-dim" disabled required>
-          </div>
-          
-          <div class="project-field">
-            <label>EMPRESA CONSTRUCTORA</label>
-            <input type="text" id="proyectoEmpresa" class="project-value-dim" disabled required>
-          </div>
-          
-          <div class="project-field">
-            <label>TIPO DE MUERTO</label>
-            <select id="proyectoTipoMuerto" class="project-value-dim" disabled>
-                <option value="Cilindrico">Cilindrico</option>
-                <!-- <option value="Triangular">Triangular</option> -->
-                <option value="Corrido">Corrido Rectangular</option>
-            </select>
-          </div>
-          
-          <div class="project-field">
-            <label>
-              VELOCIDAD DEL VIENTO
-              <span class="tooltip-icon" data-tooltip="Velocidad básica del viento según la zona geográfica del proyecto (NSR-10 Título B). Se usa para calcular las cargas de viento sobre los muros.">i</span>
-            </label>
-            <div class="project-field-unit">
-              <input type="number" id="proyectoVelViento" class="project-value-dim" step="0.1" disabled required>
-              <div class="project-value-unit">km/h</div>
-            </div>
-          </div>
-          
-          <div class="project-field">
-            <label>
-              TEMPERATURA PROMEDIO
-              <span class="tooltip-icon" data-tooltip="Temperatura promedio del lugar donde se construirá el proyecto. Utilizada para cálculos térmicos y de materiales.">i</span>
-            </label>
-            <div class="project-field-unit">
-              <input type="number" id="proyectoTempPromedio" class="project-value-dim" step="0.1" disabled required>
-              <div class="project-value-unit">°C</div>
-            </div>
-          </div>
-          
-          <div class="project-field">
-            <label>PRESIÓN ATMOSFÉRICA</label>
-            <div class="project-field-unit">
-              <input type="number" id="proyectoPresionAtm" class="project-value-dim" step="0.1" disabled required>
-              <div class="project-value-unit">mmHg</div>
-            </div>
+    </header>
+
+    <main class="container space-y">
+      <!-- ===== Información del Proyecto ===== -->
+      <section class="project-info-section" id="info-proyecto">
+        <div class="project-info-header">
+          <h2>Información del Proyecto</h2>
+          <div class="actions">
+              <button id="btnEditProject" class="btn btn--ghost"> Editar</button>
+              <button id="btnCancelUpdateProject" class="btn btn--ghost" style="display: none;">Cancelar</button>
+              <button id="btnUpdateProject" class="btn" style="display: none;">Guardar</button>
           </div>
         </div>
-      </form>
-    </section>
+        
+        <form id="formProyecto" autocomplete="off">
+          <div class="project-info-grid">
+            <div class="project-field">
+              <label>NOMBRE DEL PROYECTO</label>
+              <input type="text" id="proyectoNombre" class="project-value-dim" disabled required>
+            </div>
+            
+            <div class="project-field">
+              <label>EMPRESA CONSTRUCTORA</label>
+              <input type="text" id="proyectoEmpresa" class="project-value-dim" disabled required>
+            </div>
+            
+            <div class="project-field">
+              <label>TIPO DE MUERTO</label>
+              <select id="proyectoTipoMuerto" class="project-value-dim" disabled>
+                  <option value="Cilindrico">Cilindrico</option>
+                  <!-- <option value="Triangular">Triangular</option> -->
+                  <option value="Corrido">Corrido Rectangular</option>
+              </select>
+            </div>
+            
+            <div class="project-field">
+              <label>
+                VELOCIDAD DEL VIENTO
+                <span class="tooltip-icon" data-tooltip="Velocidad básica del viento según la zona geográfica del proyecto (NSR-10 Título B). Se usa para calcular las cargas de viento sobre los muros.">i</span>
+              </label>
+              <div class="project-field-unit">
+                <input type="number" id="proyectoVelViento" class="project-value-dim" step="0.1" disabled required>
+                <div class="project-value-unit">km/h</div>
+              </div>
+            </div>
+            
+            <div class="project-field">
+              <label>
+                TEMPERATURA PROMEDIO
+                <span class="tooltip-icon" data-tooltip="Temperatura promedio del lugar donde se construirá el proyecto. Utilizada para cálculos térmicos y de materiales.">i</span>
+              </label>
+              <div class="project-field-unit">
+                <input type="number" id="proyectoTempPromedio" class="project-value-dim" step="0.1" disabled required>
+                <div class="project-value-unit">°C</div>
+              </div>
+            </div>
+            
+            <div class="project-field">
+              <label>PRESIÓN ATMOSFÉRICA</label>
+              <div class="project-field-unit">
+                <input type="number" id="proyectoPresionAtm" class="project-value-dim" step="0.1" disabled required>
+                <div class="project-value-unit">mmHg</div>
+              </div>
+            </div>
+          </div>
+        </form>
+      </section>
 
-    <!-- ===== Acordeón de funcionalidades ===== -->
-    <div class="accordion">
-      
-      <!-- Sección 1: Importar archivo TXT -->
-      <div class="accordion-item">
-        <div class="accordion-header" data-target="import-section">
-          <h2 class="accordion-title">
-            <span class="accordion-icon"></span>
-            Importar Datos desde TXT
+      <!-- ===== Acordeón de funcionalidades ===== -->
+      <div class="accordion">
+        
+        <!-- Sección 1: Importar archivo TXT -->
+        <div class="accordion-item">
+          <div class="accordion-header" data-target="import-section">
+            <h2 class="accordion-title">
+              <span class="accordion-icon"></span>
+              Importar Datos desde TXT
           </h2>
           <span class="accordion-toggle">▼</span>
         </div>
@@ -598,8 +651,12 @@
                   <div class="parameter-group">
                     <h4>🏗️ Construcción</h4>
                     <div class="form-row">
-                      <label>Tipo de concreto (kg/m³):</label>
-                      <input type="number" id="tipoConcreto" class="form-control" value="280" step="10" min="200">
+                      <label>Resistencia del concreto (kg/cm²):</label>
+                      <input type="number" id="resistenciaConcreto" class="form-control" value="280" step="10" min="100">
+                    </div>
+                    <div class="form-row">
+                      <label>Densidad del concreto (kg/m³):</label>
+                      <input type="number" id="densidadConcretoManual" class="form-control" value="2400" step="10" min="1800">
                     </div>
                     <div class="form-row">
                       <label>Factor desperdicio:</label>
@@ -761,5 +818,40 @@
   <script type="module" src="js/muertoCilindrico.js"></script>
   <script type="module" src="js/usability.js"></script>
   <script type="module" src="script.js"></script>
+  <script>
+  document.addEventListener('DOMContentLoaded', () => {
+    // Seleccionamos todos los ítems principales que tienen submenú
+    const menuItems = document.querySelectorAll('.sidebar-nav > li > a[data-target]');
+
+    menuItems.forEach(item => {
+      item.addEventListener('click', (e) => {
+        e.preventDefault(); // evita salto de scroll inmediato
+
+        const targetId = item.getAttribute('data-target');
+        const submenu = document.getElementById('submenu-' + targetId.split('-')[0]); // usa el prefijo
+
+        // Alterna visibilidad del submenú
+        if (submenu) {
+          submenu.style.display = submenu.style.display === 'block' ? 'none' : 'block';
+        }
+
+        // Hace scroll hacia la sección principal
+        const section = document.getElementById(targetId);
+        if (section) {
+          section.scrollIntoView({ behavior: 'smooth' });
+        }
+      });
+    });
+
+    // Toggle sidebar con botón hamburguesa
+    const toggleBtn = document.getElementById('toggleSidebar');
+    const sidebar = document.getElementById('sidebar');
+    if (toggleBtn && sidebar) {
+      toggleBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('collapsed');
+      });
+    }
+  });
+  </script>
 </body>
 </html>
