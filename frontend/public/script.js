@@ -188,6 +188,7 @@ const { confirmar, mostrarNotificacion, BarraProgreso, ejecutarConLoading, debou
   });
 })();
 
+
 // --- API BASE ---
 const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
 export const API_BASE = isLocalHost ? 'http://localhost:4008' : '';
