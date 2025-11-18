@@ -1,5 +1,6 @@
 services:
   db:
+    container_name: puntalink-db
     image: postgres:16
     restart: always
     environment:
@@ -8,29 +9,33 @@ services:
       POSTGRES_DB: puntalink
     volumes:
       - ./data/puntalink.sql:/docker-entrypoint-initdb.d/puntalink.sql
-    ports:
-      - "5008:5008"
+    command: postgres -p 5008
+    expose:
+      - "5008"
     networks:
       - red_taller_software
-    command: postgres -p 5008
 
   backend:
+    container_name: puntalink-backend
     build: ./backend
     restart: always
     env_file:
       - ./backend/.env
-    ports:
-      - "4008:4008"
     depends_on:
       - db
+    expose:
+      - "4008"
     networks:
       - red_taller_software
 
   frontend:
+    container_name: puntalink-frontend
     build: ./frontend
     restart: always
-    ports:
-      - "3008:3008"
+    expose:
+      - "3008"
+    depends_on:
+      - backend
     networks:
       - red_taller_software
 

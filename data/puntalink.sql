@@ -37,7 +37,10 @@ CREATE TABLE muro (
     area DECIMAL(10,2),
     peso DECIMAL(10,2),
     volumen DECIMAL(10,2),
+    overall_width VARCHAR(50),
     overall_height VARCHAR(50),
+    cgx DECIMAL(10,3),
+    cgy DECIMAL(10,3),
     
     -- Campos de cálculos de viento
     qz_kpa DECIMAL(10,4),              -- Presión dinámica de viento (kPa)

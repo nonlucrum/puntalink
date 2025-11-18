@@ -9,7 +9,10 @@ export interface Muro {
   area?: number;
   peso?: number;
   volumen?: number;
+  overall_width?: string;  // Cambiado a string para datos en bruto
   overall_height?: string;  // Cambiado a string para datos en bruto
+  cgx?: number;        // Coordenada X del centro de gravedad
+  cgy?: number;        // Coordenada Y del centro de gravedad
   
   // Campos manuales editables por muro
   angulo_brace?: number;   // Ángulo de inclinación del brace (grados) - Manual
@@ -52,7 +55,10 @@ export async function addMuro(
   area: number,
   peso: number,
   volumen: number,
+  overall_width?: string,  // Cambiado a string
   overall_height?: string,  // Cambiado a string
+  cgx?: number,
+  cgy?: number,
   angulo_brace?: number,    // Nuevo: ángulo manual
   npt?: number,             // Nuevo: NPT manual
   tipo_brace_seleccionado?: string, // Nuevo: tipo de brace seleccionado
@@ -72,16 +78,16 @@ export async function addMuro(
 ) {
   const query = `
     INSERT INTO muro (
-      pk_proyecto, num, id_muro, grosor, area, peso, volumen, overall_height,
+      pk_proyecto, num, id_muro, grosor, area, peso, volumen, overall_width, overall_height, cgx, cgy,
       angulo_brace, npt, tipo_brace_seleccionado, factor_w2, x_braces, fbx, fby, fb, x_inserto, y_inserto,
       cant_b14, cant_b12, cant_b04, cant_b15, muertos, tipo_construccion
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
     RETURNING *;
   `;
 
   const values = [
-    pk_proyecto, num, id_muro, grosor, area, peso, volumen, overall_height || "S/N",
+    pk_proyecto, num, id_muro, grosor, area, peso, volumen, overall_width || "S/N", overall_height || "S/N", cgx || "S/N", cgy || "S/N",
     angulo_brace || null, npt || null, tipo_brace_seleccionado || null, factor_w2 || 0.6,
     x_braces || 0, fbx || 0, fby || 0, fb || 0, x_inserto || 0, y_inserto || 0,
     cant_b14 || 0, cant_b12 || 0, cant_b04 || 0, cant_b15 || 0, muertos || 1, tipo_construccion || 'TILT-UP'
@@ -89,6 +95,7 @@ export async function addMuro(
 
   try {
     const result = await pool.query(query, values);
+    console.log("Muro inserted with PID:", result.rows[0]);
     return result.rows[0]; // devuelve la fila insertada
   } catch (error) {
     console.error("Error inserting muro:", error);
@@ -103,11 +110,11 @@ export async function overrideMuros(pk_proyecto: number) {
 export async function getMurosByProject(pk_proyecto: number): Promise<Muro[]> {
   const query = `
     SELECT 
-      pid, num, pk_proyecto, id_muro, grosor, area, peso, volumen, overall_height,
+      pid, num, pk_proyecto, id_muro, grosor, area, peso, volumen, overall_width, overall_height, cgx, cgy,
       angulo_brace, npt, tipo_brace_seleccionado, factor_w2, 
       qz_kpa, presion_kpa, fuerza_viento,
       x_braces, fbx, fby, fb, x_inserto, y_inserto,
-      cant_b14, cant_b12, cant_b04, cant_b15, muertos, tipo_construccion, eje
+      cant_b14, cant_b12, cant_b04, cant_b15, muertos, tipo_construccion
     FROM muro 
     WHERE pk_proyecto = $1
     ORDER BY num;

@@ -64,11 +64,15 @@ export async function parseTxtRobusto(pk_proyecto: number, txt: string) {
     const volumenCol = parts[4];      // "3,6" (Volume con coma decimal)
     // CGx = parts[5], CGy = parts[6], luego más datos...
     // Overall Width = parts[13], Overall Height = parts[14]
+    const overallWidthCol = parts.length >= 14 ? parts[13] : null; // Columna 14 (índice 13)
     const overallHeightCol = parts.length >= 15 ? parts[14] : null; // Columna 15 (índice 14)
+    const cgxCol = parts[5];
+    const cgyCol = parts[6];
 
     // Debug: mostrar los primeros valores para verificar parsing exacto
     console.log(`[service - importService] Debug - Panel: "${panelIdCol}"`);
-    console.log(`[service - importService] Debug - grosor:"${grosorCol}", area:"${areaCol}", peso:"${pesoCol}", volumen:"${volumenCol}", height:"${overallHeightCol}"`);
+    console.log(`[service - importService] Debug - grosor:"${grosorCol}", area:"${areaCol}", peso:"${pesoCol}", volumen:"${volumenCol}", cgx:"${cgxCol}", cgy:"${cgyCol}"`);
+    console.log(`[service - importService] Debug - overallWidth columna 13: "${overallWidthCol}"`);
     console.log(`[service - importService] Debug - overallHeight columna 14: "${overallHeightCol}"`);
     console.log(`[service - importService] Debug - partes totales: ${parts.length}`);
 
@@ -94,7 +98,21 @@ export async function parseTxtRobusto(pk_proyecto: number, txt: string) {
     const areaNum = areaCol ? Number(areaCol) : null;
     const pesoNum = pesoCol ? Number(pesoCol) : null;
     const volumenNum = volumenCol ? Number(volumenCol) : null;
+    const cgxNum = cgxCol ? Number(cgxCol) / 1000 : null;
+    const cgyNum = cgyCol ? Number(cgyCol) / 1000 : null;
     
+    // Para Overall Width, convertir de mm a metros si es un valor numérico (sin aproximar)
+    let overallWidthValue = overallWidthCol?.trim() || "S/N";
+    if (overallWidthValue === "") {
+      overallWidthValue = "S/N";
+    } else if (!isNaN(Number(overallWidthValue))) {
+      // Si es un número, convertir de mm a metros (dividir por 1000) sin aproximar
+      const widthInMm = Number(overallWidthValue);
+      const widthInMeters = widthInMm / 1000;
+      overallWidthValue = widthInMeters.toString(); // Mantener precisión exacta
+      console.log(`[service - importService] Conversión ancho: ${widthInMm}mm → ${widthInMeters}m (exacto)`);
+    }
+
     // Para Overall Height, convertir de mm a metros si es un valor numérico (sin aproximar)
     let overallHeightValue = overallHeightCol?.trim() || "S/N";
     if (overallHeightValue === "") {
@@ -111,14 +129,17 @@ export async function parseTxtRobusto(pk_proyecto: number, txt: string) {
     if (grosorNum === undefined || grosorNum === null || isNaN(grosorNum) ||
         areaNum === undefined || areaNum === null || isNaN(areaNum) ||
         pesoNum === undefined || pesoNum === null || isNaN(pesoNum) ||
-        volumenNum === undefined || volumenNum === null || isNaN(volumenNum)) {
+        volumenNum === undefined || volumenNum === null || isNaN(volumenNum) ||
+        cgxNum === undefined || cgxNum === null || isNaN(cgxNum) ||
+        cgyNum === undefined || cgyNum === null || isNaN(cgyNum)) {
       console.log(`[service - importService] Panel ${num} (${panelName}) omitido - datos numéricos faltantes o inválidos`);
-      console.log(`[service - importService] grosor:${grosorNum}, area:${areaNum}, peso:${pesoNum}, volumen:${volumenNum}`);
+      console.log(`[service - importService] grosor:${grosorNum}, area:${areaNum}, peso:${pesoNum}, volumen:${volumenNum}, cgx:${cgxNum}, cgy:${cgyNum}`);
       continue;
     }
 
     console.log(`[service - importService] PROCESADO: Panel ${num} procesado: ${panelName}`);
-    console.log(`[service - importService]    Valores exactos: grosor=${grosorNum}, area=${areaNum}, peso=${pesoNum}, volumen=${volumenNum}`);
+    console.log(`[service - importService]    Valores exactos: grosor=${grosorNum}, area=${areaNum}, peso=${pesoNum}, volumen=${volumenNum}, cgx=${cgxNum}, cgy=${cgyNum}`);
+    console.log(`[service - importService]    Overall Width: "${overallWidthValue}"`);
     console.log(`[service - importService]    Overall Height: "${overallHeightValue}"`);
 
     // Agregar número del panel al array de conteo
@@ -131,7 +152,10 @@ export async function parseTxtRobusto(pk_proyecto: number, txt: string) {
       area: areaNum,
       peso: pesoNum,
       volumen: volumenNum,
+      overall_width: overallWidthValue,
       overall_height: overallHeightValue,
+      cgx: cgxNum,
+      cgy: cgyNum
     });
 
     const nuevoMuro = await addMuro(
@@ -142,7 +166,12 @@ export async function parseTxtRobusto(pk_proyecto: number, txt: string) {
         areaNum,
         pesoNum,
         volumenNum,
-        overallHeightValue
+        overallWidthValue,
+        overallHeightValue,
+        cgxNum,
+        cgyNum
+    );
+    console.log('[service - importService] Muro agregado con ID:', nuevoMuro.id_muro
     );
   }
 

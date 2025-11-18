@@ -1,3 +1,42 @@
+// ===== SUBMENÚ DINÁMICO: Importar TXT =====
+document.addEventListener("DOMContentLoaded", () => {
+  const headerImportar = document.querySelector('[data-target="import-section"]');
+  const submenu = document.getElementById("submenu-importar");
+
+  if (headerImportar && submenu) {
+    headerImportar.addEventListener("click", () => {
+      setTimeout(() => {
+        const importSection = document.getElementById("import-section");
+        const isVisible = importSection && importSection.style.display !== "none";
+        submenu.style.display = isVisible ? "block" : "none";
+      }, 200);
+    });
+  }
+});
+
+// ===== SUBMENÚS DINÁMICOS PARA TODAS LAS SECCIONES PRINCIPALES =====
+document.addEventListener("DOMContentLoaded", () => {
+  const sections = [
+    { menu: "menu-paneles", section: "results-section", submenu: "submenu-paneles" },
+    { menu: "menu-viento", section: "wind-section", submenu: "submenu-viento" },
+    { menu: "menu-resultados", section: "calculations-section", submenu: "submenu-resultados" },
+    { menu: "menu-armado", section: "armado-section", submenu: "submenu-armado" },
+    { menu: "menu-proyecto", section: "info-proyecto", submenu: "submenu-proyecto" }
+  ];
+  sections.forEach(({ menu, section, submenu }) => {
+    const header = document.getElementById(menu);
+    const submenuEl = document.getElementById(submenu);
+    if (header && submenuEl) {
+      header.addEventListener("click", () => {
+        setTimeout(() => {
+          const sectionEl = document.getElementById(section);
+          const isVisible = sectionEl && sectionEl.style.display !== "none";
+          submenuEl.style.display = isVisible ? "block" : "none";
+        }, 200);
+      });
+    }
+  });
+});
 // ===== IMPORTACIÓN DE MÓDULOS =====
 import { 
   handleFileValidation,
@@ -69,7 +108,8 @@ const { confirmar, mostrarNotificacion, BarraProgreso, ejecutarConLoading, debou
         height: '100vh',
         zIndex: '0',
         pointerEvents: 'none',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        opacity: '40%'
       });
     }
     return c;
@@ -1099,7 +1139,7 @@ export async function mostrarResultadosViento(data) {
   // Crear detalle de cálculos
   let htmlDetalle = '';
   
-  if (resultados.parametros_utilizados !== undefined) {
+  if (resultados[0].advertencias.length > 0) {
     resultados.forEach(resultado => {
         htmlDetalle += `
         <div class="calculation-detail">
