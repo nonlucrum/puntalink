@@ -305,8 +305,8 @@ export function prepararGruposParaMuertos(gruposMuertos) {
     console.log(`[MUERTO-RECTANGULAR]   Muros en grupo: ${grupo.muros.length}`);
     
     // SUMAR valores dentro del grupo
-    let largoTotal = 0;  // suma de grosor (ancho de muros)
-    let altoTotal = 0;   // suma de overall_height
+    let largoTotal = 0;  // suma de alturas (overall_height)
+    // let altoTotal = 0;   // suma de grosores/ancho de muros (ya no se usa)
     let espesorBloque = 0.80; // valor por defecto, se puede ajustar
     let murosIds = [];  // Para llenar muros_list
     
@@ -338,40 +338,41 @@ export function prepararGruposParaMuertos(gruposMuertos) {
       }
       
       if (muroObj && typeof muroObj === 'object') {
-        let grosor = 0;
-        let altura = 0;
-        
+        // ✅ ANCHO: usar overall_width primero, luego ancho_z_m
+        const anchoVal = parseFloat(muroObj.overall_width) || parseFloat(muroObj.ancho_z_m) || 0;
         // ✅ GROSOR: intentar grosor directo, si no calcular como área/altura
-        grosor = parseFloat(muroObj.grosor);
-        if (!grosor || grosor === 0) {
+        let grosorVal = parseFloat(muroObj.grosor);
+        if (!grosorVal || grosorVal === 0) {
           const area = parseFloat(muroObj.area_m2) || parseFloat(muroObj.area) || 0;
-          const h = parseFloat(muroObj.overall_height) || parseFloat(muroObj.altura_z_m) || 0;
-          grosor = h > 0 ? area / h : 0;
+          grosorVal = anchoVal > 0 ? area / anchoVal : 0;
         }
-        
-        // ✅ ALTURA: usar overall_height primero, luego altura_z_m
-        altura = parseFloat(muroObj.overall_height) || parseFloat(muroObj.altura_z_m) || 0;
-        
-        largoTotal += grosor || 0;
-        altoTotal += altura || 0;
+        // Sumar correctamente: largoTotal = suma de anchos, altoTotal = suma de grosores
+        largoTotal += anchoVal || 0;
+        // altoTotal += grosorVal || 0; // Ya no se suma, el alto será la profundidad ingresada
         murosIds.push(muroId);
-        
-        console.log(`[MUERTO-RECTANGULAR]   Muro ${muroId}: grosor=${grosor}, altura=${altura}`);
+        console.log(`[MUERTO-RECTANGULAR]   Muro ${muroId}: grosor=${grosorVal}, ancho=${anchoVal}`);
       } else {
         console.warn(`[MUERTO-RECTANGULAR]   ⚠️ Muro inválido (no es objeto):`, muro);
       }
     });
     
-    console.log(`[MUERTO-RECTANGULAR]   Totales sumados: largo=${largoTotal}m, alto=${altoTotal}m`);
-    
+    // El alto será la profundidad ingresada manualmente (configGrupo.profundo)
+    const configGrupo = window.configGruposMuertos?.[clave] || {
+      profundo: 0.80,           // Profundidad del muerto (m)
+      espaciadoLong: 25,        // Espaciado varilla longitudinal (cm)
+      espaciadoTrans: 25,       // Espaciado varilla transversal (cm)
+      factorSeguridad: 1.0,     // Factor de seguridad
+      friccion: 0.3             // Coeficiente de fricción
+    };
+    const altoTotal = parseFloat(configGrupo.profundo) || 0.80;
+    console.log(`[MUERTO-RECTANGULAR]   Totales sumados: largo (suma anchos)=${largoTotal}m, alto (profundidad manual)=${altoTotal}m`);
     // Crear objeto de grupo preparado
     const grupoPrepado = {
       clave: clave,                           // Identificador del grupo
       numero_grupo: indice + 1,               // Número secuencial
-      
       // Datos sumados (para cálculos)
-      largo_total: largoTotal,                // Σ grosor (ancho de muros)
-      alto_total: altoTotal,                  // Σ overall_height
+      largo_total: largoTotal,                // Σ anchos (overall_width)
+      alto_total: altoTotal,                  // Profundidad manual ingresada
       espesor_bloque: espesorBloque,          // Espesor del bloque del muerto
       
       // Datos heredados del grupo (de braces)
