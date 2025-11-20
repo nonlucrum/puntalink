@@ -1889,7 +1889,7 @@ function guardarProfundidadesMuertos() {
     alert('⚠️ No se pudo guardar ninguna profundidad. Verifica los valores ingresados.');
     return;
   }
-  
+
   // Mostrar mensaje de éxito
   const mensaje = document.getElementById('mensajeGuardado');
   if (mensaje) {
@@ -1898,58 +1898,93 @@ function guardarProfundidadesMuertos() {
       mensaje.style.display = 'none';
     }, 3000);
   }
-  
-  // Guardar en backend
+
+  // Guardar en backend usando PUT por grupo
   const projectConfig = localStorage.getItem('projectConfig');
   if (projectConfig) {
     const proyecto = JSON.parse(projectConfig);
-    
-    console.log('[DASHBOARD] Proyecto en localStorage:', proyecto);
-    console.log('[DASHBOARD] PID del proyecto:', proyecto.pid);
-    console.log('[DASHBOARD] Enviando al backend:', {
-      url: `${API_BASE}/api/grupos-muertos/${proyecto.pid}`,
-      proyecto: proyecto.pid,
-      config: window.configGruposMuertos
-    });
-    
-    fetch(`${API_BASE}/api/grupos-muertos/${proyecto.pid}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(window.configGruposMuertos)
-    })
-    .then(response => {
-      console.log('[DASHBOARD] Respuesta HTTP status:', response.status);
-      console.log('[DASHBOARD] Respuesta HTTP OK:', response.ok);
-      return response.json();
-    })
-    .then(data => {
-      console.log('[DASHBOARD] Datos recibidos del servidor:', data);
-      if (data.success) {
-        console.log('[DASHBOARD] ✅ Guardado en BD:', data);
-        
+    // Verificar si existen grupos en BD
+    fetch(`${API_BASE}/api/grupos-muertos/${proyecto.pid}`)
+      .then(response => response.json())
+      .then(data => {
+        if (!data.success || !data.grupos || data.grupos.length === 0) {
+          // Si no existen, crear los grupos primero
+          console.log('[DASHBOARD] No existen grupos en BD, creando...');
+          fetch(`${API_BASE}/api/grupos-muertos/${proyecto.pid}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(window.configGruposMuertos)
+          })
+          .then(res => res.json())
+          .then(postData => {
+            if (postData.success) {
+              // Actualizar window.gruposMuertosGlobal con los nuevos grupos
+              postData.grupos.forEach(grupo => {
+                const clave = `${grupo.x_braces}_${Math.round(grupo.angulo_brace)}_${grupo.eje || ''}`;
+                window.gruposMuertosGlobal[clave] = grupo;
+              });
+              // Ahora sí, actualizar profundidades
+              guardarProfundidadesConPUT(proyecto.pid, inputs, profundidadesValidas);
+            } else {
+              alert('Error creando grupos en BD: ' + postData.error);
+            }
+          });
+        } else {
+          // Los grupos existen, actualizar profundidades directamente
+          data.grupos.forEach(grupo => {
+            const clave = `${grupo.x_braces}_${Math.round(grupo.angulo_brace)}_${grupo.eje || ''}`;
+            window.gruposMuertosGlobal[clave] = grupo;
+          });
+          guardarProfundidadesConPUT(proyecto.pid, inputs, profundidadesValidas);
+        }
+      });
+  } else {
+    // Función auxiliar para guardar profundidades con PUT
+    function guardarProfundidadesConPUT(pidProyecto, inputs, profundidadesValidas) {
+      let guardados = 0;
+      const promises = [];
+      inputs.forEach(input => {
+        const clave = input.getAttribute('data-grupo-clave');
+        const valor = parseFloat(input.value);
+        if (!clave || isNaN(valor) || valor <= 0) return;
+        const grupo = window.gruposMuertosGlobal[clave];
+        if (!grupo || !grupo.pid) return;
+        promises.push(
+          fetch(`${API_BASE}/api/grupos-muertos/${grupo.pid}/profundidad`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ profundidad: valor })
+          })
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) guardados++;
+          })
+          .catch(error => {
+            console.error(`[DASHBOARD] Error guardando profundidad para grupo ${clave}:`, error);
+          })
+        );
+      });
+      Promise.all(promises).then(() => {
         // Resetear bordes a normal
         inputs.forEach(input => {
           input.style.borderColor = 'var(--border)';
         });
-        
         alert(`✅ Profundidades guardadas exitosamente!\n\n` +
               `📊 Resumen:\n` +
               `• Total muertos: ${profundidadesValidas}\n` +
-              `• Guardados en BD: ${data.grupos?.length || profundidadesValidas}\n\n` +
+              `• Guardados en BD: ${guardados}\n\n` +
               `Los datos están disponibles para cálculos.`);
-      } else {
-        console.error('[DASHBOARD] Error guardando:', data.error);
-        alert('⚠️ Error al guardar en la base de datos:\n' + data.error + '\n\nLa configuración se guardó en memoria local.');
-      }
-    })
-    .catch(error => {
-      console.error('[DASHBOARD] Error en petición:', error);
-      alert('⚠️ Error de conexión con el servidor.\n\nLa configuración se guardó en memoria local y podrás usarla en esta sesión.');
-    });
-  } else {
+        if (typeof window.ejecutarCalculosArmado === 'function') {
+          window.ejecutarCalculosArmado();
+        }
+      });
+    }
     alert(`✅ Profundidades guardadas en memoria!\n\n` +
           `📊 Total: ${profundidadesValidas} muertos configurados\n\n` +
           `⚠️ No hay proyecto seleccionado para guardar en BD.`);
+    if (typeof window.ejecutarCalculosArmado === 'function') {
+      window.ejecutarCalculosArmado();
+    }
   }
 }
 

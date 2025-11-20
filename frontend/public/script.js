@@ -565,52 +565,56 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnCalcularMuertos) {
     btnCalcularMuertos.addEventListener('click', async () => {
       if (!requireAuthOrWarn()) return;
-      
       try {
         console.log('[SCRIPT] Iniciando cálculo de macizos de anclaje...');
-        
         // Obtener gruposMuertos que ya están agrupados por braces
         const gruposMuertos = window.gruposMuertosGlobal;
-        
         if (!gruposMuertos || Object.keys(gruposMuertos).length === 0) {
           alert('No hay grupos de muertos. Por favor, primero calcula los paneles/braces.');
           return;
         }
-        
         console.log('[SCRIPT] gruposMuertos obtenido:', gruposMuertos);
-        
         // Importar funciones para calcular macizos
         const { prepararGruposParaMuertos, calcularMacizosRectangulares, generarTablaResultadosMacizos } = await import('./js/muertoRectangular.js');
-        
         // Paso 1: Preparar grupos (sumar dimensiones dentro de cada grupo)
-        const gruposPreparados = prepararGruposParaMuertos(gruposMuertos);
+        let gruposPreparados = prepararGruposParaMuertos(gruposMuertos);
+        // Sumar la profundidad manual al alto_total aquí
+        gruposPreparados = gruposPreparados.map(grupo => {
+          let profundidadManual = 0;
+          // Normalizar clave para buscar en window.configGruposMuertos
+          let claveGrupo = grupo.clave || grupo.numero_grupo || '';
+          claveGrupo = String(claveGrupo).replace(/^M0*/, 'M').trim();
+          // Buscar profundidad en window.configGruposMuertos usando la clave normalizada
+          if (window.configGruposMuertos && window.configGruposMuertos[claveGrupo] && window.configGruposMuertos[claveGrupo].profundo) {
+            profundidadManual = parseFloat(window.configGruposMuertos[claveGrupo].profundo) || 0;
+          } else if (grupo.configGrupo && typeof grupo.configGrupo === 'object' && grupo.configGrupo.profundo) {
+            profundidadManual = parseFloat(grupo.configGrupo.profundo) || 0;
+          }
+          return {
+            ...grupo,
+            alto_total: profundidadManual // Solo la profundidad manual
+          };
+        });
         console.log('[SCRIPT] Grupos preparados:', gruposPreparados);
-        
         // Paso 2: Calcular macizos rectangulares
         const resultadosMacizos = calcularMacizosRectangulares(gruposPreparados);
         console.log('[SCRIPT] Macizos calculados:', resultadosMacizos);
-        
         // Paso 3: Generar tabla HTML
         const tablaHTML = generarTablaResultadosMacizos(resultadosMacizos);
-        
         // Paso 4: Mostrar resultados
         const contenedorResultados = document.getElementById('tablaArmado') || document.createElement('div');
         if (!document.getElementById('tablaArmado')) {
           contenedorResultados.id = 'tablaArmado';
           document.body.appendChild(contenedorResultados);
         }
-        
         contenedorResultados.innerHTML = `
           <h3>Resultados: Macizos de Anclaje Rectangulares</h3>
           ${tablaHTML}
         `;
-        
         // Guardar globalmente para referencia
         window.gruposParaMuertosGlobal = gruposPreparados;
         window.resultadosMacizosGlobal = resultadosMacizos;
-        
         alert(`✅ Se calcularon ${resultadosMacizos.length} macizos de anclaje rectangulares.\nResultados mostrados en tabla.`);
-        
       } catch (error) {
         console.error('[SCRIPT] Error en cálculo de macizos:', error);
         alert(`Error: ${error.message}`);
@@ -1933,6 +1937,13 @@ function renderTablaMuertos(resultados) {
   `;
 
   Object.values(grupos).forEach(g => {
+    // Calcular la suma de overall_width por muerto
+    let sumaLargo = 0;
+    if (Array.isArray(window.lastResultadosMuertos)) {
+      sumaLargo = window.lastResultadosMuertos
+        .filter(r => g.muros.includes(r.id_muro || r.id))
+        .reduce((acc, r) => acc + (parseFloat(r.overall_width) || 0), 0);
+    }
     html += `
       <tr>
         <td style="font-weight: bold; color: #007bff;">M${g.muerto}</td>
@@ -1943,6 +1954,9 @@ function renderTablaMuertos(resultados) {
         <td style="text-align: center; font-weight: bold;">${g.cantidadMuros}</td>
         <td style="text-align: center; color: #e83e8c; font-weight: bold;">${g.totalBraces}</td>
         <td style="font-family: monospace; font-size: 0.85em;">${g.muros.join(', ')}</td>
+      </tr>
+      <tr>
+        <td colspan="8" style="background:#f0f0f0; color:#333; font-size:0.95em; text-align:right;">Largo total muros (Overall width): <strong>${sumaLargo.toFixed(2)} m</strong></td>
       </tr>
     `;
   });

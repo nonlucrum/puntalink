@@ -305,104 +305,102 @@ export function prepararGruposParaMuertos(gruposMuertos) {
     console.log(`[MUERTO-RECTANGULAR]   Muros en grupo: ${grupo.muros.length}`);
     
     // SUMAR valores dentro del grupo
-    let largoTotal = 0;  // suma de grosor (ancho de muros)
+      let largoTotal = 0;  // suma de overall_width de los muros
     let altoTotal = 0;   // suma de overall_height
     let espesorBloque = 0.80; // valor por defecto, se puede ajustar
     let murosIds = [];  // Para llenar muros_list
     
-    // Sumar dimensiones de cada muro
+    // Sumar dimensiones de cada muro SOLO si no existen ya en el grupo preparado
+    // Si el grupo ya tiene los muros con FBy, no recalcular ni modificar esos datos
+    if (!grupo.largo_total || !grupo.muros_list) {
+      grupo.muros.forEach(muro => {
+        let muroObj = muro;
+        let muroId = '?';
+        if (typeof muro === 'string') {
+          muroId = muro;
+          if (window.lastResultadosMuertos && Array.isArray(window.lastResultadosMuertos)) {
+            muroObj = window.lastResultadosMuertos.find(m => m.id_muro === muro || m.id === muro);
+          }
+          if (!muroObj) {
+            console.warn(`[MUERTO-RECTANGULAR]   ⚠️ Muro ${muroId} no encontrado en lastResultadosMuertos`);
+            return;
+          }
+        } else if (muro && typeof muro === 'object') {
+          muroId = muro.id_muro || muro.id || '?';
+        } else {
+          console.warn(`[MUERTO-RECTANGULAR]   ⚠️ Muro inválido:`, muro);
+          return;
+        }
+        if (muroObj && typeof muroObj === 'object') {
+          let grosor = 0;
+          grosor = parseFloat(muroObj.grosor);
+          if (!grosor || grosor === 0) {
+            const area = parseFloat(muroObj.area_m2) || parseFloat(muroObj.area) || 0;
+            const h = parseFloat(muroObj.overall_height) || parseFloat(muroObj.altura_z_m) || 0;
+            grosor = h > 0 ? area / h : 0;
+          }
+          largoTotal += parseFloat(muroObj.overall_width) || 0;
+          murosIds.push(muroId);
+          console.log(`[MUERTO-RECTANGULAR]   Muro ${muroId}: grosor=${grosor}`);
+        } else {
+          console.warn(`[MUERTO-RECTANGULAR]   ⚠️ Muro inválido (no es objeto):`, muro);
+        }
+      });
+    } else {
+      largoTotal = grupo.largo_total;
+      murosIds = grupo.muros_list.split(',');
+    }
+    
+    console.log(`[MUERTO-RECTANGULAR]   Totales sumados: largo=${largoTotal}m`);
+    
+    // Calcular ancho del muerto correctamente
+    const configGrupoManual = window.configGruposMuertos?.[clave] || {};
+    const profundo = configGrupoManual.profundo || 0.80;
+    const densidadConcreto = configGrupoManual.densidadConcreto || 2400;
+    // Sumar FBy de todos los muros
+    let sumaFBy = 0;
     grupo.muros.forEach(muro => {
-      // Manejar dos casos:
-      // 1. muro es un OBJETO completo (del PDF/dashboard.js)
-      // 2. muro es un STRING con ID (del script.js viejo)
-      
       let muroObj = muro;
-      let muroId = '?';
-      
       if (typeof muro === 'string') {
-        // Caso 2: es un string, buscar el objeto completo en window.lastResultadosMuertos
-        muroId = muro;
         if (window.lastResultadosMuertos && Array.isArray(window.lastResultadosMuertos)) {
           muroObj = window.lastResultadosMuertos.find(m => m.id_muro === muro || m.id === muro);
         }
-        if (!muroObj) {
-          console.warn(`[MUERTO-RECTANGULAR]   ⚠️ Muro ${muroId} no encontrado en lastResultadosMuertos`);
-          return; // Saltar este muro
-        }
-      } else if (muro && typeof muro === 'object') {
-        // Caso 1: es un objeto
-        muroId = muro.id_muro || muro.id || '?';
-      } else {
-        console.warn(`[MUERTO-RECTANGULAR]   ⚠️ Muro inválido:`, muro);
-        return;
       }
-      
-      if (muroObj && typeof muroObj === 'object') {
-        let grosor = 0;
-        let altura = 0;
-        
-        // ✅ GROSOR: intentar grosor directo, si no calcular como área/altura
-        grosor = parseFloat(muroObj.grosor);
-        if (!grosor || grosor === 0) {
-          const area = parseFloat(muroObj.area_m2) || parseFloat(muroObj.area) || 0;
-          const h = parseFloat(muroObj.overall_height) || parseFloat(muroObj.altura_z_m) || 0;
-          grosor = h > 0 ? area / h : 0;
-        }
-        
-        // ✅ ALTURA: usar overall_height primero, luego altura_z_m
-        altura = parseFloat(muroObj.overall_height) || parseFloat(muroObj.altura_z_m) || 0;
-        
-        largoTotal += grosor || 0;
-        altoTotal += altura || 0;
-        murosIds.push(muroId);
-        
-        console.log(`[MUERTO-RECTANGULAR]   Muro ${muroId}: grosor=${grosor}, altura=${altura}`);
-      } else {
-        console.warn(`[MUERTO-RECTANGULAR]   ⚠️ Muro inválido (no es objeto):`, muro);
-      }
+      sumaFBy += muroObj?.FBy || 0;
     });
-    
-    console.log(`[MUERTO-RECTANGULAR]   Totales sumados: largo=${largoTotal}m, alto=${altoTotal}m`);
-    
-    // Crear objeto de grupo preparado
-    const grupoPrepado = {
-      clave: clave,                           // Identificador del grupo
-      numero_grupo: indice + 1,               // Número secuencial
-      
-      // Datos sumados (para cálculos)
-      largo_total: largoTotal,                // Σ grosor (ancho de muros)
-      alto_total: altoTotal,                  // Σ overall_height
-      espesor_bloque: espesorBloque,          // Espesor del bloque del muerto
-      
-      // Datos heredados del grupo (de braces)
+    const volumenMuerto = sumaFBy / densidadConcreto;
+    let anchoMuerto = 0;
+    if (largoTotal > 0 && profundo > 0) {
+      anchoMuerto = volumenMuerto / (largoTotal * profundo);
+      anchoMuerto = Math.round(anchoMuerto * 100) / 100;
+    }
+    const grupoPreparado = {
+      clave: clave,
+      numero_grupo: indice + 1,
+      largo_total: largoTotal,
+      alto_total: profundo,
+      espesor_bloque: espesorBloque,
       x_braces: grupo.x_braces || 0,
       angulo: grupo.angulo || 0,
       eje: grupo.eje || '',
-      
-      // Cantidades de braces
       cant_b14: grupo.muros[0]?.cant_b14 || 0,
       cant_b12: grupo.muros[0]?.cant_b12 || 0,
       cant_b04: grupo.muros[0]?.cant_b04 || 0,
       cant_b15: grupo.muros[0]?.cant_b15 || 0,
-      
-      // Información del grupo
       cantidad_muros: grupo.muros.length,
       muros_list: murosIds.join(', '),
-      muros: grupo.muros,  // Guardar los muros originales para referencia
-      
-      // ===== CONFIGURACIÓN ESPECÍFICA DEL GRUPO (ingresada manualmente) =====
-      configGrupo: window.configGruposMuertos?.[clave] || {
-        profundo: 0.80,           // Profundidad del muerto (m)
-        espaciadoLong: 25,        // Espaciado varilla longitudinal (cm)
-        espaciadoTrans: 25,       // Espaciado varilla transversal (cm)
-        factorSeguridad: 1.0,     // Factor de seguridad
-        friccion: 0.3             // Coeficiente de fricción
-      }
+      muros: grupo.muros,
+      configGrupo: {
+        ...configGrupoManual,
+        profundo: profundo,
+      },
+      sumaFBy,
+      densidadConcreto,
+      volumenMuerto,
+      anchoMuerto,
     };
-    
-    gruposPreparados.push(grupoPrepado);
-    
-    console.log(`[MUERTO-RECTANGULAR]   Grupo preparado:`, grupoPrepado);
+    gruposPreparados.push(grupoPreparado);
+    console.log(`[MUERTO-RECTANGULAR]   Grupo preparado:`, grupoPreparado);
   });
   
   console.log('[MUERTO-RECTANGULAR] prepararGruposParaMuertos - Total grupos preparados:', gruposPreparados.length);
@@ -496,24 +494,22 @@ export function calcularMacizosRectangulares(gruposPreparados, config = {}) {
     console.log(`[MUERTO-RECTANGULAR]   Peso del muerto: ${pesoMuerto_kg.toFixed(2)} kg`);
     
     // ===== PASO 3: CALCULAR VOLUMEN DEL MUERTO =====
-    // Fórmula: V = pesoMuerto_kg / densidadConcreto
-    const densidadConcreto = configDefault.densidadConcreto || 2400;
-    const volumenMuerto_m3 = pesoMuerto_kg / densidadConcreto;
-    
-    console.log(`[MUERTO-RECTANGULAR]   Volumen del muerto: ${volumenMuerto_m3.toFixed(4)} m³`);
-    
-    // ===== PASO 4: CALCULAR DIMENSIONES DEL MUERTO =====
-    // Según tu tabla:
-    // L = Área_muro / OVERALL_HEIGHT = grupo.largo_total
-    // H = OVERALL_HEIGHT = grupo.alto_total
-    // B = volumenMuerto / (L × profundo)
-    
-    const L = grupo.largo_total;  // Largo (m)
-    const H = grupo.alto_total;   // Alto (m)
-    const profundo = configGrupo.profundo; // Profundo (m) - del usuario
-    const B = (L * profundo > 0) ? (volumenMuerto_m3 / (L * profundo)) : 0;  // Ancho (m)
-    
-    console.log(`[MUERTO-RECTANGULAR]   Dimensiones: L=${L.toFixed(3)}m, H=${H.toFixed(3)}m, B=${B.toFixed(3)}m, Profundo=${profundo.toFixed(3)}m`);
+      // Usar sumaFBy y densidadConcreto para volumen y ancho, igual que prepararGruposParaMuertos
+      const densidadConcreto = configDefault.densidadConcreto || 2400;
+      const sumaFBy = grupo.sumaFBy || 0;
+      const volumenMuerto_m3 = sumaFBy / densidadConcreto;
+      console.log(`[MUERTO-RECTANGULAR]   Volumen del muerto (por sumaFBy): ${volumenMuerto_m3.toFixed(4)} m³`);
+
+      // Dimensiones
+      const L = grupo.largo_total;  // Largo (m)
+      const H = grupo.alto_total;   // Alto (m)
+      const profundo = configGrupo.profundo; // Profundo (m) - del usuario
+      let B = 0;
+      if (L > 0 && profundo > 0) {
+        B = volumenMuerto_m3 / (L * profundo);
+        B = Math.round(B * 100) / 100;
+      }
+      console.log(`[MUERTO-RECTANGULAR]   Dimensiones corregidas: L=${L.toFixed(3)}m, H=${H.toFixed(3)}m, B=${B.toFixed(3)}m, Profundo=${profundo.toFixed(3)}m`);
     
     // ===== PASO 5: CALCULAR ACERO LONGITUDINAL =====
     // Fórmula de tu tabla: Long_acero_long = (L / 1.50) × 12
@@ -594,6 +590,7 @@ export function calcularMacizosRectangulares(gruposPreparados, config = {}) {
       grupo_numero: grupo.numero_grupo,
       grupo_clave: grupo.clave,
       eje: grupo.eje,
+        // ...existing code...
       muros_list: grupo.muros_list,
       largo_total: L,
       alto_total: H,
