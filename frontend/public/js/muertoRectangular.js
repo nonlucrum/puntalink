@@ -59,14 +59,38 @@ function calcularDimensionConRedondeo(volumen, dim1, dim2) {
 
 // ================== CONCRETO ==================
 
-function calcularConcreto(dimensiones, densidad = DENSIDAD_CONCRETO_KG_M3_DEFAULT, factorDesperdicio = 1) {
-  const { ancho, alto, profundidad } = dimensiones;
-  const volumen_m3 = ancho * alto * profundidad;
-  const peso_kg = volumen_m3 * densidad * factorDesperdicio;
+// ================== CONCRETO (MODIFICADO) ==================
+function calcularConcreto(dimensiones, densidad = 2400, factorDesperdicio = 1) {
+  const { ancho, alto, profundidad, largo } = dimensiones;
+
+  // 1. Definir dimensiones finales
+  // Usamos 'largo' si existe, si no 'profundidad' (para evitar confusiones)
+  const L = largo !== undefined ? largo : profundidad;
+  const B = ancho;
+  const H = alto;
+
+  // 2. CÁLCULO GEOMÉTRICO PURO (L x B x H)
+  // Este es el volumen del "cajón". Sirve para cubicaciones y planos.
+  const volumen_geom_m3 = L * B * H;
+
+  // 3. CÁLCULO DE PESO ESTRUCTURAL
+  // El peso depende del volumen geométrico y la densidad.
+  // NOTA: El factor de desperdicio aumenta el costo/volumen de compra, 
+  // pero NO aumenta el peso estructural del bloque (el desperdicio se tira).
+  // Si tú quieres que el desperdicio sume peso, agrégalo aquí, si no, quítalo.
+  const peso_estructural_kg = volumen_geom_m3 * densidad; 
+  
+  // 4. VOLUMEN DE COMPRA (Opcional)
+  // Si necesitas saber cuánto pedir a la concretera (incluyendo desperdicio)
+  const volumen_compra_m3 = volumen_geom_m3 * factorDesperdicio;
 
   return {
-    volumen_m3,
-    peso_kg,
+    largo: L,
+    ancho: B,
+    alto: H,
+    volumen_geom_m3,       // L x B x H (Para mostrar en tabla)
+    volumen_compra_m3,     // Para presupuesto
+    peso_estructural_kg,   // Para cálculo de estabilidad (kg)
   };
 }
 
@@ -157,52 +181,47 @@ function calcularAlambre(dimensiones, config = {}, longitudinal, transversal) {
 
 // ================== FUNCIÓN PRINCIPAL REPORTE ==================
 function calcularReporteMuerto(dimensiones, config = {}) {
-  const concreto = calcularConcreto(dimensiones, config.densidadConcreto ?? DENSIDAD_CONCRETO_KG_M3_DEFAULT, config.factorDesperdicio ?? 1);
+  // Llamamos a la nueva función de concreto
+  const concreto = calcularConcreto(
+      dimensiones, 
+      config.densidadConcreto ?? 2400, 
+      config.factorDesperdicio ?? 1
+  );
+  
+  // ... (cálculos de longitudinal, transversal y alambre siguen igual) ...
   const longitudinal = calcularLongitudinal(dimensiones, config);
   const transversal = calcularTransversal(dimensiones, config);
   const alambre = calcularAlambre(dimensiones, config, longitudinal, transversal);
 
-  const factorLongitudinal = config.repLong ?? 1;
-  const factorTransversal = config.repTrans ?? 1; 
-  const factorVolumen = config.repVol ?? 1;
-  const factorAlambre = config.repAlambre ?? factorTransversal;
+  const factorVol = config.repVol ?? 1;
 
   return {
-    ancho: dimensiones.ancho,
-    alto: dimensiones.alto,
-    largo: dimensiones.profundidad,
-    profundidad: dimensiones.profundidad,
+    // Dimensiones
+    ancho: concreto.ancho,
+    alto: concreto.alto,
+    largo: concreto.largo,
 
-    volumenConcreto_m3: concreto.volumen_m3 * factorVolumen,
-    pesoConcreto_kg: concreto.peso_kg * factorVolumen,
-    longLongitudinal_m: longitudinal.largoTotal_m * factorLongitudinal,
-    pesoLongitudinal_kg: longitudinal.peso_kg * factorLongitudinal,
-    longEstribos_m: transversal.longitudTotal_m * factorTransversal,
-    pesoEstribos_kg: transversal.peso_kg * factorTransversal,
-    longAlambre_m: alambre.longitudTotal_m * factorAlambre,
-    pesoAlambre_kg: alambre.peso_kg * factorAlambre,
+    // --- AQUÍ ESTÁ LA SEPARACIÓN ---
+    // Variable 1: El volumen físico (L x B x H)
+    volumenConcreto_m3: concreto.volumen_geom_m3 * factorVol, 
     
-    // Totales
-    pesoTotal_kg: (concreto.peso_kg * factorVolumen) + 
-                  (longitudinal.peso_kg * factorLongitudinal) + 
-                  (transversal.peso_kg * factorTransversal) + 
-                  (alambre.peso_kg * factorAlambre),
-    
-    tipoVarillaLong: config.tipoVarillaLongitudinal || 4,
-    tipoVarillaTrans: config.tipoVarillaTransversal || 3,
-    
-    // Alias para compatibilidad con tabla
-    volumenConcreto: concreto.volumen_m3 * factorVolumen,
-    pesoConcreto: concreto.peso_kg * factorVolumen,
-    longitudTotalLongitudinal: longitudinal.largoTotal_m * factorLongitudinal,
-    pesoLongitudinal: longitudinal.peso_kg * factorLongitudinal,
-    cantEstribos: transversal.cantidad,
-    longitudTotalTransversal: transversal.longitudTotal_m * factorTransversal,
-    pesoTransversal: transversal.peso_kg * factorTransversal,
-    nodos: alambre.nodos,
-    longitudAlambre: alambre.longitudTotal_m * factorAlambre,
-    pesoAlambre: alambre.peso_kg * factorAlambre,
-    pesoTotal: (concreto.peso_kg * factorVolumen) + (longitudinal.peso_kg * factorLongitudinal) + (transversal.peso_kg * factorTransversal) + (alambre.peso_kg * factorAlambre)
+    // Variable 2: El volumen a comprar (con desperdicio, si aplica)
+    volumenCompra_m3: concreto.volumen_compra_m3 * factorVol,
+
+    // Variable 3: El peso (derivado de la densidad)
+    pesoConcreto_kg: concreto.peso_estructural_kg * factorVol,
+    // -------------------------------
+
+    // ... Resto de los datos de acero ...
+    pesoLongitudinal_kg: longitudinal.peso_kg,
+    pesoEstribos_kg: transversal.peso_kg,
+    pesoAlambre_kg: alambre.peso_kg,
+
+    // Peso Total del muerto (Concreto + Aceros)
+    pesoTotal_kg: (concreto.peso_estructural_kg * factorVol) + 
+                  longitudinal.peso_kg + 
+                  transversal.peso_kg + 
+                  alambre.peso_kg
   };
 }
 
@@ -296,118 +315,99 @@ export function prepararGruposParaMuertos(gruposMuertos) {
   return gruposPreparados;
 }
 
-// ================== FUNCIÓN DE CÁLCULO DE MACIZOS RECTANGULARES ==================
+// ================== FUNCIÓN DE CÁLCULO CORREGIDA ==================
 export function calcularMacizosRectangulares(gruposPreparados, config = {}) {
-  console.log('[MUERTO-RECTANGULAR] calcularMacizosRectangulares - Inicio');
-  
+  console.log('[MUERTO-RECTANGULAR] calcularMacizosRectangulares - Inicio (Refactorizado)');
+
   const configDefault = {
     tipoVarillaLong: 4,
     tipoVarillaTrans: 3,
-    espaciamientoEstribo: 0.25,
+    espaciamientoEstribo: 0.25, // 25 cm
     densidadConcreto: 2400,
+    recubrimientoLongitudinal: 4, // cm
+    recubrimientoTransversal: 4, // cm
     ...config
   };
-  
+
   const resultados = [];
-  
+
+
   gruposPreparados.forEach((grupo, indice) => {
-    // 1. Obtener configuración
-    const configGrupo = grupo.configGrupo || {
-      profundo: 0.2,
-      espaciadoLong: 25,
-      espaciadoTrans: 25,
-      factorSeguridad: 1.0,
-      friccion: 0.3
+    // 1. Dimensiones
+    const dimensiones = {
+      ancho: grupo.espesor_bloque || 0,
+      alto: grupo.alto_total || 0,
+      profundidad: grupo.largo_total || 0,
+      largo: grupo.largo_total || 0
     };
-    
-    // 2. Log seguro (variable ya definida)
-    console.log(`[MUERTO-RECTANGULAR] Grupo ${indice + 1} Config:`, configGrupo);
-    
-    // 3. Datos consolidados (Precalculados en paso anterior)
-    const L = grupo.largo_total; 
-    const H = grupo.alto_total;  // Profundidad/Alto
-    const B = grupo.anchoMuerto || 0;
-    const profundo = H; // Alias para claridad
-    const volumenMuerto_m3 = grupo.volumenMuerto;
-    const densidadConcreto = grupo.densidadConcreto || configDefault.densidadConcreto;
 
-    console.log(`[MUERTO-RECTANGULAR] Dimensiones: L=${L}m, H=${H}m, B=${B}m`);
+    // 2. Configuración
+    const configGrupo = {
+      ...configDefault,
+      ...(grupo.configGrupo || {}),
+      densidadConcreto: grupo.densidadConcreto || configDefault.densidadConcreto
+    };
 
-    // 4. Calcular Acero Longitudinal
-    const longAceroLong_m = (L / 1.50) * 12;
-    const pesoAceroLong_kg = (L / 1.50) * 11.9;
-    const nBarrasLong = 8; 
-    
-    // 5. Calcular Estribos (Transversal) - FÓRMULA GEOMÉTRICA
-    const REC = 0.04;
-    const SEP_m = (configGrupo.espaciadoTrans || 25) / 100;
-    const GANCHO = 0.7;
-    
-    const n_estribos = Math.ceil((L - 2 * REC) / SEP_m) + 1;
-    
-    // Perímetro del estribo: 2*(ancho-2r) + 2*(alto-2r) + ganchos
-    const L_estribo = 2 * Math.max(B - 2 * REC, 0) + 2 * Math.max(H - 2 * REC, 0) + 2 * GANCHO;
-    const longEstribos_m = n_estribos * L_estribo;
-    const pesoEstribos_kg = longEstribos_m * 0.560; // #3
-    
-    // 6. Calcular Alambre
-    const LONG_NUDO = 0.35;
-    const DIAM_ALAMBRE = 0.00122;
-    const n_nudos = nBarrasLong * n_estribos;
-    const longAlambre_m = n_nudos * LONG_NUDO;
-    
-    const radio_alambre = DIAM_ALAMBRE / 2;
-    const area_alambre = Math.PI * Math.pow(radio_alambre, 2);
-    const pesoAlambre_kg = longAlambre_m * area_alambre * DENSIDAD_ACERO_KG_M3;
-    
-    // 7. Peso Concreto
-    const pesoConcreto_kg = volumenMuerto_m3 * densidadConcreto;
-    
-    // 8. Factor Seguridad
-    const factorSeg = configGrupo.factorSeguridad || 1.0;
+    // 3. Cálculo detallado (Aceros y Volumen Geométrico)
+    const reporte = calcularReporteMuerto(dimensiones, configGrupo);
 
-    // 9. Construir Resultado
+    // 4. LÓGICA DE PESO AJUSTADA:
+    // Si existe sumaFBy (la carga que viene de los muros), usamos ESA como peso reportado.
+    // Si no existe (es 0 o error), usamos el peso físico calculado (backup).
+    const pesoReportar_kg = (grupo.sumaFBy && grupo.sumaFBy > 0)
+      ? grupo.sumaFBy
+      : reporte.pesoConcreto_kg;
+
+    // 5. Construir Resultado
     const resultado = {
       grupo_numero: grupo.numero_grupo,
       grupo_clave: grupo.clave,
       eje: grupo.eje,
       muros_list: grupo.muros_list,
-      
+
       // Dimensiones
-      largo_total: L,
-      alto_total: H,
-      espesor_bloque: B,
-      profundo: profundo,
-      
-      // Datos Viento
-      fuerzaBrace_kN: grupo.sumaFBy / 1000, // Referencial
-      
-      // Materiales
-      tipoVarillaLong: 4,
-      nBarrasLong,
-      longLongitudinal_m: longAceroLong_m,
-      pesoLongitudinal_kg: pesoAceroLong_kg * factorSeg,
-      
-      tipoVarillaTrans: 3,
-      nEstribos: n_estribos,
-      longEstribos_m: longEstribos_m,
-      pesoEstribos_kg: pesoEstribos_kg * factorSeg,
-      
-      volumenConcreto_m3: volumenMuerto_m3,
-      pesoConcreto_kg: pesoConcreto_kg,
-      
-      longAlambre_m: longAlambre_m,
-      pesoAlambre_kg: pesoAlambre_kg * factorSeg,
-      
-      pesoTotal_kg: (pesoAceroLong_kg + pesoEstribos_kg + pesoAlambre_kg) * factorSeg + pesoConcreto_kg
+      largo_total: dimensiones.largo,
+      alto_total: dimensiones.alto,
+      espesor_bloque: dimensiones.ancho,
+
+      fuerzaBrace_kN: (grupo.sumaFBy || 0) / 1000,
+
+      // Aceros
+      tipoVarillaLong: reporte.tipoVarillaLong,
+      nBarrasLong: reporte.totalBarrasLong || 0,
+      longLongitudinal_m: reporte.longLongitudinal_m,
+      pesoLongitudinal_kg: reporte.pesoLongitudinal_kg,
+
+      tipoVarillaTrans: reporte.tipoVarillaTrans,
+      nEstribos: reporte.cantEstribos,
+      longEstribos_m: reporte.longEstribos_m,
+      pesoEstribos_kg: reporte.pesoEstribos_kg,
+
+      // --- CAMBIOS EN CONCRETO ---
+      // Volumen: Se queda con el Geométrico (lo real a colar)
+      volumenConcreto_m3: reporte.volumenConcreto_m3,
+
+      // Peso: Usamos FBy directamente
+      pesoConcreto_kg: pesoReportar_kg,
+
+      valor_LBH: reporte.volumenConcreto_m3,
+
+      // Alambre
+      longAlambre_m: reporte.longAlambre_m,
+      pesoAlambre_kg: reporte.pesoAlambre_kg,
+
+      // Total: Sumamos el peso reportado (FBy) + aceros
+      pesoTotal_kg: pesoReportar_kg +
+        reporte.pesoLongitudinal_kg +
+        reporte.pesoEstribos_kg +
+        reporte.pesoAlambre_kg
     };
-    
+
     resultados.push(resultado);
   });
-  
+
   return resultados;
 }
-
 // ================== GENERADOR DE TABLA HTML ==================
 export function generarTablaResultadosMacizos(resultados) {
   if (!resultados || resultados.length === 0) return '<p>No hay resultados.</p>';
@@ -468,6 +468,14 @@ export function generarTablaResultadosMacizos(resultados) {
   </tfoot>`;
 
   return html;
+}
+
+if (typeof window !== 'undefined') {
+  window.MuertoRectangular = {
+    prepararGruposParaMuertos,
+    calcularMacizosRectangulares,
+    generarTablaResultadosMacizos
+  };
 }
 
 if (typeof window !== 'undefined') {
