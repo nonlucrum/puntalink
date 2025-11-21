@@ -38,6 +38,25 @@ function obtenerPesoEspecifico(tipoVarilla = 4) {
   return PESO_ESPECIFICO_KG_M[key] ?? PESO_ESPECIFICO_KG_M['#4'];
 }
 
+function calcularDimensionConRedondeo(volumen, dim1, dim2) {
+  // Evitar división por cero
+  if (!dim1 || !dim2 || dim1 === 0 || dim2 === 0) return 0;
+
+  // Cálculo base: Volumen / (Largo * Alto)
+  const valorBase = volumen / (dim1 * dim2);
+
+  // Aplicar redondeo hacia arriba al 0.05 más cercano
+  // Ejemplo: 0.41 -> 0.45, 0.46 -> 0.50
+  let dimension = Math.ceil(valorBase * 20) / 20;
+
+  // Aplicar restricción mínima del Excel (0.4m)
+  if (dimension < 0.4) {
+    dimension = 0.4;
+  }
+
+  return dimension;
+}
+
 // ================== CONCRETO ==================
 
 function calcularConcreto(dimensiones, densidad = DENSIDAD_CONCRETO_KG_M3_DEFAULT, factorDesperdicio = 1) {
@@ -221,10 +240,14 @@ export function prepararGruposParaMuertos(gruposMuertos) {
       }
     });
 
+    if (largoTotal > 0) {
+      largoTotal = Math.round(largoTotal * 100) / 100; // Redondear a 2 decimales
+    }
+
     // Calcular alto (profundidad) desde configuración manual por grupo
     const configGrupoManual = window.configGruposMuertos?.[clave] || {};
     const configGrupo = grupo.configGrupo || configGrupoManual || {};
-    const profundo = configGrupo.profundo || configGrupo.profundidad || configGrupoManual.profundidad || 0.80;
+    const profundo = configGrupo.profundo || configGrupo.profundidad || configGrupoManual.profundidad || 0.2;
 
     const densidadConcreto = DENSIDAD_CONCRETO_KG_M3_DEFAULT;
 
@@ -243,7 +266,7 @@ export function prepararGruposParaMuertos(gruposMuertos) {
     let anchoMuerto = 0;
     if (largoTotal > 0 && profundo > 0) {
       anchoMuerto = volumenMuerto / (largoTotal * profundo);
-      anchoMuerto = Math.round(anchoMuerto * 100) / 100;
+      anchoMuerto = calcularDimensionConRedondeo(volumenMuerto, largoTotal, profundo);
     }
 
     const grupoPreparado = {
@@ -290,7 +313,7 @@ export function calcularMacizosRectangulares(gruposPreparados, config = {}) {
   gruposPreparados.forEach((grupo, indice) => {
     // 1. Obtener configuración
     const configGrupo = grupo.configGrupo || {
-      profundo: 0.80,
+      profundo: 0.2,
       espaciadoLong: 25,
       espaciadoTrans: 25,
       factorSeguridad: 1.0,
