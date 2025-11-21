@@ -1,3 +1,4 @@
+console.log('[DEPURACIÓN] dashboard.js cargado correctamente');
 // ===== MÓDULO CONSOLIDADO DE BOTONES =====
 // import * as Muertos from './muertos.js'; // ELIMINADO - Cálculos cilíndricos ahora son funcionalidades independientes
 
@@ -1727,17 +1728,17 @@ function mostrarConfigGrupos(gruposMuertos) {
     Object.keys(gruposMuertos).forEach(clave => {
       const grupo = gruposMuertos[clave];
       const numeroMuerto = grupo.muerto || parseInt(clave.replace('M', ''));
-      
-      // Construir clave en formato backend: "x_angulo_eje"
       const xBraces = grupo.x || grupo.x_braces || 0;
       const angulo = Math.round(grupo.ang || grupo.angulo || 0);
       const eje = grupo.eje || 0;
-      const claveBackend = `${xBraces}_${angulo}_${eje}`;
-      
-      const valorActual = window.configGruposMuertos[claveBackend]?.profundo || 2.0;
-      
-      console.log(`[DASHBOARD] Generando fila para ${clave} -> clave backend: ${claveBackend}`, grupo);
-      
+      // Usar la clave del grupo muerto directamente para config y para el input
+      const valorActual = window.configGruposMuertos[clave]?.profundo || 2.0;
+      console.log(`[DASHBOARD] Generando fila para grupo muerto:`, {
+        claveGrupo: clave,
+        valorActual,
+        config: window.configGruposMuertos[clave],
+        grupo
+      });
       html += `
         <tr style="border-bottom: 1px solid var(--border);">
           <td style="padding: 0.75rem; font-weight: bold; color: var(--primary);">${clave}</td>
@@ -1750,7 +1751,7 @@ function mostrarConfigGrupos(gruposMuertos) {
               type="number" 
               class="input-profundidad-muerto" 
               data-muerto="${clave}"
-              data-grupo-clave="${claveBackend}"
+              data-grupo-clave="${clave}"
               value="${valorActual}"
               step="0.1" 
               min="0.5"
@@ -1850,7 +1851,7 @@ function guardarProfundidadesMuertos() {
     const clave = input.getAttribute('data-grupo-clave');
     const muerto = input.getAttribute('data-muerto');
     const valor = parseFloat(input.value);
-    
+
     console.log(`[DASHBOARD] Input ${index + 1}:`, { clave, muerto, valor });
     
     if (!clave) {
@@ -1874,7 +1875,7 @@ function guardarProfundidadesMuertos() {
       };
     }
     
-    // Guardar profundidad
+    // Guardar profundidad solo bajo la clave del grupo muerto
     window.configGruposMuertos[clave].profundo = valor;
     input.style.borderColor = '#28a745'; // Verde para indicar guardado
     profundidadesValidas++;
@@ -1899,6 +1900,35 @@ function guardarProfundidadesMuertos() {
     }, 3000);
   }
 
+  const configParaBackend = {};
+  Object.keys(window.configGruposMuertos).forEach(clave => { // 👈 Iteramos sobre la configuración completa
+    // 1. OMITIR CLAVES "M1", "M2", etc.
+    if (clave.startsWith('M') && clave.length <= 3) {
+        return; // No incluir claves de frontend (M1, M2, etc.) en el payload del backend
+    }
+    
+    // 2. Incluir y parsear solo claves de backend (ej: "4_53_M01")
+    const partes = clave.split('_');
+
+    // Solo procesar claves que se vean como x_angulo_eje (3 o más partes)
+    if (partes.length >= 3) {
+        const x_braces_clave = parseInt(partes[0]);
+        const angulo_clave = parseFloat(partes[1]);
+        const eje_clave = partes[2]; 
+
+        if (!isNaN(x_braces_clave) && !isNaN(angulo_clave)) {
+            // Creamos un nuevo objeto de configuración limpio
+            configParaBackend[clave] = {
+                profundo: window.configGruposMuertos[clave].profundo,
+                x_braces: x_braces_clave,
+                angulo_brace: angulo_clave,
+                eje: eje_clave,
+                // Puedes añadir aquí otras propiedades de configuración que necesites guardar
+            };
+        }
+    }
+});
+
   // Guardar en backend usando PUT por grupo
   const projectConfig = localStorage.getItem('projectConfig');
   if (projectConfig) {
@@ -1913,7 +1943,7 @@ function guardarProfundidadesMuertos() {
           fetch(`${API_BASE}/api/grupos-muertos/${proyecto.pid}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(window.configGruposMuertos)
+            body: JSON.stringify(configParaBackend)
           })
           .then(res => res.json())
           .then(postData => {
@@ -2175,6 +2205,7 @@ async function reagruparMuertos() {
 
 // Función principal para ejecutar los cálculos de armado
 async function ejecutarCalculosArmado() {
+    console.log('[DEPURACIÓN] Iniciando ejecutarCalculosArmado');
   try {
     console.log('[DASHBOARD] ejecutarCalculosArmado - Iniciando cálculos de macizos de anclaje');
     
@@ -2283,6 +2314,51 @@ async function ejecutarCalculosArmado() {
     console.log('[DASHBOARD] gruposMuertos disponible. Claves:', Object.keys(gruposMuertos));
     
     // 2. Preparar grupos (sumar dimensiones dentro de cada grupo)
+        // Sincronización mejorada de profundidad manual
+        // 2. Preparar grupos (sumar dimensiones dentro de cada grupo)
+    // Sincronización mejorada de profundidad manual
+    if (window.configGruposMuertos) {
+        Object.keys(gruposMuertos).forEach(clave => {
+            let profundidadManual = null;
+            const grupo = gruposMuertos[clave]; // Referencia al grupo actual
+
+            // 1. Intentar buscar por la clave compleja exacta (ej: '2_53_1')
+            if (window.configGruposMuertos[clave] && window.configGruposMuertos[clave].profundo) {
+                profundidadManual = window.configGruposMuertos[clave].profundo;
+            }
+            
+            // 2. Intentar buscar por Eje Simple (ej: 'M1') <- ESTO ES LO QUE FALTA
+            if (!profundidadManual && grupo.eje) {
+                // Convertir eje a entero para quitar ceros a la izquierda (01 -> 1) y agregar 'M'
+                const claveCorta = `M${parseInt(grupo.eje)}`; 
+                if (window.configGruposMuertos[claveCorta] && window.configGruposMuertos[claveCorta].profundo) {
+                    console.log(`[DEPURACIÓN] Profundidad encontrada por clave corta (${claveCorta}): ${window.configGruposMuertos[claveCorta].profundo}`);
+                    profundidadManual = window.configGruposMuertos[claveCorta].profundo;
+                }
+            }
+
+            // 3. Intentar buscar dentro de los muros individuales (ej: 'M01')
+            if (!profundidadManual && grupo && Array.isArray(grupo.muros)) {
+                for (let muro of grupo.muros) {
+                    let claveMuerto = (typeof muro === 'object' ? muro.id_muro || muro.id : muro);
+                    
+                    // Buscar coincidencia exacta de ID muro
+                    if (claveMuerto && window.configGruposMuertos[claveMuerto] && window.configGruposMuertos[claveMuerto].profundo) {
+                        profundidadManual = window.configGruposMuertos[claveMuerto].profundo;
+                        break;
+                    }
+                }
+            }
+
+            console.log(`[DEPURACIÓN] Grupo: ${clave} | Profundidad final aplicada:`, profundidadManual);
+            
+            // Asignar valor encontrado
+            if (profundidadManual) {
+                gruposMuertos[clave].configGrupo = gruposMuertos[clave].configGrupo || {};
+                gruposMuertos[clave].configGrupo.profundo = profundidadManual;
+            }
+        });
+    }
     console.log('[DASHBOARD] Preparando grupos para macizos...');
     const gruposPreparados = prepararGruposParaMuertos(gruposMuertos);
     console.log('[DASHBOARD] Grupos preparados:', gruposPreparados.length, gruposPreparados);

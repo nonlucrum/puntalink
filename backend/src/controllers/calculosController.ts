@@ -268,29 +268,38 @@ export const calcularBraces = async (req: Request, res: Response) => {
       });
     }
 
-    // Calcular fuerza de viento automáticamente
-    // Usamos el área y altura del muro para calcularla
+    // Usar valores de viento guardados en la BD si existen
     const area_m2 = parseFloat(muro.area?.toString() || '0');
     const altura_m = parseFloat(muro.overall_height?.toString() || '0');
+    const qz_kPa_bd = parseFloat(muro.qz_kpa?.toString() || '0');
+    const presion_kPa_bd = parseFloat(muro.presion_kpa?.toString() || '0');
+    const fuerza_viento_kN_bd = parseFloat(muro.fuerza_viento?.toString() || '0');
 
-    if (area_m2 <= 0 || altura_m <= 0) {
-      return res.status(400).json({ 
-        error: 'El muro debe tener área y altura válidas',
-        muro: { area: muro.area, altura: muro.overall_height }
-      });
+    let qz_kPa = qz_kPa_bd;
+    let presion_kPa = presion_kPa_bd;
+    let fuerza_viento_kN = fuerza_viento_kN_bd;
+
+    // Si no existen valores válidos en BD, calcularlos
+    if (!qz_kPa_bd || qz_kPa_bd <= 0 || !fuerza_viento_kN_bd || fuerza_viento_kN_bd <= 0) {
+        console.warn('[CALCULOS] ⚠️ Error: Valores de viento FV/qz no encontrados en BD. Forzando error para asegurar coherencia.');
+        // Forzamos un error para que el usuario sepa que debe hacer clic en "Calcular Viento" primero.
+        return res.status(400).json({ 
+            error: 'Valores de viento FBy no encontrados. Ejecute el cálculo de viento principal primero.',
+            muro: { qz_kpa: muro.qz_kpa, fuerza_viento: muro.fuerza_viento }
+        });
     }
 
-    // Calcular presión de viento (simplificado - usar valores típicos)
-    // qz típico para construcción en México: ~80-85 kPa
-    const qz_kPa = 82; // Valor típico
-    const fuerza_viento_kN = qz_kPa * area_m2;
-
-    console.log(`[CALCULOS] Fuerza de viento calculada: ${fuerza_viento_kN.toFixed(2)} kN (qz=${qz_kPa} kPa, área=${area_m2} m²)`);
+    // Si pasamos la validación, usamos los valores de la BD
+    qz_kPa = qz_kPa_bd;
+    presion_kPa = presion_kPa_bd;
+    fuerza_viento_kN = fuerza_viento_kN_bd;
+    
+    console.log(`[CALCULOS] ✅ Usando valores de viento de BD: FV=${fuerza_viento_kN} kN, qz=${qz_kPa} kPa, presión=${presion_kPa} kPa`);
 
     // Calcular fuerzas de braces incluyendo coordenadas de inserto
     const resultado = calculateBraceForces(
       fuerza_viento_kN,
-      82, // qz_kPa - agregado para compatibilidad
+      presion_kPa,
       altura_m,
       angulo_brace,
       npt, // Pasar NPT para calcular Y inserto
