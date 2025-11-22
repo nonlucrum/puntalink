@@ -117,7 +117,8 @@ CREATE TABLE grupo_muerto (
     fuerza_total DECIMAL(10,2),           -- Fuerza total del grupo (kN)
     volumen_concreto DECIMAL(10,3),       -- Volumen de concreto necesario (m³)
     peso_muerto DECIMAL(10,2),            -- Peso del muerto (kN)
-    
+    peso_acero DECIMAL(10,2),             -- Peso de acero necesario (kN)
+
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
     

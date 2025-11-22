@@ -5,58 +5,91 @@ import { getProjectById } from '../models/Project';
 
 export async function informePaneles(req: Request, res: Response) {
   try {
-    const { paneles, projectId, userId, creadorProyecto, version } = req.body;
+    // 1. Extraer explícitamente reporteMacizos del body
+    const { 
+      paneles, 
+      projectId, 
+      userId, 
+      creadorProyecto, 
+      version, 
+      projectInfo: projectInfoBody,
+      tablaMuertos,
+      reporteMacizos // <--- ESTO ES LO QUE FALTABA O FALLABA
+    } = req.body;
     
+    console.log('[pdfController] Recibido request PDF.');
+    console.log(`[pdfController] Paneles: ${paneles?.length}`);
+    console.log(`[pdfController] Macizos recibidos: ${reporteMacizos ? reporteMacizos.length : 'UNDEFINED'}`);
+
     if (!Array.isArray(paneles) || paneles.length === 0) {
       return res.status(400).json({ ok: false, error: "Faltan los paneles." });
     }
     
+    // Procesamiento de paneles
     const resultados = calcularPaneles(paneles);
     
-    // Enriquecer los resultados con información original de los paneles
     const resultadosEnriquecidos = resultados.map((resultado, index) => ({
       ...resultado,
-      grosor_mm: paneles[index]?.grosor ? paneles[index].grosor * 1000 : undefined, // convertir a mm
+      ...paneles[index], 
+      grosor_mm: paneles[index]?.grosor ? paneles[index].grosor * 1000 : undefined, 
       area_m2: paneles[index]?.area
     }));
     
-    // Obtener información del proyecto si se proporciona
-    let projectInfo = undefined;
+    // Info del proyecto
+    let finalProjectInfo = undefined;
     if (projectId && userId) {
       try {
         const project = await getProjectById(projectId, userId);
         if (project) {
-          projectInfo = {
-            nombreProyecto: project.nombre,
-            empresaConstructora: project.empresa,
-            tipoMuerto: project.tipo_muerto,
-            velViento: project.vel_viento,
-            tempPromedio: project.temp_promedio,
-            presionAtm: project.presion_atmo,
+          finalProjectInfo = {
+            nombre: project.nombre,
+            empresa: project.empresa,
+            tipo_muerto: project.tipo_muerto,
+            vel_viento: project.vel_viento,
+            temp_promedio: project.temp_promedio,
+            presion_atmo: project.presion_atmo,
             creadorProyecto: creadorProyecto || 'No especificado',
             version: version || '1.0'
           };
         }
       } catch (error) {
-        console.log('[pdfController] No se pudo obtener información del proyecto:', error);
+        console.log('[pdfController] Error obteniendo proyecto:', error);
       }
     }
     
-    // También permitir pasar la información directamente en el body
-    if (!projectInfo && req.body.projectInfo) {
-      projectInfo = {
-        ...req.body.projectInfo,
-        creadorProyecto: creadorProyecto || req.body.projectInfo.creadorProyecto || 'No especificado',
-        version: version || req.body.projectInfo.version || '1.0'
+    // Merge info proyecto
+    if (projectInfoBody) {
+      finalProjectInfo = {
+        ...(finalProjectInfo || {}),
+        ...projectInfoBody,
+        creadorProyecto: creadorProyecto || projectInfoBody.creadorProyecto || finalProjectInfo?.creadorProyecto || 'No especificado',
+        version: version || projectInfoBody.version || finalProjectInfo?.version || '1.0'
       };
     }
     
-    const informeBuffer = await generarInformePaneles(resultadosEnriquecidos, projectInfo);
+    const userInfo = {
+      name: creadorProyecto || 'Usuario',
+      email: '' 
+    };
+
+    // 2. PASAR reporteMacizos AL SERVICIO (6to argumento)
+    const informeBuffer = await generarInformePaneles(
+      resultadosEnriquecidos, 
+      finalProjectInfo,
+      tablaMuertos,
+      undefined, 
+      userInfo,
+      reporteMacizos // <--- AQUÍ SE PASAN LOS DATOS
+    );
+    
+    console.log(`[pdfController] PDF generado exitosamente, tamaño: ${informeBuffer.length} bytes`);
     
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename="informe_paneles.pdf"');
     res.send(informeBuffer);
+
   } catch (err: any) {
+    console.error('[pdfController] Error crítico:', err);
     res.status(500).json({ ok: false, error: err.message });
   }
 }

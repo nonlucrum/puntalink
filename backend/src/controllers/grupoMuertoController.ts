@@ -102,10 +102,13 @@ export async function obtenerGrupos(req: Request, res: Response) {
 export async function actualizarProfundidad(req: Request, res: Response) {
   try {
     const pid = parseInt(req.params.pid);
-    const { profundidad } = req.body;
+    // Extraemos los nuevos campos del body
+    const { profundidad, ancho_calculado, volumen_concreto, peso_acero } = req.body;
 
     console.log('[GRUPO_MUERTO_CTRL] PUT /api/grupos-muertos/', pid, '/profundidad');
-    console.log('[GRUPO_MUERTO_CTRL] Nueva profundidad:', profundidad);
+    console.log('[GRUPO_MUERTO_CTRL] Datos recibidos:', { 
+      profundidad, ancho_calculado, volumen_concreto, peso_acero 
+    });
 
     if (!pid || isNaN(pid)) {
       return res.status(400).json({
@@ -121,12 +124,20 @@ export async function actualizarProfundidad(req: Request, res: Response) {
       });
     }
 
-    const resultado = await actualizarProfundidadGrupo(pid, profundidad);
+    // Llamamos al servicio pasando los parámetros opcionales
+    const resultado = await actualizarProfundidadGrupo(
+      pid, 
+      profundidad, 
+      ancho_calculado, 
+      volumen_concreto, 
+      peso_acero
+    );
 
     if (resultado.success) {
       return res.status(200).json({
         success: true,
-        mensaje: 'Profundidad actualizada',
+        mensaje: 'Profundidad y datos calculados actualizados',
+        grupo: resultado.grupo // Es útil devolver el grupo actualizado
       });
     } else {
       return res.status(500).json({
