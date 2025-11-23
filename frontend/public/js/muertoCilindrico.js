@@ -1,383 +1,243 @@
 /**
- * MÓDULO DE CÁLCULO DE ARMADO CILÍNDRICO PARA MUERTOS
- * 
- * Este módulo contiene todas las funciones necesarias para calcular
- * el armado de macizos de anclaje cilíndricos, incluyendo:
- * - Cálculo de concreto
- * - Armado longitudinal (varillas verticales)
- * - Armado transversal (estribos circulares)
- * - Alambre de amarre
- * - Reportes y resúmenes
- * 
- * Basado en especificaciones técnicas para construcción de muertos cilíndricos
+ * CÁLCULOS DE ARMADO CILÍNDRICO (TIPO POZO) - VERSIÓN FINAL INTEGRADA
+ * * CARACTERÍSTICAS TÉCNICAS:
+ * 1. Geometría: Cilindro recto (pozo excavado).
+ * 2. Recubrimiento: 7.5cm default (vaciado contra terreno).
+ * 3. Longitudinal: Incluye longitud de ganchos/patas (Sup/Inf).
+ * 4. Transversal: Estribos circulares individuales (Anillos).
  */
 
-// ===== CONSTANTES =====
-const DENSIDAD_CONCRETO_KG_M3_DEFAULT = 2400;
-const DENSIDAD_ACERO_KG_M3 = 7850;
-const PI = Math.PI;
+// ================== CONSTANTES ==================
 
-// Pesos por metro de varillas (kg/m)
 const PESO_VARILLA_KG_M = {
-  '#3': 0.560,  // 3/8"
-  '#4': 0.994,  // 1/2"
-  '#5': 1.552,  // 5/8"
-  '#6': 2.235,  // 3/4"
-  '#7': 3.042,  // 7/8"
-  '#8': 3.973   // 1"
+  '#3': 0.560, '#4': 0.994, '#5': 1.552, '#6': 2.235, '#7': 3.042, '#8': 3.973,
+  '3': 0.560, '4': 0.994, '5': 1.552, '6': 2.235, '7': 3.042, '8': 3.973
 };
 
-// Diámetros de varillas (m)
-const DIAMETRO_VARILLA_M = {
-  '#3': 0.009525,  // 3/8"
-  '#4': 0.01270,   // 1/2"
-  '#5': 0.01588,   // 5/8"
-  '#6': 0.01905,   // 3/4"
-  '#7': 0.02222,   // 7/8"
-  '#8': 0.02540    // 1"
+const DEFAULTS = {
+  RECUBRIMIENTO_CM: 7.5, // Norma ACI para contacto contra suelo
+  SEP_ANILLOS_CM: 20,
+  ANCLAJE_SUP_CM: 40,    // Gancho o saliente superior
+  ANCLAJE_INF_CM: 40,    // Gancho inferior (patas)
+  TRASLAPE_FACTOR: 40,   // Veces el diámetro para cerrar anillo
+  TIPO_VARILLA_VERT: '#5',
+  TIPO_VARILLA_ANILLO: '#3',
+  MIN_VARILLAS_LONG: 6   // Mínimo para formar jaula circular
 };
 
-/**
- * Calcula el volumen y peso del concreto para un muerto cilíndrico
- */
-function calcularConcretoCilindrico(dimensiones, densidadConcreto = DENSIDAD_CONCRETO_KG_M3_DEFAULT) {
-  const { diametro, altura } = dimensiones;
-  const radio = diametro / 2;
+// ================== AUXILIARES ==================
+
+function obtenerPesoEspecifico(tipoVarilla) {
+  if (!tipoVarilla) return PESO_VARILLA_KG_M['#4'];
+  let key = String(tipoVarilla).split(' ')[0].trim();
+  if (!key.startsWith('#') && !isNaN(key)) key = `#${parseFloat(key)}`;
+  return PESO_VARILLA_KG_M[key] ?? PESO_VARILLA_KG_M['#4'];
+}
+
+function obtenerDiametroVarilla(tipoVarilla) {
+  // Aproximación en mm basada en el número (#4 = 4/8" = 12.7mm)
+  let numero = 4;
+  let key = String(tipoVarilla).replace('#','').trim();
+  if (!isNaN(key)) numero = parseFloat(key);
+  return (numero / 8) * 0.0254; // Retorna metros
+}
+
+// ================== 1. CÁLCULO DE CONCRETO ==================
+
+export function calcularConcretoCilindrico(dimensiones, densidad = 2400, factorDesperdicio = 1) {
+  const D = parseFloat(dimensiones.diametro);
+  const H = parseFloat(dimensiones.profundidad || dimensiones.altura); // Soporta ambos nombres
+
+  if (!D || !H) return { volumen_m3: 0, peso_kg: 0 };
+
+  const radio = D / 2;
+  const volumen_geom_m3 = Math.PI * Math.pow(radio, 2) * H;
+  const peso_estructural_kg = volumen_geom_m3 * densidad;
+  const volumen_compra_m3 = volumen_geom_m3 * factorDesperdicio;
+
+  return { diametro: D, profundidad: H, volumen_geom_m3, volumen_compra_m3, peso_estructural_kg };
+}
+
+// ================== 2. CÁLCULO DE ACEROS ==================
+
+export function calcularLongitudinalCilindrico(concreto, config = {}) {
+  const H = concreto.profundidad;
+  const D = concreto.diametro;
   
-  const volumen_m3 = PI * radio * radio * altura;
-  const peso_kg = volumen_m3 * densidadConcreto;
+  const rec_m = (config.recubrimiento || DEFAULTS.RECUBRIMIENTO_CM) / 100;
+  const anc_sup_m = (config.anclajeSuperior || DEFAULTS.ANCLAJE_SUP_CM) / 100;
+  const anc_inf_m = (config.anclajeInferior || DEFAULTS.ANCLAJE_INF_CM) / 100;
+  const tipoVarilla = config.tipoVarilla || DEFAULTS.TIPO_VARILLA_VERT;
+
+  // Cantidad de Varillas: Manual o Automática
+  let cantidad = 0;
+  if (config.numeroBarras) {
+      cantidad = parseInt(config.numeroBarras);
+  } else {
+      // Default automático: Mínimo 6
+      cantidad = DEFAULTS.MIN_VARILLAS_LONG; 
+  }
+
+  // Validación de espaciamiento (Congestión)
+  const diametroJaula = D - (2 * rec_m);
+  const perimetroJaula = Math.PI * diametroJaula;
+  const espaciamiento = perimetroJaula / cantidad;
+  let alerta = null;
+  if (espaciamiento < 0.10) alerta = "¡Alerta! Espaciamiento < 10cm (Congestión)";
+
+  // Longitud Total
+  // L = Profundidad + Gancho Arriba + Gancho Abajo
+  // Nota: Si el recubrimiento inferior se descuenta de H, restarlo aquí. 
+  // Asumiremos que H es excavación y la varilla flota sobre "panelas" de concreto.
+  const largoUnitario_m = H + anc_sup_m + anc_inf_m - rec_m; 
+  const largoTotal_m = largoUnitario_m * cantidad;
   
+  const pesoMetro = obtenerPesoEspecifico(tipoVarilla);
+
+  return { 
+      tipoVarillaStr: tipoVarilla, 
+      cantidad, 
+      largoUnitario_m, 
+      largoTotal_m, 
+      peso_kg: largoTotal_m * pesoMetro,
+      alerta 
+  };
+}
+
+export function calcularTransversalCilindrico(concreto, config = {}) {
+  const H = concreto.profundidad;
+  const D = concreto.diametro;
+
+  const rec_m = (config.recubrimiento || DEFAULTS.RECUBRIMIENTO_CM) / 100;
+  const sep_m = (config.separacion || DEFAULTS.SEP_ANILLOS_CM) / 100;
+  const tipoVarilla = config.tipoVarilla || DEFAULTS.TIPO_VARILLA_ANILLO;
+
+  // 1. Geometría del Anillo
+  const diametroAnillo = D - (2 * rec_m);
+  const perimetro = Math.PI * diametroAnillo;
+  
+  // 2. Traslape para cerrar el anillo
+  // Si no se da longitud exacta, usamos Factor * DiámetroVarilla (ej. 40 * 9mm = 36cm)
+  const diametroVarilla_m = obtenerDiametroVarilla(tipoVarilla);
+  const longitudTraslape = config.longitudGancho ? parseFloat(config.longitudGancho) 
+                         : (DEFAULTS.TRASLAPE_FACTOR * diametroVarilla_m);
+
+  const longitudUno_m = perimetro + longitudTraslape;
+
+  // 3. Cantidad Vertical
+  const cantidad = Math.ceil(H / sep_m) + 1; // +1 para arranque/cierre
+
+  const pesoMetro = obtenerPesoEspecifico(tipoVarilla);
+  const longitudTotal_m = longitudUno_m * cantidad;
+
   return {
-    volumen_m3: volumen_m3,
-    peso_kg: peso_kg,
-    densidad_kg_m3: densidadConcreto
+      tipoVarillaStr: tipoVarilla,
+      cantidad,
+      longitudUno_m,
+      longitudTotal_m,
+      peso_kg: longitudTotal_m * pesoMetro,
+      diametroAnillo
   };
 }
 
-/**
- * Calcula el armado longitudinal (varillas verticales) para muerto cilíndrico
- */
-function calcularLongitudinalCilindrico(dimensiones, config) {
-  const { diametro, altura } = dimensiones;
-  const { 
-    tipoVarilla = '#4',
-    recubrimientoCm = 7.5,
-    cantVarillasLongitudinales = 8,
-    longAnclajeSupCm = 40,
-    longAnclajeInfCm = 60
-  } = config;
+export function calcularAlambreCilindrico(longitudinal, transversal, config = {}) {
+  // Nudos = Varillas Verticales * Número de Anillos
+  const nudos = longitudinal.cantidad * transversal.cantidad;
   
-  // Validaciones
-  if (!PESO_VARILLA_KG_M[tipoVarilla]) {
-    throw new Error(`Tipo de varilla no válido: ${tipoVarilla}`);
-  }
+  const diam_alambre_mm = config.diametroAlambre || 1.22; // No 1.6, usar estándar alambre recocido #18 o #16
+  const largo_vuelta_m = (config.longitudPorVuelta || 25) / 100;
+  const factor = config.factorDesperdicio || 1.10;
+
+  const longitudTotal_m = nudos * largo_vuelta_m * factor;
   
-  const recubrimiento = recubrimientoCm / 100; // convertir a metros
-  const longAnclajeSup = longAnclajeSupCm / 100;
-  const longAnclajeInf = longAnclajeInfCm / 100;
+  // Peso específico acero = 7850 kg/m3
+  const area_m2 = Math.PI * Math.pow((diam_alambre_mm/1000)/2, 2);
+  const peso_kg = area_m2 * longitudTotal_m * 7850;
+
+  return { nudos, longitudTotal_m, peso_kg };
+}
+
+// ================== 3. REPORTE MAESTRO ==================
+
+export function calcularReporteMuertoCilindrico(dimensiones, inputsUI = {}) {
+  // Mapeo de configuración UI a configuración interna
+  const configConc = {
+      factorDesperdicio: inputsUI.construccion?.factorDesperdicio
+  };
   
-  // Longitud de cada varilla = altura + anclajes
-  const longitudPorVarilla = altura + longAnclajeSup + longAnclajeInf;
-  
-  // Longitud total
-  const longitudTotal = longitudPorVarilla * cantVarillasLongitudinales;
-  
-  // Peso total
-  const peso = longitudTotal * PESO_VARILLA_KG_M[tipoVarilla];
-  
-  // Verificar que las varillas quepan en el perímetro
-  const diametroArmado = diametro - (2 * recubrimiento);
-  const perimetroArmado = PI * diametroArmado;
-  const espaciamientoRequerido = perimetroArmado / cantVarillasLongitudinales;
-  const espaciamientoMinimo = 0.15; // 15 cm mínimo
-  
-  let observaciones = [];
-  if (espaciamientoRequerido < espaciamientoMinimo) {
-    observaciones.push(`Espaciamiento muy pequeño: ${(espaciamientoRequerido * 100).toFixed(1)}cm (mín. 15cm)`);
-  }
-  
+  // Aceptamos inputsUI.longitudinal O inputsUI.vertical (para compatibilidad)
+  const inputLong = inputsUI.longitudinal || inputsUI.vertical || {};
+  const configLong = {
+      tipoVarilla: inputLong.tipoVarilla,
+      recubrimiento: inputLong.recubrimiento,
+      numeroBarras: inputLong.cantidad || inputLong.varillasLongitudinales, // Soporta ambos nombres
+      anclajeSuperior: inputLong.anclajeSuperior,
+      anclajeInferior: inputLong.anclajeInferior
+  };
+
+  const inputTrans = inputsUI.transversal || inputsUI.anillos || {};
+  const configTrans = {
+      tipoVarilla: inputTrans.tipoVarilla,
+      recubrimiento: inputTrans.recubrimiento, // Usualmente el mismo que long, pero configurable
+      separacion: inputTrans.separacion,
+      longitudGancho: inputTrans.longitudGancho
+  };
+
+  const concreto = calcularConcretoCilindrico(dimensiones, inputsUI.construccion?.resistenciaConcreto, configConc.factorDesperdicio);
+  const longitudinal = calcularLongitudinalCilindrico(concreto, configLong);
+  const transversal = calcularTransversalCilindrico(concreto, configTrans);
+  const alambre = calcularAlambreCilindrico(longitudinal, transversal, inputsUI.alambre);
+
   return {
-    cantidad: cantVarillasLongitudinales,
-    tipoVarilla: tipoVarilla,
-    longitudPorVarilla: longitudPorVarilla,
-    longitudTotal: longitudTotal,
-    peso: peso,
-    espaciamiento: espaciamientoRequerido,
-    diametroArmado: diametroArmado,
-    observaciones: observaciones
+      tipo: 'Cilíndrico',
+      // Datos Geométricos
+      diametro: concreto.diametro,
+      profundidad: concreto.profundidad,
+      volumenConcreto_m3: concreto.volumen_geom_m3,
+      pesoConcreto_kg: concreto.peso_estructural_kg,
+      
+      // Aceros para tabla
+      tipoVarillaLong: longitudinal.tipoVarillaStr,
+      longLongitudinal_m: longitudinal.largoTotal_m,
+      pesoLongitudinal_kg: longitudinal.peso_kg,
+      detalleLongitudinal: `${longitudinal.cantidad} varillas de ${longitudinal.largoUnitario_m.toFixed(2)}m`,
+      alertaLongitudinal: longitudinal.alerta,
+
+      tipoVarillaTrans: transversal.tipoVarillaStr,
+      longEstribos_m: transversal.longitudTotal_m,
+      pesoEstribos_kg: transversal.peso_kg,
+      detalleTransversal: `${transversal.cantidad} anillos Ø${transversal.diametroAnillo.toFixed(2)}m`,
+
+      longAlambre_m: alambre.longitudTotal_m,
+      pesoAlambre_kg: alambre.peso_kg,
+      
+      pesoTotalArmado_kg: longitudinal.peso_kg + transversal.peso_kg + alambre.peso_kg,
+      pesoTotal_kg: concreto.peso_estructural_kg + longitudinal.peso_kg + transversal.peso_kg
   };
 }
+
+// ================== 4. UTILIDADES EXTRA ==================
 
 /**
- * Calcula el armado transversal (estribos circulares) para muerto cilíndrico
+ * Sugiere dimensiones D y H basadas en la carga del Brace
  */
-function calcularTransversalCilindrico(dimensiones, config) {
-  const { diametro, altura } = dimensiones;
-  const { 
-    tipoVarillaEstribo = '#3',
-    separacionEstriboCm = 20,
-    recubrimientoCm = 7.5,
-    longGanchoEstriboCm = 15,
-    factorTraslape = 1.4
-  } = config;
-  
-  // Validaciones
-  if (!PESO_VARILLA_KG_M[tipoVarillaEstribo]) {
-    throw new Error(`Tipo de varilla de estribo no válido: ${tipoVarillaEstribo}`);
-  }
-  
-  const separacion = separacionEstriboCm / 100; // convertir a metros
-  const recubrimiento = recubrimientoCm / 100;
-  const longGancho = longGanchoEstriboCm / 100;
-  
-  // Diámetro interior del estribo
-  const diametroEstribo = diametro - (2 * recubrimiento);
-  
-  // Cantidad de estribos
-  const cantidadEstribos = Math.ceil(altura / separacion) + 1; // +1 para el último
-  
-  // Longitud de cada estribo circular = perímetro + ganchos + traslape
-  const perimetroEstribo = PI * diametroEstribo;
-  const longitudPorEstribo = perimetroEstribo + (2 * longGancho) * factorTraslape;
-  
-  // Longitud total
-  const longitudTotal = longitudPorEstribo * cantidadEstribos;
-  
-  // Peso total
-  const peso = longitudTotal * PESO_VARILLA_KG_M[tipoVarillaEstribo];
-  
-  return {
-    cantidad: cantidadEstribos,
-    tipoVarilla: tipoVarillaEstribo,
-    diametroEstribo: diametroEstribo,
-    longitudPorEstribo: longitudPorEstribo,
-    longitudTotal: longitudTotal,
-    peso: peso,
-    separacion: separacion,
-    longGancho: longGancho
-  };
-}
-
-/**
- * Calcula el alambre de amarre para muerto cilíndrico
- */
-function calcularAlambreCilindrico(dimensiones, config, longitudinal, transversal) {
-  const { 
-    diametroAlambreMm = 1.6,
-    longitudPorVueltaCm = 25,
-    factorDesperdicioAlambre = 1.1
-  } = config;
-  
-  const longitudPorVuelta = longitudPorVueltaCm / 100; // convertir a metros
-  
-  // Intersecciones = varillas longitudinales × estribos
-  const intersecciones = longitudinal.cantidad * transversal.cantidad;
-  
-  // Longitud total de alambre
-  const longitudTotal = intersecciones * longitudPorVuelta * factorDesperdicioAlambre;
-  
-  // Peso del alambre (aproximado)
-  const diametroAlambre = diametroAlambreMm / 1000; // convertir a metros
-  const pesoAlambre = longitudTotal * PI * Math.pow(diametroAlambre / 2, 2) * DENSIDAD_ACERO_KG_M3;
-  
-  return {
-    intersecciones: intersecciones,
-    longitudPorVuelta: longitudPorVuelta,
-    longitudTotal: longitudTotal,
-    peso: pesoAlambre,
-    diametroMm: diametroAlambreMm
-  };
-}
-
-/**
- * Genera el reporte completo para un muerto cilíndrico
- */
-function calcularReporteCilindrico(dimensiones, config) {
-  // Validar dimensiones
-  if (!dimensiones.diametro || !dimensiones.altura) {
-    throw new Error('Dimensiones inválidas del muerto cilíndrico');
-  }
-  
-  // 1. Concreto
-  const densidadConcreto = config.factorDesperdicio * DENSIDAD_CONCRETO_KG_M3_DEFAULT;
-  const concreto = calcularConcretoCilindrico(dimensiones, densidadConcreto);
-  
-  // 2. Acero longitudinal
-  const longitudinal = calcularLongitudinalCilindrico(dimensiones, config);
-  
-  // 3. Estribos circulares
-  const transversal = calcularTransversalCilindrico(dimensiones, config);
-  
-  // 4. Alambre
-  const alambre = calcularAlambreCilindrico(dimensiones, config, longitudinal, transversal);
-  
-  // Totales
-  const pesoTotal_kg = concreto.peso_kg + longitudinal.peso + transversal.peso + alambre.peso;
-  
-  return {
-    // Dimensiones
-    diametro: dimensiones.diametro,
-    altura: dimensiones.altura,
+export function sugerirDimensionesCilindro(cargaKn, capacidadSueloKpa = 100) {
+    // FS = 1.5 a 2.0 (Resistencia por punta + Fricción lateral)
+    // Esta es una aproximación MUY simplificada.
+    // Asumimos que la fricción lateral aporta el 60% de la resistencia.
     
-    // Concreto
-    volumenConcreto: concreto.volumen_m3,
-    pesoConcreto: concreto.peso_kg,
+    const cargaSeguridad = cargaKn * 2.0; // FS
     
-    // Longitudinal
-    cantidadLongitudinal: longitudinal.cantidad,
-    longitudTotalLongitudinal: longitudinal.longitudTotal,
-    pesoLongitudinal: longitudinal.peso,
+    // Área base necesaria si solo fuera por punta (conservador)
+    const areaBase = cargaSeguridad / (capacidadSueloKpa); 
+    let diametro = Math.sqrt((areaBase * 4) / Math.PI);
     
-    // Transversal
-    cantidadTransversal: transversal.cantidad,
-    longitudTotalTransversal: transversal.longitudTotal,
-    pesoTransversal: transversal.peso,
+    // Redondear a medidas constructivas (cada 10cm)
+    diametro = Math.ceil(diametro * 10) / 10;
+    if (diametro < 0.60) diametro = 0.60; // Mínimo constructivo para que entre un obrero
+
+    // Altura sugerida (relación esbeltez típica para fricción)
+    let altura = Math.max(1.5, diametro * 2.5);
     
-    // Alambre
-    longitudAlambre: alambre.longitudTotal,
-    pesoAlambre: alambre.peso,
-    
-    // Totales
-    pesoTotal: pesoTotal_kg,
-    
-    // Detalles adicionales
-    detalles: {
-      longitudinal: longitudinal,
-      transversal: transversal,
-      alambre: alambre,
-      concreto: concreto
-    }
-  };
-}
-
-/**
- * Calcula el resumen de proyecto para múltiples muertos cilíndricos
- */
-function calcularResumenProyectoCilindrico(muertos, config) {
-  let totalConcreto = 0;
-  let totalAceroLongitudinal = 0;
-  let totalAceroTransversal = 0;
-  let totalAlambre = 0;
-  let totalPeso = 0;
-  
-  const reporteDetallado = [];
-  
-  muertos.forEach((muerto, index) => {
-    const reporte = calcularReporteCilindrico(muerto.dimensiones, config);
-    
-    reporteDetallado.push({
-      id: muerto.id || `C${index + 1}`,
-      ...reporte
-    });
-    
-    totalConcreto += reporte.volumenConcreto;
-    totalAceroLongitudinal += reporte.pesoLongitudinal;
-    totalAceroTransversal += reporte.pesoTransversal;
-    totalAlambre += reporte.pesoAlambre;
-    totalPeso += reporte.pesoTotal;
-  });
-  
-  return {
-    reporteDetallado,
-    resumen: {
-      totalMuertos: muertos.length,
-      totalConcreto_m3: totalConcreto,
-      totalAceroLongitudinal_kg: totalAceroLongitudinal,
-      totalAceroTransversal_kg: totalAceroTransversal,
-      totalAcero_kg: totalAceroLongitudinal + totalAceroTransversal,
-      totalAlambre_kg: totalAlambre,
-      totalPeso_kg: totalPeso,
-      totalPeso_ton: totalPeso / 1000
-    }
-  };
-}
-
-// ===== FUNCIONES DE UTILIDAD =====
-
-/**
- * Calcula las dimensiones óptimas para un muerto cilíndrico basado en la carga
- */
-function calcularDimensionesOptimas(carga_kN, factorSeguridad = 2.0) {
-  // Cálculo simplificado basado en resistencia del suelo
-  const areaRequerida = (carga_kN * factorSeguridad) / 100; // Asumiendo 100 kPa de capacidad del suelo
-  const diametro = Math.sqrt(4 * areaRequerida / PI);
-  const altura = Math.max(1.5, diametro * 0.8); // Altura mínima 1.5m o 80% del diámetro
-  
-  return {
-    diametro: Math.max(1.0, diametro), // Diámetro mínimo 1.0m
-    altura: altura
-  };
-}
-
-/**
- * Valida la configuración de armado cilíndrico
- */
-function validarConfiguracionCilindrica(config) {
-  const errores = [];
-  
-  if (!config.tipoVarilla || !PESO_VARILLA_KG_M[config.tipoVarilla]) {
-    errores.push('Tipo de varilla longitudinal no válido');
-  }
-  
-  if (!config.tipoVarillaEstribo || !PESO_VARILLA_KG_M[config.tipoVarillaEstribo]) {
-    errores.push('Tipo de varilla de estribo no válido');
-  }
-  
-  if (config.cantVarillasLongitudinales < 6) {
-    errores.push('Cantidad mínima de varillas longitudinales: 6');
-  }
-  
-  if (config.separacionEstriboCm > 30) {
-    errores.push('Separación máxima de estribos: 30cm');
-  }
-  
-  if (config.recubrimientoCm < 5) {
-    errores.push('Recubrimiento mínimo: 5cm');
-  }
-  
-  return errores;
-}
-
-// ===== EXPORTAR FUNCIONES =====
-
-// Exportaciones ES6 para imports
-export {
-  calcularConcretoCilindrico,
-  calcularLongitudinalCilindrico,
-  calcularTransversalCilindrico,
-  calcularAlambreCilindrico,
-  calcularReporteCilindrico,
-  calcularResumenProyectoCilindrico,
-  calcularDimensionesOptimas,
-  validarConfiguracionCilindrica,
-  PESO_VARILLA_KG_M,
-  DIAMETRO_VARILLA_M
-};
-
-// Las funciones se exponen globalmente para ser usadas desde dashboard.js
-if (typeof window !== 'undefined') {
-  window.calcularConcretoCilindrico = calcularConcretoCilindrico;
-  window.calcularLongitudinalCilindrico = calcularLongitudinalCilindrico;
-  window.calcularTransversalCilindrico = calcularTransversalCilindrico;
-  window.calcularAlambreCilindrico = calcularAlambreCilindrico;
-  window.calcularReporteCilindrico = calcularReporteCilindrico;
-  window.calcularResumenProyectoCilindrico = calcularResumenProyectoCilindrico;
-  window.calcularDimensionesOptimas = calcularDimensionesOptimas;
-  window.validarConfiguracionCilindrica = validarConfiguracionCilindrica;
-}
-
-// Para uso en Node.js (si se requiere)
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    calcularConcretoCilindrico,
-    calcularLongitudinalCilindrico,
-    calcularTransversalCilindrico,
-    calcularAlambreCilindrico,
-    calcularReporteCilindrico,
-    calcularResumenProyectoCilindrico,
-    calcularDimensionesOptimas,
-    validarConfiguracionCilindrica,
-    PESO_VARILLA_KG_M,
-    DIAMETRO_VARILLA_M
-  };
+    return { diametro, altura };
 }

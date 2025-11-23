@@ -262,8 +262,13 @@ export function prepararGruposParaMuertos(gruposMuertos) {
 
 export function calcularMacizosRectangulares(gruposPreparados, configUI = {}) {
   const configDefault = {
-    tipoVarillaLong: '#4', tipoVarillaTrans: '#3',
-    densidadConcreto: 2400, recubrimientoLongitudinal: 4, recubrimientoTransversal: 4,
+    tipoVarillaLong: '#4',
+    tipoVarillaTrans: '#3',
+    densidadConcreto: 2400,
+    recubrimientoLongitudinal: 4,
+    recubrimientoTransversal: 4,
+    separacionLongitudinal: 25,
+    separacionTransversal: 25,
     ...configUI
   };
 
@@ -274,19 +279,41 @@ export function calcularMacizosRectangulares(gruposPreparados, configUI = {}) {
       alto: grupo.alto_total || 0.5,
       largo: grupo.largo_total || 1.0
     };
+
+    // Tomar separaciones y otros valores por grupo si existen, si no usar default
+    const sepLong = (grupo.configGrupo && grupo.configGrupo.separacionLongitudinal) || configDefault.separacionLongitudinal;
+    const sepTrans = (grupo.configGrupo && grupo.configGrupo.separacionTransversal) || configDefault.separacionTransversal;
+    const recLong = (grupo.configGrupo && grupo.configGrupo.recubrimientoLongitudinal) || configDefault.recubrimientoLongitudinal;
+    const recTrans = (grupo.configGrupo && grupo.configGrupo.recubrimientoTransversal) || configDefault.recubrimientoTransversal;
+    const tipoVarillaLong = (grupo.configGrupo && grupo.configGrupo.tipoVarillaLong) || configDefault.tipoVarillaLong;
+    const tipoVarillaTrans = (grupo.configGrupo && grupo.configGrupo.tipoVarillaTrans) || configDefault.tipoVarillaTrans;
+
+    // Aplanar la configuración para que los cálculos la reciban correctamente
     const configGrupo = {
-      ...configDefault, ...(grupo.configGrupo || {}),
-      densidadConcreto: grupo.densidadConcreto || configDefault.densidadConcreto
+      ...configDefault,
+      ...(grupo.configGrupo || {}),
+      densidadConcreto: grupo.densidadConcreto || configDefault.densidadConcreto,
+      separacion: sepLong,
+      recubrimiento: recLong,
+      tipoVarilla: tipoVarillaLong,
+      separacionTransversal: sepTrans,
+      recubrimientoTransversal: recTrans,
+      tipoVarillaTransversal: tipoVarillaTrans
     };
 
     const reporte = calcularReporteMuerto(dimensiones, configGrupo);
     const pesoReportar_kg = (grupo.sumaFBy && grupo.sumaFBy > 0) ? grupo.sumaFBy : reporte.pesoConcreto_kg;
 
     resultados.push({
-      grupo_numero: grupo.numero_grupo, grupo_clave: grupo.clave, eje: grupo.eje, muros_list: grupo.muros_list,
-      largo_total: reporte.L, alto_total: reporte.H, espesor_bloque: reporte.B,
+      grupo_numero: grupo.numero_grupo,
+      grupo_clave: grupo.clave,
+      eje: grupo.eje,
+      muros_list: grupo.muros_list,
+      largo_total: reporte.L,
+      alto_total: reporte.H,
+      espesor_bloque: reporte.B,
       fuerzaBrace_kN: (grupo.sumaFBy || 0) / 1000,
-      
+
       tipoVarillaLong: reporte.tipoVarillaLong,
       longLongitudinal_m: reporte.longLongitudinal_m,
       pesoLongitudinal_kg: reporte.pesoLongitudinal_kg,
@@ -294,9 +321,9 @@ export function calcularMacizosRectangulares(gruposPreparados, configUI = {}) {
       longEstribos_m: reporte.longEstribos_m,
       pesoEstribos_kg: reporte.pesoEstribos_kg,
 
-      volumenConcreto_m3: reporte.volumenConcreto_m3, 
-      pesoConcreto_kg: pesoReportar_kg,       
-      valor_LBH: reporte.volumenConcreto_m3, 
+      volumenConcreto_m3: reporte.volumenConcreto_m3,
+      pesoConcreto_kg: pesoReportar_kg,
+      valor_LBH: reporte.volumenConcreto_m3,
 
       longAlambre_m: reporte.longAlambre_m,
       pesoAlambre_kg: reporte.pesoAlambre_kg,

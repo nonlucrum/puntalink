@@ -816,31 +816,24 @@ export async function handleGenerarPDF(elements, globalVars) {
   btnInforme.disabled = true;
 
   try {
-    // Validar y loguear el contenido de reporteMacizos antes de enviar
     console.log('[DASHBOARD] Enviando reporteMacizos:', window.ultimosResultadosMacizos);
-    if (!window.ultimosResultadosMacizos || !Array.isArray(window.ultimosResultadosMacizos) || window.ultimosResultadosMacizos.length === 0) {
-      alert('No hay datos de armado de muertos (reporteMacizos) para enviar al PDF. Por favor, ejecuta el cálculo de armado antes de generar el informe.');
-      throw new Error('reporteMacizos vacío o no definido');
-    }
-
-    const payload = {
-      paneles: murosConBraces,
-      projectInfo: projectInfo,
-      tablaMuertos: tablaMuertos,
-      reporteMacizos: window.ultimosResultadosMacizos,
-      configArmado: configArmadoActual
+    
+    const payload = { 
+        paneles: murosConBraces,
+        projectInfo: projectInfo, // <--- [CORRECCIÓN 3] Ahora esta variable SI existe y tiene datos
+        tablaMuertos: tablaMuertos,
+        reporteMacizos: window.ultimosResultadosMacizos, 
+        configArmado: configArmadoActual
     };
-
-    console.log('[DASHBOARD] Payload enviado a /api/paneles/pdf:', payload);
 
     const resp = await fetch(`${API_BASE}/api/paneles/pdf`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-
+    
     if (!resp.ok) throw new Error('Error en respuesta del servidor');
-
+    
     const blob = await resp.blob();
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -850,9 +843,9 @@ export async function handleGenerarPDF(elements, globalVars) {
     a.click();
     a.remove();
     window.URL.revokeObjectURL(url);
-
+    
   } catch (err) {
-    console.error('[DASHBOARD] Error generando PDF:', err);
+    console.error(err);
     alert('Error generando PDF: ' + err.message);
   } finally {
     progressIndicator.remove();
@@ -1432,8 +1425,12 @@ function initArmadoRectangular() {
   // Cargar configuración inicial en los inputs
   document.getElementById('tipoVarillaLongitudinal').value = configArmado.tipoVarillaLongitudinal;
   document.getElementById('recubrimientoLongitudinal').value = configArmado.recubrimientoLongitudinal;
-  document.getElementById('separacionLongitudinal').value = configArmado.separacionLongitudinal;
-  document.getElementById('cantVarillasSuperior').value = configArmado.cantVarillasSuperior;
+  // Ocultar inputs globales de separación, ya que ahora se configuran por grupo
+  const sepLongInput = document.getElementById('separacionLongitudinal');
+  if (sepLongInput) sepLongInput.closest('.form-group, .mb-3, .col, div').style.display = 'none';
+  const sepTransInput = document.getElementById('separacionTransversal');
+  if (sepTransInput) sepTransInput.closest('.form-group, .mb-3, .col, div').style.display = 'none';
+
   document.getElementById('cantVarillasSuperior').value = configArmado.cantVarillasSuperior;
   if (configArmado.cantVarillasMedias !== null) {
     document.getElementById('cantVarillasMedias').value = configArmado.cantVarillasMedias;
@@ -1441,7 +1438,6 @@ function initArmadoRectangular() {
   document.getElementById('cantVarillasInferior').value = configArmado.cantVarillasInferior;
   document.getElementById('tipoVarillaTransversal').value = configArmado.tipoVarillaTransversal;
   document.getElementById('recubrimientoTransversal').value = configArmado.recubrimientoTransversal;
-  document.getElementById('separacionTransversal').value = configArmado.separacionTransversal;
   document.getElementById('longGanchoEstribo').value = configArmado.longGanchoEstribo;
   document.getElementById('tipoConcreto').value = configArmado.tipoConcreto;
   document.getElementById('factorDesperdicio').value = configArmado.factorDesperdicio;
@@ -1516,13 +1512,13 @@ function mostrarConfigGrupos(gruposMuertos) {
     <div style="background: var(--card); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border);">
       <h3 style="margin-top: 0; color: var(--primary); display: flex; align-items: center; gap: 0.5rem;">
         <span style="font-size: 1.5rem;">⚙️</span>
-        Configuración de Profundidad por Muerto
+        Configuración de Grupo por Muerto
       </h3>
       
       <p style="color: var(--text-dim); margin-bottom: 1.5rem;">
-        Ingresa la profundidad deseada para cada grupo de muertos. 
-        Este valor se usará en los cálculos de macizos de anclaje.
-        <br><strong>Total de grupos: ${Object.keys(gruposMuertos).length}</strong>
+        Ingresa la <b>profundidad</b> y las <b>separaciones de acero</b> (longitudinal y transversal) para cada grupo de muertos.<br>
+        Estos valores se usarán en los cálculos de macizos de anclaje y armado.<br>
+        <strong>Total de grupos: ${Object.keys(gruposMuertos).length}</strong>
       </p>
       
       <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 6px; overflow: hidden;">
@@ -1533,7 +1529,9 @@ function mostrarConfigGrupos(gruposMuertos) {
             <th style="padding: 0.75rem; text-align: center;">Ángulo</th>
             <th style="padding: 0.75rem; text-align: center;">Eje</th>
             <th style="padding: 0.75rem; text-align: center;">Cant. Muros</th>
-            <th style="padding: 0.75rem; text-align: center; min-width: 150px;">Profundidad (m)</th>
+            <th style="padding: 0.75rem; text-align: center; min-width: 120px;">Profundidad (m)</th>
+            <th style="padding: 0.75rem; text-align: center; min-width: 120px;">Sep. Long. (cm)</th>
+            <th style="padding: 0.75rem; text-align: center; min-width: 120px;">Sep. Trans. (cm)</th>
           </tr>
         </thead>
         <tbody>`;
@@ -1548,6 +1546,8 @@ function mostrarConfigGrupos(gruposMuertos) {
       const eje = grupo.eje || 0;
       // Usar la clave del grupo muerto directamente para config y para el input
       const valorActual = window.configGruposMuertos[clave]?.profundo || 2.0;
+      const sepLong = window.configGruposMuertos[clave]?.separacionLongitudinal || 25;
+      const sepTrans = window.configGruposMuertos[clave]?.separacionTransversal || 25;
       console.log(`[DASHBOARD] Generando fila para grupo muerto:`, {
         claveGrupo: clave,
         valorActual,
@@ -1571,8 +1571,36 @@ function mostrarConfigGrupos(gruposMuertos) {
               step="0.1" 
               min="0.5"
               max="10"
-              style="width: 100px; padding: 0.5rem; text-align: center; border: 2px solid var(--border); border-radius: 4px; font-size: 1rem; font-weight: bold;"
+              style="width: 80px; padding: 0.5rem; text-align: center; border: 2px solid var(--border); border-radius: 4px; font-size: 1rem; font-weight: bold;"
               placeholder="2.0"
+            >
+          </td>
+          <td style="padding: 0.75rem; text-align: center;">
+            <input 
+              type="number" 
+              class="input-sep-long-muerto" 
+              data-muerto="${clave}"
+              data-grupo-clave="${clave}"
+              value="${sepLong}"
+              step="1" 
+              min="10"
+              max="50"
+              style="width: 70px; padding: 0.5rem; text-align: center; border: 2px solid var(--border); border-radius: 4px; font-size: 1rem; font-weight: bold;"
+              placeholder="25"
+            >
+          </td>
+          <td style="padding: 0.75rem; text-align: center;">
+            <input 
+              type="number" 
+              class="input-sep-trans-muerto" 
+              data-muerto="${clave}"
+              data-grupo-clave="${clave}"
+              value="${sepTrans}"
+              step="1" 
+              min="10"
+              max="50"
+              style="width: 70px; padding: 0.5rem; text-align: center; border: 2px solid var(--border); border-radius: 4px; font-size: 1rem; font-weight: bold;"
+              placeholder="25"
             >
           </td>
         </tr>`;
@@ -1583,6 +1611,8 @@ function mostrarConfigGrupos(gruposMuertos) {
     Object.keys(gruposMuertos).forEach(clave => {
       const grupo = gruposMuertos[clave];
       const valorActual = window.configGruposMuertos[clave]?.profundo || 2.0;
+      const sepLong = window.configGruposMuertos[clave]?.separacionLongitudinal || 25;
+      const sepTrans = window.configGruposMuertos[clave]?.separacionTransversal || 25;
       
       console.log(`[DASHBOARD] Generando fila para M${indice}, clave: ${clave}`, grupo);
       
@@ -1603,8 +1633,36 @@ function mostrarConfigGrupos(gruposMuertos) {
               step="0.1" 
               min="0.5"
               max="10"
-              style="width: 100px; padding: 0.5rem; text-align: center; border: 2px solid var(--border); border-radius: 4px; font-size: 1rem; font-weight: bold;"
+              style="width: 80px; padding: 0.5rem; text-align: center; border: 2px solid var(--border); border-radius: 4px; font-size: 1rem; font-weight: bold;"
               placeholder="2.0"
+            >
+          </td>
+          <td style="padding: 0.75rem; text-align: center;">
+            <input 
+              type="number" 
+              class="input-sep-long-muerto" 
+              data-muerto="M${indice}"
+              data-grupo-clave="${clave}"
+              value="${sepLong}"
+              step="1" 
+              min="10"
+              max="50"
+              style="width: 70px; padding: 0.5rem; text-align: center; border: 2px solid var(--border); border-radius: 4px; font-size: 1rem; font-weight: bold;"
+              placeholder="25"
+            >
+          </td>
+          <td style="padding: 0.75rem; text-align: center;">
+            <input 
+              type="number" 
+              class="input-sep-trans-muerto" 
+              data-muerto="M${indice}"
+              data-grupo-clave="${clave}"
+              value="${sepTrans}"
+              step="1" 
+              min="10"
+              max="50"
+              style="width: 70px; padding: 0.5rem; text-align: center; border: 2px solid var(--border); border-radius: 4px; font-size: 1rem; font-weight: bold;"
+              placeholder="25"
             >
           </td>
         </tr>`;
@@ -1623,12 +1681,12 @@ function mostrarConfigGrupos(gruposMuertos) {
           class="btn btn-primary"
           style="padding: 0.75rem 1.5rem; font-size: 1rem; font-weight: bold;"
         >
-          💾 Guardar Profundidades
+          💾 Guardar Configuración
         </button>
       </div>
       
       <div id="mensajeGuardado" style="display: none; margin-top: 1rem; padding: 1rem; background: #d4edda; color: #155724; border-radius: 6px; border: 1px solid #c3e6cb;">
-        ✅ Profundidades guardadas correctamente
+        ✅ Configuración guardada correctamente
       </div>
     </div>`;
   
@@ -1650,59 +1708,83 @@ function guardarProfundidadesMuertos() {
     window.configGruposMuertos = {};
   }
   
-  // Obtener todos los inputs de profundidad
-  const inputs = document.querySelectorAll('.input-profundidad-muerto');
-  
-  console.log('[DASHBOARD] Inputs encontrados:', inputs.length);
-  
-  if (inputs.length === 0) {
-    alert('⚠️ No se encontraron inputs de profundidad');
+  // Obtener todos los inputs de profundidad y separaciones
+  const inputsProf = document.querySelectorAll('.input-profundidad-muerto');
+  const inputsSepLong = document.querySelectorAll('.input-sep-long-muerto');
+  const inputsSepTrans = document.querySelectorAll('.input-sep-trans-muerto');
+
+  console.log('[DASHBOARD] Inputs encontrados:', inputsProf.length, 'profundidad,', inputsSepLong.length, 'sepLong,', inputsSepTrans.length, 'sepTrans');
+
+  if (inputsProf.length === 0) {
+    alert('⚠️ No se encontraron inputs de configuración');
     return;
   }
-  
-  let profundidadesValidas = 0;
-  
-  inputs.forEach((input, index) => {
+
+  let configuracionesValidas = 0;
+
+  // Mapear inputs de separaciones por clave
+  const mapSepLong = {};
+  const mapSepTrans = {};
+  inputsSepLong.forEach(input => {
+    const clave = input.getAttribute('data-grupo-clave');
+    mapSepLong[clave] = parseFloat(input.value);
+  });
+  inputsSepTrans.forEach(input => {
+    const clave = input.getAttribute('data-grupo-clave');
+    mapSepTrans[clave] = parseFloat(input.value);
+  });
+
+  inputsProf.forEach((input, index) => {
     const clave = input.getAttribute('data-grupo-clave');
     const muerto = input.getAttribute('data-muerto');
     const valor = parseFloat(input.value);
+    const sepLong = mapSepLong[clave] || 25;
+    const sepTrans = mapSepTrans[clave] || 25;
 
-    console.log(`[DASHBOARD] Input ${index + 1}:`, { clave, muerto, valor });
-    
+    console.log(`[DASHBOARD] Input ${index + 1}:`, { clave, muerto, valor, sepLong, sepTrans });
+
     if (!clave) {
       console.warn('[DASHBOARD] Input sin clave:', input);
       return;
     }
-    
+
     if (isNaN(valor) || valor <= 0) {
       console.warn(`[DASHBOARD] Valor inválido para ${muerto}: ${input.value}`);
       input.style.borderColor = 'red';
       return;
     }
-    
+    if (isNaN(sepLong) || sepLong < 10 || sepLong > 50) {
+      console.warn(`[DASHBOARD] Sep. Longitudinal inválido para ${muerto}: ${sepLong}`);
+      return;
+    }
+    if (isNaN(sepTrans) || sepTrans < 10 || sepTrans > 50) {
+      console.warn(`[DASHBOARD] Sep. Transversal inválido para ${muerto}: ${sepTrans}`);
+      return;
+    }
+
     // Inicializar objeto de configuración para este grupo si no existe
     if (!window.configGruposMuertos[clave]) {
       window.configGruposMuertos[clave] = {
-        espaciadoLong: 25,
-        espaciadoTrans: 25,
         factorSeguridad: 1.0,
         friccion: 0.3
       };
     }
-    
-    // Guardar profundidad solo bajo la clave del grupo muerto
+
+    // Guardar configuración bajo la clave del grupo muerto
     window.configGruposMuertos[clave].profundo = valor;
+    window.configGruposMuertos[clave].separacionLongitudinal = sepLong;
+    window.configGruposMuertos[clave].separacionTransversal = sepTrans;
     input.style.borderColor = '#28a745'; // Verde para indicar guardado
-    profundidadesValidas++;
-    
-    console.log(`[DASHBOARD] ✓ ${muerto} (${clave}): ${valor}m`);
+    configuracionesValidas++;
+
+    console.log(`[DASHBOARD] ✓ ${muerto} (${clave}): Profundidad=${valor}m, SepLong=${sepLong}cm, SepTrans=${sepTrans}cm`);
   });
-  
-  console.log('[DASHBOARD] Total profundidades guardadas:', profundidadesValidas);
+
+  console.log('[DASHBOARD] Total configuraciones guardadas:', configuracionesValidas);
   console.log('[DASHBOARD] Configuración completa:', window.configGruposMuertos);
-  
-  if (profundidadesValidas === 0) {
-    alert('⚠️ No se pudo guardar ninguna profundidad. Verifica los valores ingresados.');
+
+  if (configuracionesValidas === 0) {
+    alert('⚠️ No se pudo guardar ninguna configuración. Verifica los valores ingresados.');
     return;
   }
 
