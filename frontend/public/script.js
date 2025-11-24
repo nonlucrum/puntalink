@@ -1,19 +1,3 @@
-// ===== SUBMENÚ DINÁMICO: Importar TXT =====
-document.addEventListener("DOMContentLoaded", () => {
-  const headerImportar = document.querySelector('[data-target="import-section"]');
-  const submenu = document.getElementById("submenu-importar");
-
-  if (headerImportar && submenu) {
-    headerImportar.addEventListener("click", () => {
-      setTimeout(() => {
-        const importSection = document.getElementById("import-section");
-        const isVisible = importSection && importSection.style.display !== "none";
-        submenu.style.display = isVisible ? "block" : "none";
-      }, 200);
-    });
-  }
-});
-
 // ===== SUBMENÚS DINÁMICOS PARA TODAS LAS SECCIONES PRINCIPALES =====
 document.addEventListener("DOMContentLoaded", () => {
   const sections = [

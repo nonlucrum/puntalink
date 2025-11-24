@@ -126,12 +126,6 @@ input[type=number] {
   font-weight: bold;
 }
 
-/* ===== CONTENIDO DESPLAZADO ===== */
-.content {
-  margin-left: var(--sidebar-width);
-  padding: 0;
-}
-
 /* Scroll suave */
 html {
   scroll-behavior: smooth;
@@ -151,6 +145,7 @@ body{
     max-width: 95%;
     margin: 0 auto;
     padding: 1.25rem;
+    margin-left: 77px;
 
 }
 .space-y > * + *{ margin-top: 1rem; }
