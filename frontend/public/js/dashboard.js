@@ -1384,8 +1384,7 @@ import {
 
 // Cargar el módulo de armado cilíndrico
 import { 
-  calcularReporteCilindrico,
-  calcularResumenProyectoCilindrico 
+  calcularReporteProyectoCilindrico 
 } from './muertoCilindrico.js';
 
 // Configuración global del armado rectangular

@@ -157,7 +157,7 @@ export function calcularAlambreCilindrico(longitudinal, transversal, config = {}
   return { nudos, longitudTotal_m, peso_kg };
 }
 
-// ================== 3. REPORTE MAESTRO ==================
+// ================== 3. REPORTE MAESTRO INDIVIDUAL ==================
 
 export function calcularReporteMuertoCilindrico(dimensiones, inputsUI = {}) {
   // Mapeo de configuración UI a configuración interna
@@ -240,4 +240,45 @@ export function sugerirDimensionesCilindro(cargaKn, capacidadSueloKpa = 100) {
     let altura = Math.max(1.5, diametro * 2.5);
     
     return { diametro, altura };
+}
+
+// ================== 5. REPORTE BATCH (PROYECTO) ==================
+
+/**
+ * Procesa un array de grupos de muertos cilíndricos y devuelve
+ * el reporte para cada uno.
+ * @param {Array} grupos Array de objetos con datos del grupo
+ * @param {Object} configArmado Configuración global de armado
+ */
+export function calcularReporteProyectoCilindrico(grupos, configArmado) {
+    if (!grupos || !Array.isArray(grupos)) {
+        console.warn('[CILINDRICO] calcularReporteProyectoCilindrico recibió grupos inválidos');
+        return [];
+    }
+
+    return grupos.map((grupo, index) => {
+        // Normalizar dimensiones
+        // Si viene del preparador de rectangular, puede tener 'ancho' en vez de diametro
+        const dimensiones = {
+            diametro: parseFloat(grupo.diametro || grupo.ancho || 0),
+            profundidad: parseFloat(grupo.profundidad || grupo.alto || 2.0)
+        };
+
+        // Si la configuración viene dentro del grupo, usarla, si no usar la global
+        const configLocal = {
+            ...configArmado,
+            ...(grupo.configGrupo || {})
+        };
+
+        const reporte = calcularReporteMuertoCilindrico(dimensiones, configLocal);
+
+        // Añadir metadatos del grupo al reporte
+        return {
+            ...reporte,
+            id: grupo.id || index + 1,
+            eje: grupo.eje || '-',
+            cantidadMuros: grupo.cantidadMuros || 1,
+            nombre: grupo.nombre || `C${index + 1}`
+        };
+    });
 }
