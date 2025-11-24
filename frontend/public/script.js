@@ -3992,22 +3992,24 @@ window.enableAccordionAfterGrouping = function() {
   };
 
   // Define tus acciones aquí (solo imágenes; tooltip con texto)
-  const itemsTop = [
-    { action: 'home',          label: 'Inicio',           icon: 'img/background/10.png' },
-    { action: 'create-project',label: 'Crear proyecto',   icon: 'img/background/11.png' },
-    { action: 'load-project',  label: 'Cargar proyecto',  icon: '/assets/icons/folder-open.svg' },
-    { action: 'import-txt',    label: 'Importar TXT',     icon: 'img/background/6.png' },
-    { action: 'calc',          label: 'Calcular',         icon: 'img/background/7.png' },
-    { action: 'export-pdf',    label: 'Exportar PDF',     icon: 'img/background/9.png' },
-  ];
+// ===== Dock: items superiores (solo imágenes) =====
+const itemsTop = [
+  { action: 'home',            label: 'Inicio',         icon: 'img/backgrounds/10.png' },
+  { action: 'importar-pdf',    label: 'Importar PDF',   icon: 'img/backgrounds/6.png'  },
+  { action: 'paneles',         label: 'Paneles',        icon: 'img/backgrounds/8.png'  },
+  { action: 'calculos-libro',  label: 'Cálculos libro', icon: 'img/backgrounds/7.png'  },
+  { action: 'resultados',      label: 'Resultados',     icon: 'img/backgrounds/9.png'  },
+  { action: 'armado',          label: 'Armado',         icon: 'img/backgrounds/11.png' },
+  { action: 'proyecto',        label: 'Proyecto',       icon: 'img/backgrounds/8.png'  },
+];
 
 const itemsIntegrations = [
-  { action: 'integration-1', label: 'Integración 1', icon: 'img/background/6.png' },
-  { action: 'integration-2', label: 'Integración 2', icon: 'img/background/7.png' },
-  { action: 'integration-3', label: 'Integración 3', icon: 'img/background/8.png' },
+  { action: 'integration-1', label: 'Integración 1', icon: 'img/backgrounds/6.png' },
+  { action: 'integration-2', label: 'Integración 2', icon: 'img/backgrounds/7.png' },
+  { action: 'integration-3', label: 'Integración 3', icon: 'img/backgrounds/8.png' },
   // agregar mas
-  // { action: 'integration-4', label: 'Integración 4', icon: 'img/background/9.png' },
-  // { action: 'integration-5', label: 'Integración 5', icon: 'img/background/10.png' },
+  // { action: 'integration-4', label: 'Integración 4', icon: 'img/backgrounds/9.png' },
+  // { action: 'integration-5', label: 'Integración 5', icon: 'img/backgrounds/10.png' },
 ];
 
 
@@ -4017,64 +4019,75 @@ const itemsIntegrations = [
   ];
 
   // Mapeo de acciones a funciones reales (no tocamos tu lógica existente)
-  const clickHandlers = {
-    'open-search': () => {
-      // Si tienes spotlight/ buscador, invócalo aquí
-      // Ejemplo mínimo: foco en el nombre del proyecto
-      const el = document.getElementById('nombreProyecto');
-      if (el) el.focus();
-    },
-    'home': () => window.location.pathname === '/' ? window.scrollTo({ top: 0, behavior: 'smooth' }) : window.location.assign('/'),
-    'create-project': () => {
-      const btnCreate = document.getElementById('btnCreateNewProject');
-      const btnLoad   = document.getElementById('btnLoadOldProject');
-      const toggle    = document.getElementById('toggleBackG');
-      const form      = document.getElementById('formNuevoProyecto');
-      const list      = document.getElementById('projectList');
-      if (btnCreate && btnLoad && toggle && form && list) {
-        btnCreate.className = "togglebtn";
-        btnLoad.className   = "togglebtn--ghost";
-        toggle.style.transform = "translate(0%)";
-        form.style.display = '';
-        list.style.display = 'none';
-      }
-    },
-    'load-project': () => {
-      const btnCreate = document.getElementById('btnCreateNewProject');
-      const btnLoad   = document.getElementById('btnLoadOldProject');
-      const toggle    = document.getElementById('toggleBackG');
-      const form      = document.getElementById('formNuevoProyecto');
-      const list      = document.getElementById('projectList');
-      if (btnCreate && btnLoad && toggle && form && list) {
-        btnCreate.className = "togglebtn--ghost";
-        btnLoad.className   = "togglebtn";
-        toggle.style.transform = "translate(100%)";
-        form.style.display = 'none';
-        list.style.display = '';
-      }
-      if (typeof window.loadPreviousProjects === 'function') window.loadPreviousProjects();
-    },
-    'import-txt': () => {
-      const input = document.getElementById('txtInput');
-      if (input) input.focus();
-      const sec = document.getElementById('tablaAccordion') || document.getElementById('panelesInfo');
-      if (sec) sec.scrollIntoView({ behavior: 'smooth' });
-    },
-    'calc': () => {
-      const btn = document.getElementById('btnCalcular');
-      if (btn) btn.click();
-    },
-    'export-pdf': () => {
-      const btn = document.getElementById('btnInforme');
-      if (btn) btn.click();
-    },
-    // Sustituye con tus integraciones reales
-    'integration-1': () => console.log('Integración 1'),
-    'integration-2': () => console.log('Integración 2'),
-    'integration-3': () => console.log('Integración 3'),
-    'settings': () => console.log('Abrir Ajustes'),
-    'help': () => console.log('Abrir Ayuda')
-  };
+const clickHandlers = {
+  // --- existentes que ya tienes ---
+  'open-search': () => { const el = document.getElementById('nombreProyecto'); if (el) el.focus(); },
+
+  // --- nuevos / actualizados ---
+  'home': () => {
+    // Mantente en /dashboard y sube al inicio
+    if (window.location.pathname !== '/dashboard') window.location.assign('/dashboard');
+    else window.scrollTo({ top: 0, behavior: 'smooth' });
+  },
+
+  'paneles': () => {
+    // Intenta abrir/mostrar la sección de paneles
+    const sec = document.getElementById('tablaAccordion') || document.getElementById('panelesInfo');
+    if (sec) sec.scrollIntoView({ behavior: 'smooth' });
+    else console.warn('[Dock] No se encontró la sección de Paneles (tablaAccordion/panelesInfo).');
+  },
+
+  'calculos-libro': () => {
+    // Ancla sugerido: <div id="calculosLibro"></div> en tu dashboard
+    const sec = document.getElementById('calculosLibro');
+    if (sec) sec.scrollIntoView({ behavior: 'smooth' });
+    else console.warn('[Dock] Agrega un ancla con id="calculosLibro" donde quieras aterrizar.');
+  },
+
+  'resultados': () => {
+    // Resultados de viento/cálculos
+    const sec = document.getElementById('resultadosViento') || document.getElementById('resultadosCalculo');
+    if (sec) sec.scrollIntoView({ behavior: 'smooth' });
+    else console.warn('[Dock] No se encontró resultadosViento / resultadosCalculo.');
+  },
+
+  'armado': () => {
+    // Configuración de braces / armado
+    const sec = document.getElementById('bracesConfigPanel');
+    if (sec) sec.scrollIntoView({ behavior: 'smooth' });
+    else console.warn('[Dock] No se encontró bracesConfigPanel (armado).');
+  },
+
+  'proyecto': () => {
+    // Foco en datos del proyecto
+    const form = document.getElementById('formNuevoProyecto');
+    if (form) {
+      form.scrollIntoView({ behavior: 'smooth' });
+      const nombre = document.getElementById('nombreProyecto');
+      if (nombre) setTimeout(() => nombre.focus(), 250);
+    } else {
+      console.warn('[Dock] No se encontró formNuevoProyecto.');
+    }
+  },
+
+  // --- deja tus otros handlers tal como estaban ---
+  'import-txt': () => {
+    const input = document.getElementById('txtInput');
+    if (input) input.focus();
+    const sec = document.getElementById('tablaAccordion') || document.getElementById('panelesInfo');
+    if (sec) sec.scrollIntoView({ behavior: 'smooth' });
+  },
+  'calc': () => { const btn = document.getElementById('btnCalcular'); if (btn) btn.click(); },
+  'export-pdf': () => { const btn = document.getElementById('btnInforme'); if (btn) btn.click(); },
+
+  // integraciones (placeholder)
+  'integration-1': () => console.log('Integración 1'),
+  'integration-2': () => console.log('Integración 2'),
+  'integration-3': () => console.log('Integración 3'),
+  'settings': () => console.log('Ajustes'),
+  'help': () => console.log('Ayuda'),
+};
+
 
   const makeButton = ({ action, label, icon }) => el('button',
     { class: 'dock-item', type: 'button', 'aria-label': label, dataset: { action } },
