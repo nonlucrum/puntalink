@@ -3972,3 +3972,139 @@ window.enableAccordionAfterGrouping = function() {
     console.log('[FRONTEND] Primera sección habilitada automáticamente');
   }
 };
+
+// ==== Dock lateral tipo mac: SOLO dashboard, no altera nada más ====
+(function initDockOnlyOnDashboard() {
+  if (window.location.pathname !== '/dashboard') return;
+
+  // Helper para crear elementos
+  const el = (tag, attrs = {}, children = []) => {
+    const n = document.createElement(tag);
+    Object.entries(attrs).forEach(([k, v]) => {
+      if (k === 'class') n.className = v;
+      else if (k === 'dataset') Object.entries(v).forEach(([dk, dv]) => n.dataset[dk] = dv);
+      else if (k === 'aria') Object.entries(v).forEach(([ak, av]) => n.setAttribute(`aria-${ak}`, av));
+      else if (k.startsWith('on') && typeof v === 'function') n.addEventListener(k.slice(2), v);
+      else n.setAttribute(k, v);
+    });
+    (Array.isArray(children) ? children : [children]).forEach(c => c && n.appendChild(c));
+    return n;
+  };
+
+  // Define tus acciones aquí (solo imágenes; tooltip con texto)
+  const itemsTop = [
+    { action: 'home',          label: 'Inicio',           icon: 'img/background/10.png' },
+    { action: 'create-project',label: 'Crear proyecto',   icon: 'img/background/11.png' },
+    { action: 'load-project',  label: 'Cargar proyecto',  icon: '/assets/icons/folder-open.svg' },
+    { action: 'import-txt',    label: 'Importar TXT',     icon: 'img/background/6.png' },
+    { action: 'calc',          label: 'Calcular',         icon: 'img/background/7.png' },
+    { action: 'export-pdf',    label: 'Exportar PDF',     icon: 'img/background/9.png' },
+  ];
+
+const itemsIntegrations = [
+  { action: 'integration-1', label: 'Integración 1', icon: 'img/background/6.png' },
+  { action: 'integration-2', label: 'Integración 2', icon: 'img/background/7.png' },
+  { action: 'integration-3', label: 'Integración 3', icon: 'img/background/8.png' },
+  // agregar mas
+  // { action: 'integration-4', label: 'Integración 4', icon: 'img/background/9.png' },
+  // { action: 'integration-5', label: 'Integración 5', icon: 'img/background/10.png' },
+];
+
+
+  const itemsBottom = [
+    { action: 'settings', label: 'Ajustes', icon: '/assets/icons/settings.svg' },
+    { action: 'help',     label: 'Ayuda',   icon: '/assets/icons/help.svg' },
+  ];
+
+  // Mapeo de acciones a funciones reales (no tocamos tu lógica existente)
+  const clickHandlers = {
+    'open-search': () => {
+      // Si tienes spotlight/ buscador, invócalo aquí
+      // Ejemplo mínimo: foco en el nombre del proyecto
+      const el = document.getElementById('nombreProyecto');
+      if (el) el.focus();
+    },
+    'home': () => window.location.pathname === '/' ? window.scrollTo({ top: 0, behavior: 'smooth' }) : window.location.assign('/'),
+    'create-project': () => {
+      const btnCreate = document.getElementById('btnCreateNewProject');
+      const btnLoad   = document.getElementById('btnLoadOldProject');
+      const toggle    = document.getElementById('toggleBackG');
+      const form      = document.getElementById('formNuevoProyecto');
+      const list      = document.getElementById('projectList');
+      if (btnCreate && btnLoad && toggle && form && list) {
+        btnCreate.className = "togglebtn";
+        btnLoad.className   = "togglebtn--ghost";
+        toggle.style.transform = "translate(0%)";
+        form.style.display = '';
+        list.style.display = 'none';
+      }
+    },
+    'load-project': () => {
+      const btnCreate = document.getElementById('btnCreateNewProject');
+      const btnLoad   = document.getElementById('btnLoadOldProject');
+      const toggle    = document.getElementById('toggleBackG');
+      const form      = document.getElementById('formNuevoProyecto');
+      const list      = document.getElementById('projectList');
+      if (btnCreate && btnLoad && toggle && form && list) {
+        btnCreate.className = "togglebtn--ghost";
+        btnLoad.className   = "togglebtn";
+        toggle.style.transform = "translate(100%)";
+        form.style.display = 'none';
+        list.style.display = '';
+      }
+      if (typeof window.loadPreviousProjects === 'function') window.loadPreviousProjects();
+    },
+    'import-txt': () => {
+      const input = document.getElementById('txtInput');
+      if (input) input.focus();
+      const sec = document.getElementById('tablaAccordion') || document.getElementById('panelesInfo');
+      if (sec) sec.scrollIntoView({ behavior: 'smooth' });
+    },
+    'calc': () => {
+      const btn = document.getElementById('btnCalcular');
+      if (btn) btn.click();
+    },
+    'export-pdf': () => {
+      const btn = document.getElementById('btnInforme');
+      if (btn) btn.click();
+    },
+    // Sustituye con tus integraciones reales
+    'integration-1': () => console.log('Integración 1'),
+    'integration-2': () => console.log('Integración 2'),
+    'integration-3': () => console.log('Integración 3'),
+    'settings': () => console.log('Abrir Ajustes'),
+    'help': () => console.log('Abrir Ayuda')
+  };
+
+  const makeButton = ({ action, label, icon }) => el('button',
+    { class: 'dock-item', type: 'button', 'aria-label': label, dataset: { action } },
+    [
+      el('img', { src: icon, alt: '' }),
+      el('span', { class: 'dock-tooltip' }, document.createTextNode(label))
+    ]
+  );
+
+  const dock = el('aside', { class: 'dock-left', 'aria-label': 'Barra de acceso rápido' });
+
+  // Top
+  itemsTop.forEach(it => dock.appendChild(makeButton(it)));
+
+  // Divider + Integraciones
+  dock.appendChild(el('div', { class: 'dock-divider', role: 'separator' }));
+  itemsIntegrations.forEach(it => dock.appendChild(makeButton(it)));
+
+  // Spacer + Bottom
+  dock.appendChild(el('div', { class: 'dock-spacer' }));
+  itemsBottom.forEach(it => dock.appendChild(makeButton(it)));
+
+  document.body.appendChild(dock);
+
+  // Delegación de eventos
+  dock.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('.dock-item');
+    if (!btn) return;
+    const action = btn.dataset.action;
+    const handler = clickHandlers[action];
+    if (typeof handler === 'function') handler();
+  });
+})();

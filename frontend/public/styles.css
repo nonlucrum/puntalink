@@ -3325,3 +3325,61 @@ label {
     padding: 0.4rem 0.3rem;
   }
 }
+
+/* ==== Dock lateral tipo Mac (solo imágenes + tooltip al hover) ==== */
+.dock-left {
+  position: fixed;
+  left: 16px;
+  top: 16px;
+  bottom: 16px;
+  width: 64px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  border-radius: 18px;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 1000;
+  border: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.08);
+}
+
+.dock-item {
+  position: relative;
+  width: 48px; height: 48px;
+  border: 0; padding: 0;
+  background: transparent;
+  border-radius: 12px;
+  display: grid; place-items: center;
+  cursor: pointer;
+  outline: none;
+}
+.dock-item img {
+  width: 28px; height: 28px;
+  object-fit: contain; pointer-events: none;
+}
+.dock-item:hover { background: rgba(0,0,0,0.06); }
+.dock-item:focus-visible {
+  outline: 2px solid #0ea5e9; outline-offset: 2px;
+}
+
+/* Tooltip (solo texto al hover; el botón muestra solo imagen) */
+.dock-tooltip {
+  position: absolute;
+  left: 64px; top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  background: #111; color: #fff;
+  font-size: 12px; line-height: 1;
+  padding: 6px 8px; border-radius: 6px;
+  opacity: 0; pointer-events: none;
+  transition: opacity .15s ease, transform .15s ease;
+}
+.dock-item:hover .dock-tooltip,
+.dock-item:focus-visible .dock-tooltip {
+  opacity: 1; transform: translateY(-50%) translateX(2px);
+}
+
+.dock-divider { height: 1px; background: rgba(0,0,0,0.08); margin: 6px 0; }
+.dock-spacer { flex: 1 1 auto; }
