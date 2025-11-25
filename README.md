@@ -1,4 +1,4 @@
-# PuntaLink v0.1b
+# PuntaLink v0.2b
 
 **PuntaLink** es un sistema web para el análisis y gestión de proyectos estructurales, permitiendo importar archivos `.TXT`, procesar y visualizar datos de muros, realizar cálculos para braces y deadman, y generar reportes.
 
