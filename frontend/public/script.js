@@ -927,14 +927,14 @@ export async function mostrarResultadosViento(data) {
   // Crear tabla de resultados unificada
   let htmlTabla = `
     <table class="wind-results-table unified-table">
-      <thead>
+      <thead style="position: sticky;top: 0px;">
         <tr>
-          <th rowspan="2">Muro</th>
-          <th colspan="4" style="background: #e3f2fd;">Datos del Muro</th>
-          <th colspan="4" style="background: #fff3e0;">Cálculos de Viento</th>
-          <th colspan="5" style="background: #f3e5f5;">Parámetros Braces (Editables)</th>
-          <th colspan="3" style="background: #e8f5e9;">Geometría Inserto</th>
-          <th colspan="4" style="background: #fce4ec;">Fuerzas y Cantidad</th>
+          <th rowspan="2" style="border-left: 1px solid #0c0d0e;">Muro</th>
+          <th colspan="4" style="background: #e3f2fd;border-bottom: 0px;">Datos del Muro</th>
+          <th colspan="4" style="background: #fff3e0;border-bottom: 0px;">Cálculos de Viento</th>
+          <th colspan="5" style="background: #f3e5f5;border-bottom: 0px;">Parámetros Braces (Editables)</th>
+          <th colspan="3" style="background: #e8f5e9;border-bottom: 0px;">Geometría Inserto</th>
+          <th colspan="4" style="background: #fce4ec;border-bottom: 0px;">Fuerzas y Cantidad</th>
         </tr>
         <tr>
           <!-- Datos del Muro -->
@@ -984,7 +984,7 @@ export async function mostrarResultadosViento(data) {
     
     htmlTabla += `
       <tr data-pid="${pid}" data-alto="${resultado.altura_z_m}" data-presion="${resultado.presion_kPa}" data-fuerza="${resultado.fuerza_kN}">
-        <td><strong>${idMuro}</strong></td>
+        <td style="border-left: 1px solid #dee2e6;"><strong>${idMuro}</strong></td>
         
         <!-- Datos del Muro -->
         <td>${resultado.area_m2}</td>
@@ -1956,7 +1956,8 @@ function renderTablaMuertos(resultados) {
         <td style="font-family: monospace; font-size: 0.85em;">${g.muros.join(', ')}</td>
       </tr>
       <tr>
-        <td colspan="8" style="background:#f0f0f0; color:#333; font-size:0.95em; text-align:right;">Largo total muros (Overall width): <strong>${sumaLargo.toFixed(2)} m</strong></td>
+        <td colspan="7" style="background:#f0f0f0;"></td>
+        <td colspan="1" style="background:#f0f0f0; color:#333; font-size:0.95em;">Largo total muros (Overall width): <strong>${sumaLargo.toFixed(2)} m</strong></td>
       </tr>
     `;
   });
