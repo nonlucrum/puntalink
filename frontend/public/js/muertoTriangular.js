@@ -1,145 +1,153 @@
 /**
  * CÁLCULOS DE ARMADO TRIANGULAR (PRISMA)
  * Basado en la lógica de 'muertoRectangular.js' pero adaptando la geometría.
- * * DIFERENCIAS CLAVE CON RECTANGULAR:
- * 1. Volumen Concreto: (Base * Alto / 2) * Largo.
- * 2. Estribos: Geometría triangular (Base + 2 lados inclinados).
  */
 
-// ================== CONSTANTES (Reutilizables) ==================
-const PESO_ESPECIFICO_KG_M = {
-  '#3': 0.560, '#4': 0.994, '#5': 1.552, '#6': 2.235, '#8': 3.973,
-  '3': 0.560, '4': 0.994, '5': 1.552, '6': 2.235, '8': 3.973
-};
+const PESO_ESPECIFICO_KG_M = { '#3': 0.560, '#4': 0.994, '#5': 1.552, '#6': 2.235, '#8': 3.973 };
+const DENSIDAD_ACERO = 7850;
 
-const DEFAULTS = {
-  RECUBRIMIENTO_CM: 4,
-  SEP_LONG_CM: 25,
-  SEP_TRANS_CM: 25,
-  TIPO_VARILLA_LONG: '#4',
-  TIPO_VARILLA_TRANS: '#3',
-  GANCHO_SISMICO_M: 0.15 // Gancho estándar para cerrar el triángulo
-};
-
-// ================== AUXILIARES ==================
-function obtenerPesoEspecifico(tipoVarilla) {
-  if (!tipoVarilla) return PESO_ESPECIFICO_KG_M['#4'];
-  let key = String(tipoVarilla).split(' ')[0].trim();
-  if (!key.startsWith('#') && !isNaN(key)) key = `#${parseFloat(key)}`;
-  return PESO_ESPECIFICO_KG_M[key] ?? PESO_ESPECIFICO_KG_M['#4'];
+function obtenerPeso(tipo) {
+  let k = String(tipo).replace('#','').trim();
+  return PESO_ESPECIFICO_KG_M['#'+k] || 0.994;
 }
 
-// ================== 1. CÁLCULO DE CONCRETO (PRISMA) ==================
-export function calcularConcretoTriangular(dimensiones, densidad = 2400, factorDesperdicio = 1) {
-  const { ancho, alto, largo } = dimensiones; // Largo suele ser la longitud del muerto corrido
+// 1. CONCRETO (Prisma Triangular)
+// Volumen = (Base * Alto / 2) * Largo
+function calcularConcreto(dim, densidad, desperdicio) {
+  const B = parseFloat(dim.base);
+  const H = parseFloat(dim.alto);
+  const L = parseFloat(dim.largo);
+
+  const area = (B * H) / 2;
+  const vol_geom = area * L;
+  const peso = vol_geom * densidad;
+
+  return { base: B, alto: H, largo: L, volumen_m3: vol_geom, peso_kg: peso };
+}
+
+// 2. LONGITUDINAL (Barras a lo largo de L)
+// Usualmente se ponen en las esquinas del triángulo (3 varillas min) o distribuidas en la base.
+function calcularLongitudinal(conc, config) {
+  const L = conc.largo;
+  const cant = parseInt(config.cantidadVarillas || 3); // Mínimo 1 arriba, 2 abajo
+  const tipo = config.tipoVarilla || '#4';
   
-  // LÓGICA: Área de un triángulo = (Base * Altura) / 2
-  const area_seccion_m2 = (ancho * alto) / 2;
-  const volumen_geom_m3 = area_seccion_m2 * largo;
+  const total_m = L * cant;
+  const peso = total_m * obtenerPeso(tipo);
+
+  return { cantidad: cant, tipo, total_m, peso_kg: peso };
+}
+
+// 3. TRANSVERSAL (Estribos Triangulares)
+function calcularTransversal(conc, config) {
+  const B = conc.base;
+  const H = conc.alto;
+  const L = conc.largo;
   
-  const peso_estructural_kg = volumen_geom_m3 * densidad; 
-  const volumen_compra_m3 = volumen_geom_m3 * factorDesperdicio;
+  const rec = (config.recubrimiento || 4) / 100;
+  const sep = (config.separacion || 20) / 100;
+  const tipo = config.tipoVarilla || '#3';
 
-  return { largo, ancho, alto, volumen_geom_m3, volumen_compra_m3, peso_estructural_kg };
-}
-
-// ================== 2. CÁLCULO DE ACEROS ==================
-
-// NOTA: El longitudinal es muy similar, pero usualmente se colocan menos varillas
-// porque la sección se reduce hacia arriba.
-export function calcularLongitudinalTriangular(dimensiones, config = {}) {
-  const L = dimensiones.largo; 
-  const tipoVarilla = config.tipoVarilla || DEFAULTS.TIPO_VARILLA_LONG;
-  const pesoVarilla_kgm = obtenerPesoEspecifico(tipoVarilla);
-
-  // Si no se especifica número, asumimos un armado mínimo triangular:
-  // 2 varillas en esquinas inferiores + 1 varilla superior (Punta) = 3 varillas base
-  let totalBarras = 3; 
-
-  if (config.numeroBarras) {
-      totalBarras = parseInt(config.numeroBarras);
-  } else if (config.varillasSuperiores || config.varillasInferiores) {
-      // Si el usuario especifica manualmente por capas
-      const sup = parseInt(config.varillasSuperiores || 1);
-      const inf = parseInt(config.varillasInferiores || 2);
-      totalBarras = sup + inf;
-  }
+  // Dimensiones del núcleo (triángulo interno)
+  const baseNuc = Math.max(B - (2*rec), 0.10);
+  const altoNuc = Math.max(H - (2*rec), 0.10);
   
-  const largoTotal_m = totalBarras * L;
-  const peso_kg = largoTotal_m * pesoVarilla_kgm;
-
-  return { tipoVarillaStr: tipoVarilla, totalBarrasLong: totalBarras, largoTotal_m, peso_kg };
-}
-
-// NOTA: Aquí está el cambio principal mencionado en el PDF [cite: 331]
-export function calcularTransversalTriangular(dimensiones, config = {}) {
-  const L = dimensiones.largo; 
-  const B = dimensiones.ancho;      
-  const H = dimensiones.alto;       
-
-  const r_m = (config.recubrimiento || DEFAULTS.RECUBRIMIENTO_CM) / 100;
-  const sep_m = (config.separacion || DEFAULTS.SEP_TRANS_CM) / 100;
-  const tipoVarilla = config.tipoVarilla || DEFAULTS.TIPO_VARILLA_TRANS;
+  // Hipotenusa del estribo (asumiendo isósceles)
+  // Lado^2 = (Base/2)^2 + Alto^2
+  const ladoInclinado = Math.sqrt(Math.pow(baseNuc/2, 2) + Math.pow(altoNuc, 2));
   
-  // 1. Definir dimensiones del núcleo confinado
-  const baseNucleo = Math.max(B - 2 * r_m, 0);
-  const altoNucleo = Math.max(H - 2 * r_m, 0);
+  // Perímetro = Base + 2*Lado + Ganchos cierre
+  const perimetro = baseNuc + (2 * ladoInclinado) + 0.20; // 20cm ganchos
 
-  // 2. Calcular la longitud del lado inclinado (Hipotenusa) usando Pitágoras
-  // Asumimos un triángulo isósceles para el estribo.
-  // Cateto adyacente = baseNucleo / 2
-  // Cateto opuesto = altoNucleo
-  const ladoInclinado = Math.sqrt(Math.pow(baseNucleo / 2, 2) + Math.pow(altoNucleo, 2));
+  const cantidad = Math.ceil(L / sep) + 1;
+  const total_m = perimetro * cantidad;
+  const peso = total_m * obtenerPeso(tipo);
 
-  // 3. Perímetro del Estribo Triangular
-  // P = Base + LadoIzq + LadoDer + Ganchos
-  const gancho = config.longitudGanchos ? parseFloat(config.longitudGanchos) : DEFAULTS.GANCHO_SISMICO_M;
-  const longitudUno_m = baseNucleo + (2 * ladoInclinado) + gancho;
-
-  // 4. Cantidad de estribos a lo largo del muerto
-  const largoUtil = Math.max(L - 2 * r_m, 0);
-  const cantidad = Math.ceil(largoUtil / sep_m) + 1;
-
-  const pesoVarilla_kgm = obtenerPesoEspecifico(tipoVarilla);
-  const longitudTotal_m = longitudUno_m * cantidad;
-  const peso_kg = longitudTotal_m * pesoVarilla_kgm;
-
-  return { tipoVarillaStr: tipoVarilla, cantidad, longitudUno_m, longitudTotal_m, peso_kg };
+  return { cantidad, tipo, total_m, peso_kg: peso };
 }
 
-// (El cálculo de alambre es idéntico al rectangular, se puede importar o copiar)
-export function calcularAlambre(nudos, config = {}) {
-    const diametro_m = 0.00122; // 1.22mm default
-    const longVuelta_m = 0.15;
-    const factorDesp = 1.15;
-    const longitudTotal_m = nudos * longVuelta_m * factorDesp;
-    const peso_kg = (Math.PI * Math.pow(diametro_m/2, 2) * longitudTotal_m) * 7850;
-    return { longitudTotal_m, peso_kg };
-}
+// 4. COORDINADOR
+export function calcularMacizosTriangulares(grupos, configUI = {}) {
+  const resultados = [];
 
-// ================== REPORTE MAESTRO TRIANGULAR ==================
-export function calcularReporteMuertoTriangular(dimensiones, inputsUI = {}) {
-    const conc = calcularConcretoTriangular(dimensiones, inputsUI.densidadConcreto);
-    const long = calcularLongitudinalTriangular(conc, inputsUI.longitudinal);
-    const trans = calcularTransversalTriangular(conc, inputsUI.transversal);
+  grupos.forEach(grupo => {
+    const config = { ...configUI, ...(grupo.configGrupo || {}) };
     
-    const nudos = long.totalBarrasLong * trans.cantidad;
-    const alambre = calcularAlambre(nudos);
-
-    return {
-        tipo: 'Triangular',
-        volumenConcreto_m3: conc.volumen_geom_m3,
-        pesoConcreto_kg: conc.peso_estructural_kg,
-        
-        aceroLongitudinal: {
-            detalle: `${long.totalBarrasLong} barras ${long.tipoVarillaStr}`,
-            peso_kg: long.peso_kg
-        },
-        aceroTransversal: {
-            detalle: `${trans.cantidad} estribos triangulares`,
-            longitudUnitario: trans.longitudUno_m,
-            peso_kg: trans.peso_kg
-        },
-        pesoTotalArmado_kg: long.peso_kg + trans.peso_kg + alambre.peso_kg
+    const dim = {
+      base: config.baseTriangulo || 0.80, // Base configurable
+      alto: grupo.alto_total || 1.0,      // Profundidad del grupo
+      largo: grupo.largo_total || 1.0     // Largo del muro
     };
+
+    const conc = calcularConcreto(dim, config.densidadConcreto || 2400, 1.05);
+    const long = calcularLongitudinal(conc, {
+      cantidadVarillas: config.cantLongitudinal, 
+      tipoVarilla: config.tipoVarillaLong
+    });
+    const trans = calcularTransversal(conc, {
+      separacion: config.separacionEstribos,
+      recubrimiento: config.recubrimiento,
+      tipoVarilla: config.tipoVarillaTrans
+    });
+    
+    // Alambre simple estimación (5% del peso acero)
+    const pesoAcero = long.peso_kg + trans.peso_kg;
+    const pesoAlambre = pesoAcero * 0.05; 
+
+    resultados.push({
+      grupo_numero: grupo.numero_grupo,
+      eje: grupo.eje,
+      muros_list: grupo.muros_list,
+      
+      base: conc.base,
+      alto: conc.alto,
+      largo: conc.largo,
+      
+      volumen_m3: conc.volumen_m3,
+      peso_conc: conc.peso_kg,
+      peso_acero_total: pesoAcero + pesoAlambre,
+      
+      detalles: { long, trans }
+    });
+  });
+
+  return resultados;
+}
+
+// 5. HTML
+export function generarTablaResultadosTriangulares(resultados) {
+  if(!resultados.length) return '<p>Sin resultados.</p>';
+
+  let html = `<tbody>`;
+  let tVol=0, tAcero=0;
+
+  resultados.forEach(r => {
+    tVol += r.volumen_m3;
+    tAcero += r.peso_acero_total;
+
+    html += `
+      <tr>
+        <td class="text-center fw-bold">G${r.grupo_numero}</td>
+        <td>${r.eje}</td>
+        <td class="bg-light text-center">${r.base.toFixed(2)} m</td>
+        <td class="bg-light text-center">${r.alto.toFixed(2)} m</td>
+        <td class="bg-light text-center">${r.largo.toFixed(2)} m</td>
+        
+        <td class="text-end text-success fw-bold">${r.volumen_m3.toFixed(2)} m³</td>
+        <td class="text-end">${(r.peso_conc/1000).toFixed(2)} T</td>
+        
+        <td class="text-end fw-bold">${r.peso_acero_total.toFixed(1)} kg</td>
+      </tr>
+    `;
+  });
+
+  html += `</tbody><tfoot>
+    <tr class="table-dark">
+      <td colspan="5" class="text-end">TOTALES TRIANGULARES:</td>
+      <td class="text-end">${tVol.toFixed(2)} m³</td>
+      <td></td>
+      <td class="text-end">${tAcero.toFixed(1)} kg</td>
+    </tr></tfoot>`;
+    
+  return html;
 }

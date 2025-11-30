@@ -1,284 +1,321 @@
 /**
- * CÁLCULOS DE ARMADO CILÍNDRICO (TIPO POZO) - VERSIÓN FINAL INTEGRADA
- * * CARACTERÍSTICAS TÉCNICAS:
- * 1. Geometría: Cilindro recto (pozo excavado).
- * 2. Recubrimiento: 7.5cm default (vaciado contra terreno).
- * 3. Longitudinal: Incluye longitud de ganchos/patas (Sup/Inf).
- * 4. Transversal: Estribos circulares individuales (Anillos).
+ * CÁLCULOS DE ARMADO CILÍNDRICO (MUERTO AISLADO / DEADMAN)
+ * Basado en metodología Magnorth:
+ * - Docs: MELI12-EJE01 (Tablas de diseño)
+ * - Docs: CalculoMateriales_MuertoCilindrico_Anotado (Fórmulas manuscritas)
  */
 
 // ================== CONSTANTES ==================
-
-const PESO_VARILLA_KG_M = {
-  '#3': 0.560, '#4': 0.994, '#5': 1.552, '#6': 2.235, '#7': 3.042, '#8': 3.973,
-  '3': 0.560, '4': 0.994, '5': 1.552, '6': 2.235, '7': 3.042, '8': 3.973
+// Pesos específicos de varillas (kg/m)
+const PESO_ESPECIFICO_KG_M = {
+  '#3': 0.560, '#4': 0.994, '#5': 1.552, '#6': 2.235, '#8': 3.973,
+  '3': 0.560, '4': 0.994, '5': 1.552, '6': 2.235, '8': 3.973
 };
 
-const DEFAULTS = {
-  RECUBRIMIENTO_CM: 7.5, // Norma ACI para contacto contra suelo
-  SEP_ANILLOS_CM: 20,
-  ANCLAJE_SUP_CM: 40,    // Gancho o saliente superior
-  ANCLAJE_INF_CM: 40,    // Gancho inferior (patas)
-  TRASLAPE_FACTOR: 40,   // Veces el diámetro para cerrar anillo
-  TIPO_VARILLA_VERT: '#5',
-  TIPO_VARILLA_ANILLO: '#3',
-  MIN_VARILLAS_LONG: 6   // Mínimo para formar jaula circular
-};
+// Densidades de materiales (kg/m³)
+const DENSIDAD_ACERO_KG_M3 = 7850; // [cite: 375]
+const DENSIDAD_CONCRETO_KG_M3 = 2400; // [cite: 216]
 
-// ================== AUXILIARES ==================
-
+// Helper para obtener peso lineal de la varilla
 function obtenerPesoEspecifico(tipoVarilla) {
-  if (!tipoVarilla) return PESO_VARILLA_KG_M['#4'];
-  let key = String(tipoVarilla).split(' ')[0].trim();
-  if (!key.startsWith('#') && !isNaN(key)) key = `#${parseFloat(key)}`;
-  return PESO_VARILLA_KG_M[key] ?? PESO_VARILLA_KG_M['#4'];
-}
-
-function obtenerDiametroVarilla(tipoVarilla) {
-  // Aproximación en mm basada en el número (#4 = 4/8" = 12.7mm)
-  let numero = 4;
-  let key = String(tipoVarilla).replace('#','').trim();
-  if (!isNaN(key)) numero = parseFloat(key);
-  return (numero / 8) * 0.0254; // Retorna metros
+  let key = String(tipoVarilla).split(' ')[0].trim().replace('#', '').replace('No.', '');
+  return PESO_ESPECIFICO_KG_M[key] ?? 0.994; // Default a #4
 }
 
 // ================== 1. CÁLCULO DE CONCRETO ==================
-
-export function calcularConcretoCilindrico(dimensiones, densidad = 2400, factorDesperdicio = 1) {
-  const D = parseFloat(dimensiones.diametro);
-  const H = parseFloat(dimensiones.profundidad || dimensiones.altura); // Soporta ambos nombres
-
-  if (!D || !H) return { volumen_m3: 0, peso_kg: 0 };
-
-  const radio = D / 2;
-  const volumen_geom_m3 = Math.PI * Math.pow(radio, 2) * H;
-  const peso_estructural_kg = volumen_geom_m3 * densidad;
-  const volumen_compra_m3 = volumen_geom_m3 * factorDesperdicio;
-
-  return { diametro: D, profundidad: H, volumen_geom_m3, volumen_compra_m3, peso_estructural_kg };
-}
-
-// ================== 2. CÁLCULO DE ACEROS ==================
-
-export function calcularLongitudinalCilindrico(concreto, config = {}) {
-  const H = concreto.profundidad;
-  const D = concreto.diametro;
+// Fórmula: Volumen = (π/4) * D² * H [cite: 259]
+function calcularConcreto(dimensiones, config) {
+  const D_m = dimensiones.diametro_mm / 1000; 
+  const H_m = dimensiones.profundidad_mm / 1000;
   
-  const rec_m = (config.recubrimiento || DEFAULTS.RECUBRIMIENTO_CM) / 100;
-  const anc_sup_m = (config.anclajeSuperior || DEFAULTS.ANCLAJE_SUP_CM) / 100;
-  const anc_inf_m = (config.anclajeInferior || DEFAULTS.ANCLAJE_INF_CM) / 100;
-  const tipoVarilla = config.tipoVarilla || DEFAULTS.TIPO_VARILLA_VERT;
-
-  // Cantidad de Varillas: Manual o Automática
-  let cantidad = 0;
-  if (config.numeroBarras) {
-      cantidad = parseInt(config.numeroBarras);
-  } else {
-      // Default automático: Mínimo 6
-      cantidad = DEFAULTS.MIN_VARILLAS_LONG; 
-  }
-
-  // Validación de espaciamiento (Congestión)
-  const diametroJaula = D - (2 * rec_m);
-  const perimetroJaula = Math.PI * diametroJaula;
-  const espaciamiento = perimetroJaula / cantidad;
-  let alerta = null;
-  if (espaciamiento < 0.10) alerta = "¡Alerta! Espaciamiento < 10cm (Congestión)";
-
-  // Longitud Total
-  // L = Profundidad + Gancho Arriba + Gancho Abajo
-  // Nota: Si el recubrimiento inferior se descuenta de H, restarlo aquí. 
-  // Asumiremos que H es excavación y la varilla flota sobre "panelas" de concreto.
-  const largoUnitario_m = H + anc_sup_m + anc_inf_m - rec_m; 
-  const largoTotal_m = largoUnitario_m * cantidad;
+  const area_basal_m2 = (Math.PI / 4) * Math.pow(D_m, 2);
+  const volumen_geom_m3 = area_basal_m2 * H_m;
   
-  const pesoMetro = obtenerPesoEspecifico(tipoVarilla);
+  // Peso estructural (sin desperdicio) para validación de uplift
+  const peso_concreto_kg = volumen_geom_m3 * DENSIDAD_CONCRETO_KG_M3;
+  
+  // Volumen de compra (incluye factor de desperdicio)
+  const volumen_compra_m3 = volumen_geom_m3 * config.factorDesperdicioConcreto;
 
   return { 
-      tipoVarillaStr: tipoVarilla, 
-      cantidad, 
-      largoUnitario_m, 
-      largoTotal_m, 
-      peso_kg: largoTotal_m * pesoMetro,
-      alerta 
+    D_m, 
+    H_m, 
+    volumen_geom_m3, 
+    volumen_compra_m3, 
+    peso_concreto_kg 
   };
 }
 
-export function calcularTransversalCilindrico(concreto, config = {}) {
-  const H = concreto.profundidad;
-  const D = concreto.diametro;
-
-  const rec_m = (config.recubrimiento || DEFAULTS.RECUBRIMIENTO_CM) / 100;
-  const sep_m = (config.separacion || DEFAULTS.SEP_ANILLOS_CM) / 100;
-  const tipoVarilla = config.tipoVarilla || DEFAULTS.TIPO_VARILLA_ANILLO;
-
-  // 1. Geometría del Anillo
-  const diametroAnillo = D - (2 * rec_m);
-  const perimetro = Math.PI * diametroAnillo;
+// ================== 2. CÁLCULO DE ACERO VERTICAL ==================
+// Fórmula: Acv = Altura * #Varillas [cite: 275]
+function calcularAceroVertical(concreto, config) {
+  const pesoMetro = obtenerPesoEspecifico(config.tipoVarillaVert); // Default #4 [cite: 280]
+  const numVarillas = config.cantVarillasVert || 4; // Default 4 [cite: 284]
   
-  // 2. Traslape para cerrar el anillo
-  // Si no se da longitud exacta, usamos Factor * DiámetroVarilla (ej. 40 * 9mm = 36cm)
-  const diametroVarilla_m = obtenerDiametroVarilla(tipoVarilla);
-  const longitudTraslape = config.longitudGancho ? parseFloat(config.longitudGancho) 
-                         : (DEFAULTS.TRASLAPE_FACTOR * diametroVarilla_m);
-
-  const longitudUno_m = perimetro + longitudTraslape;
-
-  // 3. Cantidad Vertical
-  const cantidad = Math.ceil(H / sep_m) + 1; // +1 para arranque/cierre
-
-  const pesoMetro = obtenerPesoEspecifico(tipoVarilla);
-  const longitudTotal_m = longitudUno_m * cantidad;
+  // Longitud total = Altura del muerto * Número de varillas
+  const longitud_total_m = concreto.H_m * numVarillas;
+  const peso_unitario_kg = longitud_total_m * pesoMetro;
 
   return {
-      tipoVarillaStr: tipoVarilla,
-      cantidad,
-      longitudUno_m,
-      longitudTotal_m,
-      peso_kg: longitudTotal_m * pesoMetro,
-      diametroAnillo
+    descripcion: `${numVarillas} Varillas ${config.tipoVarillaVert}`,
+    longitud_total_m,
+    peso_unitario_kg // Peso para 1 muerto
   };
 }
 
-export function calcularAlambreCilindrico(longitudinal, transversal, config = {}) {
-  // Nudos = Varillas Verticales * Número de Anillos
-  const nudos = longitudinal.cantidad * transversal.cantidad;
+// ================== 3. CÁLCULO DE ANILLOS (ESTRIBOS) ==================
+// Fórmula: Aca = #Anillos * Perímetro * PesoLineal [cite: 288]
+function calcularAceroAnillos(concreto, config) {
+  const pesoMetro = obtenerPesoEspecifico(config.tipoVarillaAnillo); // Default #3 [cite: 295]
   
-  const diam_alambre_mm = config.diametroAlambre || 1.22; // No 1.6, usar estándar alambre recocido #18 o #16
-  const largo_vuelta_m = (config.longitudPorVuelta || 25) / 100;
-  const factor = config.factorDesperdicio || 1.10;
+  // Determinar cantidad de anillos
+  // PDF: "Separados 250 mm" [cite: 145] O "3 estribos por cada muerto" [cite: 173]
+  let numAnillos;
+  if (config.usarSeparacion && config.separacionAnillosMm > 0) {
+      numAnillos = Math.ceil((concreto.H_m * 1000) / config.separacionAnillosMm) + 1;
+  } else {
+      numAnillos = config.cantAnillos || 3;
+  }
 
-  const longitudTotal_m = nudos * largo_vuelta_m * factor;
+  // Geometría del anillo (con recubrimiento)
+  const recubrimiento_m = (config.recubrimientoMm || 75) / 1000;
+  const diametro_anillo_m = concreto.D_m - (2 * recubrimiento_m);
   
-  // Peso específico acero = 7850 kg/m3
-  const area_m2 = Math.PI * Math.pow((diam_alambre_mm/1000)/2, 2);
-  const peso_kg = area_m2 * longitudTotal_m * 7850;
+  if (diametro_anillo_m <= 0) return { peso_unitario_kg: 0 };
 
-  return { nudos, longitudTotal_m, peso_kg };
-}
-
-// ================== 3. REPORTE MAESTRO INDIVIDUAL ==================
-
-export function calcularReporteMuertoCilindrico(dimensiones, inputsUI = {}) {
-  // Mapeo de configuración UI a configuración interna
-  const configConc = {
-      factorDesperdicio: inputsUI.construccion?.factorDesperdicio
-  };
+  // Longitud 1 anillo = Perímetro + Traslape
+  const traslape_m = config.longitudTraslape_m || 0.40;
+  const longitud_uno_m = (Math.PI * diametro_anillo_m) + traslape_m;
   
-  // Aceptamos inputsUI.longitudinal O inputsUI.vertical (para compatibilidad)
-  const inputLong = inputsUI.longitudinal || inputsUI.vertical || {};
-  const configLong = {
-      tipoVarilla: inputLong.tipoVarilla,
-      recubrimiento: inputLong.recubrimiento,
-      numeroBarras: inputLong.cantidad || inputLong.varillasLongitudinales, // Soporta ambos nombres
-      anclajeSuperior: inputLong.anclajeSuperior,
-      anclajeInferior: inputLong.anclajeInferior
-  };
-
-  const inputTrans = inputsUI.transversal || inputsUI.anillos || {};
-  const configTrans = {
-      tipoVarilla: inputTrans.tipoVarilla,
-      recubrimiento: inputTrans.recubrimiento, // Usualmente el mismo que long, pero configurable
-      separacion: inputTrans.separacion,
-      longitudGancho: inputTrans.longitudGancho
-  };
-
-  const concreto = calcularConcretoCilindrico(dimensiones, inputsUI.construccion?.resistenciaConcreto, configConc.factorDesperdicio);
-  const longitudinal = calcularLongitudinalCilindrico(concreto, configLong);
-  const transversal = calcularTransversalCilindrico(concreto, configTrans);
-  const alambre = calcularAlambreCilindrico(longitudinal, transversal, inputsUI.alambre);
+  const longitud_total_m = longitud_uno_m * numAnillos;
+  const peso_unitario_kg = longitud_total_m * pesoMetro;
 
   return {
-      tipo: 'Cilíndrico',
-      // Datos Geométricos
-      diametro: concreto.diametro,
-      profundidad: concreto.profundidad,
-      volumenConcreto_m3: concreto.volumen_geom_m3,
-      pesoConcreto_kg: concreto.peso_estructural_kg,
-      
-      // Aceros para tabla
-      tipoVarillaLong: longitudinal.tipoVarillaStr,
-      longLongitudinal_m: longitudinal.largoTotal_m,
-      pesoLongitudinal_kg: longitudinal.peso_kg,
-      detalleLongitudinal: `${longitudinal.cantidad} varillas de ${longitudinal.largoUnitario_m.toFixed(2)}m`,
-      alertaLongitudinal: longitudinal.alerta,
-
-      tipoVarillaTrans: transversal.tipoVarillaStr,
-      longEstribos_m: transversal.longitudTotal_m,
-      pesoEstribos_kg: transversal.peso_kg,
-      detalleTransversal: `${transversal.cantidad} anillos Ø${transversal.diametroAnillo.toFixed(2)}m`,
-
-      longAlambre_m: alambre.longitudTotal_m,
-      pesoAlambre_kg: alambre.peso_kg,
-      
-      pesoTotalArmado_kg: longitudinal.peso_kg + transversal.peso_kg + alambre.peso_kg,
-      pesoTotal_kg: concreto.peso_estructural_kg + longitudinal.peso_kg + transversal.peso_kg
+    descripcion: `${numAnillos} Anillos ${config.tipoVarillaAnillo}`,
+    num_anillos: numAnillos,
+    longitud_total_m,
+    peso_unitario_kg
   };
 }
 
-// ================== 4. UTILIDADES EXTRA ==================
+// ================== 4. CÁLCULO DE ALAMBRE (AMARRES) ==================
+// Fórmula: m = ρ * V = 7850 * (π/4 * ϕ² * L) 
+function calcularAlambre(aceroVert, aceroAnillos, config) {
+  const numVarillas = config.cantVarillasVert || 4;
+  const numAnillos = aceroAnillos.num_anillos || 0;
+  
+  // Número de intersecciones (nudos)
+  const num_nudos = numVarillas * numAnillos;
+  
+  // Longitud total de alambre (Default 0.35m por amarre [cite: 360])
+  const longitud_por_amarre = config.longitudAmarre_m || 0.35; 
+  const longitud_total_m = num_nudos * longitud_por_amarre;
+  
+  // Cálculo de peso usando densidad volumétrica del acero
+  // Diametro Alambre default 1.22mm [cite: 366]
+  const diametro_alambre_m = (config.diametroAlambreMm || 1.22) / 1000; 
+  const radio_m = diametro_alambre_m / 2;
+  
+  const volumen_alambre_m3 = Math.PI * Math.pow(radio_m, 2) * longitud_total_m;
+  const peso_unitario_kg = volumen_alambre_m3 * DENSIDAD_ACERO_KG_M3;
 
-/**
- * Sugiere dimensiones D y H basadas en la carga del Brace
- */
-export function sugerirDimensionesCilindro(cargaKn, capacidadSueloKpa = 100) {
-    // FS = 1.5 a 2.0 (Resistencia por punta + Fricción lateral)
-    // Esta es una aproximación MUY simplificada.
-    // Asumimos que la fricción lateral aporta el 60% de la resistencia.
-    
-    const cargaSeguridad = cargaKn * 2.0; // FS
-    
-    // Área base necesaria si solo fuera por punta (conservador)
-    const areaBase = cargaSeguridad / (capacidadSueloKpa); 
-    let diametro = Math.sqrt((areaBase * 4) / Math.PI);
-    
-    // Redondear a medidas constructivas (cada 10cm)
-    diametro = Math.ceil(diametro * 10) / 10;
-    if (diametro < 0.60) diametro = 0.60; // Mínimo constructivo para que entre un obrero
-
-    // Altura sugerida (relación esbeltez típica para fricción)
-    let altura = Math.max(1.5, diametro * 2.5);
-    
-    return { diametro, altura };
+  return {
+    num_nudos,
+    longitud_total_m,
+    peso_unitario_kg // Peso para 1 muerto
+  };
 }
 
-// ================== 5. REPORTE BATCH (PROYECTO) ==================
+// ================== 5. FUNCIÓN PRINCIPAL (COORDINADOR) ==================
+export function calcularMacizosCilindricos(listaMuros, configUI = {}) {
+  const resultados = [];
 
-/**
- * Procesa un array de grupos de muertos cilíndricos y devuelve
- * el reporte para cada uno.
- * @param {Array} grupos Array de objetos con datos del grupo
- * @param {Object} configArmado Configuración global de armado
- */
-export function calcularReporteProyectoCilindrico(grupos, configArmado) {
-    if (!grupos || !Array.isArray(grupos)) {
-        console.warn('[CILINDRICO] calcularReporteProyectoCilindrico recibió grupos inválidos');
-        return [];
+  listaMuros.forEach(muro => {
+    // 1. Configuración fusionada
+    const config = {
+      factorDesperdicioConcreto: 1.05,
+      tipoVarillaVert: '#4',
+      tipoVarillaAnillo: '#3',
+      cantVarillasVert: 4,
+      cantAnillos: 3, 
+      usarSeparacion: false,
+      separacionAnillosMm: 250,
+      recubrimientoMm: 75,
+      longitudAmarre_m: 0.35,
+      diametroAlambreMm: 1.22,
+      ...configUI,
+      ...muro.configOverride 
+    };
+
+    // 2. Extracción de inputs manuales
+    const dimensiones = {
+      diametro_mm: parseFloat(muro.diametro_mm || 0),
+      profundidad_mm: parseFloat(muro.profundidad_mm || 0)
+    };
+    const cantidad_muertos = parseInt(muro.cantidad_muertos || 0);
+
+    if (dimensiones.diametro_mm <= 0 || dimensiones.profundidad_mm <= 0) {
+        return; // Saltar inválidos
     }
 
-    return grupos.map((grupo, index) => {
-        // Normalizar dimensiones
-        // Si viene del preparador de rectangular, puede tener 'ancho' en vez de diametro
-        const dimensiones = {
-            diametro: parseFloat(grupo.diametro || grupo.ancho || 0),
-            profundidad: parseFloat(grupo.profundidad || grupo.alto || 2.0)
-        };
+    // 3. Ejecución de Cálculos
+    const conc = calcularConcreto(dimensiones, config);
+    const aceroV = calcularAceroVertical(conc, config);
+    const aceroA = calcularAceroAnillos(conc, config);
+    const alambre = calcularAlambre(aceroV, aceroA, config);
 
-        // Si la configuración viene dentro del grupo, usarla, si no usar la global
-        const configLocal = {
-            ...configArmado,
-            ...(grupo.configGrupo || {})
-        };
+    // 4. Totales por Muro
+    const totales = {
+      volumen_concreto_compra: conc.volumen_compra_m3 * cantidad_muertos,
+      peso_acero_vert: aceroV.peso_unitario_kg * cantidad_muertos,
+      peso_acero_anillo: aceroA.peso_unitario_kg * cantidad_muertos,
+      peso_alambre: alambre.peso_unitario_kg * cantidad_muertos
+    };
 
-        const reporte = calcularReporteMuertoCilindrico(dimensiones, configLocal);
-
-        // Añadir metadatos del grupo al reporte
-        return {
-            ...reporte,
-            id: grupo.id || index + 1,
-            eje: grupo.eje || '-',
-            cantidadMuros: grupo.cantidadMuros || 1,
-            nombre: grupo.nombre || `C${index + 1}`
-        };
+    resultados.push({
+      id_muro: muro.id,
+      input: {
+        diametro: dimensiones.diametro_mm,
+        profundidad: dimensiones.profundidad_mm,
+        cantidad: cantidad_muertos
+      },
+      unitario: {
+        volumen_m3: conc.volumen_geom_m3,
+        peso_concreto_kg: conc.peso_concreto_kg,
+        acero_vert_kg: aceroV.peso_unitario_kg,
+        acero_anillo_kg: aceroA.peso_unitario_kg,
+        alambre_kg: alambre.peso_unitario_kg
+      },
+      total_muro: totales
     });
+  });
+
+  return resultados;
+}
+
+/**
+ * Calcula la profundidad necesaria basándose en la Presión Pasiva del Suelo.
+ * Fuente: PDF Página 3, Nota 30 "La presión mínima permitida... debe ser de 1500 psf".
+ *
+ * @param {number} fuerzaTotalKg Fuerza total (FBy) que debe resistir el grupo de puntales.
+ * @param {number} numMuertos Cantidad de puntales (braces) asignados al muro.
+ * @param {number} diametroMm Diámetro del muerto seleccionado en mm (ej. 914).
+ * @returns {number} Profundidad recomendada en mm (ajustada a estándares constructivos).
+ */
+export function obtenerProfundidadRecomendada(fuerzaTotalKg, numMuertos, diametroMm) {
+    // Validación básica
+    if (!fuerzaTotalKg || fuerzaTotalKg <= 0) return 0;
+    if (!numMuertos || numMuertos <= 0) numMuertos = 1;
+    if (!diametroMm || diametroMm <= 0) diametroMm = 914; // Default 36"
+
+    // 1. Constantes de Ingeniería (Según PDF Nota 30)
+    const PRESION_SUELO_PSF = 1500; 
+    // Conversión: 1500 lb/ft² ≈ 7323.6 kg/m²
+    const PRESION_SUELO_KG_M2 = 7323.6; 
+    
+    // Factor de Seguridad (FS)
+    // Se deduce un FS de 1.5 al comparar la carga del muro P283 (7.7 ton) 
+    // con la profundidad seleccionada en la Tabla 1 del PDF (1.82m vs 1.21m).
+    const FACTOR_SEGURIDAD = 1.5; 
+
+    // 2. Calcular Carga de Diseño por Muerto
+    const fuerzaIndividual = fuerzaTotalKg / numMuertos;
+    const capacidadRequerida = fuerzaIndividual * FACTOR_SEGURIDAD;
+
+    // 3. Calcular Altura Necesaria
+    // Fórmula: Capacidad = (Diámetro_m * Altura_m) * Presión_Suelo
+    const diametroM = diametroMm / 1000;
+    const alturaNecesariaM = capacidadRequerida / (diametroM * PRESION_SUELO_KG_M2);
+    
+    let alturaCalculadaMm = alturaNecesariaM * 1000;
+
+    // 4. "Snap" (Ajuste) a medidas estándar de construcción
+    // El Excel y PDF usan incrementos de 6 pulgadas (aprox 150mm)
+    // Lista basada en las profundidades disponibles en el archivo MC.csv
+    const profundidadesEstandar = [
+        610, 762, 914, 1067, 1219, 1372, 1524, 
+        1676, 1829, 1981, 2134, 2286, 2438, 2591, 2743
+    ];
+
+    // Buscar la primera medida estándar que sea mayor o igual a lo calculado
+    const profundidadFinal = profundidadesEstandar.find(p => p >= alturaCalculadaMm);
+
+    // Si la fuerza es muy grande y supera la tabla (más de 2.7m), devolvemos el máximo
+    return profundidadFinal || 2743;
+}
+
+
+
+// ================== 6. GENERADOR HTML (OUTPUT) ==================
+export function generarTablaResultadosCilindricos(resultados) {
+  // Estilo base para mensaje vacío
+  if (!resultados || !resultados.length) {
+    return '<p style="color: #a4b1cd; padding: 1rem; text-align: center;">No hay datos calculados. Verifica los inputs de la tabla de diseño.</p>';
+  }
+
+  // Inicio de la tabla con estilos inline para Dark Mode
+  let html = `
+  <table id="tablaResultadosCilindrico" class="results-table" style="width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 0.9rem; margin-top: 1rem;">
+    <thead>
+      <tr style="background-color: #1e2a45; color: #a4b1cd; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.5px;">
+        <th style="padding: 12px; text-align: center; border-bottom: 2px solid #2d3b5e;">MURO /<br>GRUPO</th>
+        <th style="padding: 12px; text-align: center; border-bottom: 2px solid #2d3b5e;">DISEÑO (D X H)</th>
+        <th style="padding: 12px; text-align: center; border-bottom: 2px solid #2d3b5e;">CANT.</th>
+        <th style="padding: 12px; text-align: center; border-bottom: 2px solid #2d3b5e;">VOL.<br>CONC.<br>(M³)</th>
+        <th style="padding: 12px; text-align: center; border-bottom: 2px solid #2d3b5e;">PESO<br>CONC.<br>(TON)</th>
+        <th style="padding: 12px; text-align: center; border-bottom: 2px solid #2d3b5e;">ACERO<br>VERT.<br>(KG)</th>
+        <th style="padding: 12px; text-align: center; border-bottom: 2px solid #2d3b5e;">ANILLOS<br>(KG)</th>
+        <th style="padding: 12px; text-align: center; border-bottom: 2px solid #2d3b5e;">ALAMBRE<br>(KG)</th>
+        <th style="padding: 12px; text-align: center; border-bottom: 2px solid #2d3b5e;">TOTAL<br>ACERO<br>(KG)</th>
+      </tr>
+    </thead>
+    <tbody style="background-color: #161f33; color: #d1d5db;">
+  `;
+
+  let totalVol = 0;
+  let totalAcero = 0;
+
+  resultados.forEach(res => {
+    const t = res.total_muro;
+    const pesoAceroFila = t.peso_acero_vert + t.peso_acero_anillo + t.peso_alambre;
+    const pesoConcretoTon = (res.unitario.peso_concreto_kg * res.input.cantidad) / 1000;
+    
+    totalVol += t.volumen_concreto_compra;
+    totalAcero += pesoAceroFila;
+
+    html += `
+      <tr style="border-bottom: 1px solid #2d3b5e;">
+        <td style="padding: 12px; text-align: center;">${res.id_muro}</td>
+        <td style="padding: 12px; text-align: center;">Ø${res.input.diametro} x ${res.input.profundidad}</td>
+        <td style="padding: 12px; text-align: center;">${res.input.cantidad}</td>
+        
+        <td style="padding: 12px; text-align: center; color: #5fabc4; font-weight: bold;">${t.volumen_concreto_compra.toFixed(2)}</td>
+        <td style="padding: 12px; text-align: center;">${pesoConcretoTon.toFixed(2)}</td>
+        
+        <td style="padding: 12px; text-align: center;">${t.peso_acero_vert.toFixed(1)}</td>
+        <td style="padding: 12px; text-align: center;">${t.peso_acero_anillo.toFixed(1)}</td>
+        <td style="padding: 12px; text-align: center;">${t.peso_alambre.toFixed(2)}</td>
+        
+        <td style="padding: 12px; text-align: center; font-weight: bold;">${pesoAceroFila.toFixed(1)}</td>
+      </tr>
+    `;
+  });
+
+  html += `
+    </tbody>
+    <tfoot style="background-color: #111827; color: #a4b1cd; font-weight: bold; border-top: 2px solid #374151;">
+      <tr>
+        <td colspan="3" style="padding: 15px; text-align: right; text-transform: uppercase;">TOTALES PROYECTO:</td>
+        <td style="padding: 15px; text-align: center; color: #5fabc4;">${totalVol.toFixed(2)} m³</td>
+        <td style="padding: 15px; text-align: center;">-</td>
+        <td style="padding: 15px; text-align: center;">-</td>
+        <td style="padding: 15px; text-align: center;">-</td>
+        <td style="padding: 15px; text-align: center;">-</td>
+        <td style="padding: 15px; text-align: center;">${totalAcero.toFixed(1)} kg</td>
+      </tr>
+    </tfoot>
+  </table>
+  `;
+
+  return html;
 }

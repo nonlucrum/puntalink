@@ -48,8 +48,8 @@
           <div class="project-field">
             <label>TIPO DE MUERTO</label>
             <select id="proyectoTipoMuerto" class="project-value-dim" disabled>
-                <option value="Cilindrico">Cilindrico</option>
-                <!-- <option value="Triangular">Triangular</option> -->
+                <option value="Cilindrico">Aislado Cilindrico</option>
+                <option value="Triangular">Corrido Triangular</option>
                 <option value="Corrido">Corrido Rectangular</option>
             </select>
           </div>
@@ -408,117 +408,20 @@
         </div>
       </div>
 
-      <!-- <div id="config-profundidades-container" style="margin-top: 1rem;"></div> -->
-  <!-- Configuración de Grupos de Muertos -->
-              <div id="configGruposContainer" style="display: none; margin-top: 2rem; padding: 1.5rem; background: var(--bg); border-radius: 8px; border: 1px solid var(--border);">
-                <h3>⚙️ Configuración de Grupos de Muertos</h3>
-                <p style="color: #5fabc4; font-size: 0.9rem; margin-bottom: 1rem;">Ingresa los valores específicos para cada grupo de muerto (se aplican después de agrupar)</p>
-                
-                <div id="configGruposForm" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
-                  <!-- Los grupos se generarán dinámicamente aquí -->
-                </div>
-
-                <div class="actions" style="margin-top: 1.5rem;">
-                  <button id="btnGuardarConfigGrupos" class="btn btn--primary">✅ Guardar Configuración</button>
-                </div>
-              </div>
-      <!-- Sección 5: Macizos de Anclaje (Muertos Cilíndricos) - DESHABILITADA -->
-      <!-- Los cálculos cilíndricos son FUNCIONALIDADES INDEPENDIENTES que deben recibir datos del TXT sin agrupar -->
-      <!-- NO deben usar la agrupación de braces (window.lastGruposMuertos) -->
-      <!-- TODO: Refactorizar para ser completamente independiente del flujo de braces -->
-      <!--
-      <div class="accordion-item">
-        <div class="accordion-header" data-target="muertos-anclaje-section">
-          <h2 class="accordion-title">
-            <span class="accordion-icon"></span>
-            Cálculo de Macizos de Anclaje (Muertos Cilíndricos)
-          </h2>
-          <span class="accordion-toggle">▼</span>
+      <!-- Configuración de Grupos de Muertos -->
+      <div id="configGruposContainer" style="display: none; margin-top: 2rem; padding: 1.5rem; background: var(--bg); border-radius: 8px; border: 1px solid var(--border);">
+        <h3>⚙️ Configuración de Grupos de Muertos</h3>
+        <p style="color: #5fabc4; font-size: 0.9rem; margin-bottom: 1rem;">Ingresa los valores específicos para cada grupo de muerto (se aplican después de agrupar)</p>
+        
+        <div id="configGruposForm" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+          <!-- Los grupos se generarán dinámicamente aquí -->
         </div>
-        <div class="accordion-content" id="muertos-anclaje-section">
-          
-          <!-- Parámetros de Configuración
-          <div class="muertos-config">
-            <h3>⚙️ Parámetros de Configuración</h3>
-            
-            <div class="parameter-groups">
-              <div class="parameter-group">
-                <h4>Acero de Refuerzo</h4>
-                <div class="form-row">
-                  <label for="nVarillas">N° Varillas verticales:</label>
-                  <input type="number" id="nVarillas" min="3" max="12" value="4">
-                </div>
-                <div class="form-row">
-                  <label for="tipoVarilla">Tipo de Varilla:</label>
-                  <select id="tipoVarilla">
-                    <option value="#4" selected>#4 (0.785 kg/m)</option>
-                    <option value="#5">#5 (1.27 kg/m)</option>
-                  </select>
-                </div>
-                <div class="form-row">
-                  <label for="nAnillos">N° Anillos horizontales:</label>
-                  <input type="number" id="nAnillos" min="2" max="6" value="3">
-                </div>
-              </div>
 
-              <div class="parameter-group">
-                <h4>Muertos por Muro</h4>
-                <div class="form-row">
-                  <label for="nMuertos">Cantidad de muertos (CMC):</label>
-                  <input type="number" id="nMuertos" min="1" max="4" value="1">
-                  <label>Normalmente 1 muerto por muro</label>
-                </div>
-              </div>
-
-              <div class="parameter-group">
-                <h4>Constantes</h4>
-                <div class="form-row">
-                  <label>Densidad concreto:</label>
-                  <span>2400 kg/m³</span>
-                </div>
-                <div class="form-row">
-                  <label>Anillos #3:</label>
-                  <span>0.376 kg/m</span>
-                </div>
-                <div class="form-row">
-                  <label>Alambre Ø1.22mm:</label>
-                  <span>Amarre 0.35m</span>
-                </div>
-              </div>
-            </div> -->
-
-            <!-- Botones de Acción 
-            <div class="actions" style="margin-top: 1.5rem;">
-              <button id="btnCalcularMuertos" class="btn btn--primary">🔄 Calcular Macizos de Anclaje</button>
-              <button id="btnExportarMuertosCSV" class="btn btn--secondary" style="display: none;">📊 Exportar a CSV</button>
-              <button id="btnMostrarAlternativas" class="btn btn--secondary" style="display: none;">🔍 Ver Alternativas</button>
-              <button id="btnTablaDetallada" class="btn btn--secondary" style="display: none;">📋 Tabla Detallada por Muro</button>
-            </div>
-          </div>-->
-
-          <!-- Resultados 
-          <div class="muertos-results" id="resultadosMuertos" style="display: none; margin-top: 2rem;">
-            <div id="tablaMuertosResultados">
-              <!-- Los resultados se cargarán aquí dinámicamente 
-            </div>
-          </div>-->
-
-          <!-- Información de Ayuda 
-          <div class="info-panel" style="margin-top: 2rem;">
-            <h4>📖 Información del Cálculo</h4>
-            <p><strong>Tabla de referencia:</strong> TILT-UP HANDBOOK página 71</p>
-            <p><strong>Fórmula principal:</strong> FMC = FBX / (N° braces × cos(θ))</p>
-            <ul>
-              <li><strong>FBX:</strong> Fuerza del viento en el muro (kN)</li>
-              <li><strong>N° braces:</strong> Número de riostras por muro</li>
-              <li><strong>θ:</strong> Ángulo del brace (grados)</li>
-            </ul>
-            <p><strong>Criterio de selección:</strong> El macizo debe pesar igual o más que la carga FMC calculada.</p>
-          </div>
-
+        <div class="actions" style="margin-top: 1.5rem;">
+          <button id="btnGuardarConfigGrupos" class="btn btn--primary">✅ Guardar Configuración</button>
         </div>
-      </div>-->
-  
+      </div>
+
       <!-- Sección 6: Armado Rectangular para Muertos -->
       <div class="accordion-item">
         <div class="accordion-header" data-target="armado-section">
@@ -615,37 +518,12 @@
                   </div>
                 </div>
 
-                <!-- Campos adicionales debajo 
-                <div class="extra-parameters">
-                  <div class="form-row">
-                    <label>Longitud por nudo (m):</label><span class="tooltip-icon" data-tooltip="se utiliza para convertir el volumen de concreto (m³) en masa (kg) con la fórmula: peso_concreto = volumen_m3 × densidad × factor_de_desperdicio. Cambiar la densidad ajusta linealmente el peso total de concreto.">i</span>
-                    
-                    <input type="number" id="longitudNudo" value="0.35" step="0.05">
-                  </div>
-                  <div class="form-row">
-                    <label>Diámetro Alambre (m):</label> <span class="tooltip-icon" data-tooltip="se usa para calcular el área de la sección del alambre (A = π·(d/2)²) y, con la densidad del acero, obtener el peso del alambre: peso_alambre = densidad_acero × A × longitud_total. Cambiar el diámetro afecta al peso en proporción al cuadrado del diámetro (p. ej. aumentar en 10% → peso aumenta ≈ 21%).">i</span>
-                    <input type="number" id="diametroAlambreM" value="0.00122" step="0.00001">
-                  </div>
-                  <div class="form-row">
-                    <label>Densidad Concreto (kg/m³):</label> <span class="tooltip-icon" data-tooltip="Representa la longitud de alambre necesaria para una sola vuelta de amarre alrededor del armado (estribo) en cada 'nodo'. Se usa en la fórmula: longitud total de alambre = número de nodos × longitud por vuelta × factor de desperdicio. Cambiar este valor modifica linealmente la longitud y el peso total de alambre.">i</span>
-                    <input type="number" id="densidadConcreto" value="2400">
-                  </div>
-                </div> -->
-
-                
-
-               
-
-                
-
                 <div class="actions" style="margin-top: 1.5rem;"> 
                   <button id="btnCalcularArmado" class="btn btn--primary"> Calcular Armado Rectangular</button>
                   <button id="btnInforme" class="btn btn--primary" >Generar Informe PDF</button>
                 </div>
               </div>
 
-             
-              
               <!-- Tabla de Resultados -->
               <h3>📋 Tabla de Armado por Muerto</h3>
                 
@@ -706,8 +584,6 @@
                       <th> Acero Total</th>
                       <th style="padding: 10px;">🔗 Alambre Total</th>
                       <th style="padding: 10px;">⚖️ Metal Total</th>
-
-                      
                     </tr>
                   </thead>
                   <tbody>
@@ -726,20 +602,159 @@
         </div>
       </div>
 
+<div class="accordion-item">
+  
+  <div class="accordion-header" data-target="armado-cilindrico-section">
+    <h2 class="accordion-title">
+      <span class="accordion-icon"></span>
+      🕳️ Armado Cilíndrico (Pozos)
+    </h2>
+    <span class="accordion-toggle">▼</span>
+  </div>
+
+  <div class="accordion-content" id="armado-cilindrico-section">
+  
+    <div class="configuracion-global">
+      <h3>⚙️ Configuración y Materiales</h3>
+      
+      <div class="parameter-groups">
+        
+        <div class="parameter-group">
+          <label>Densidad (kg/m³):</label>
+          <input type="number" id="cil_densidad_concreto" class="form-control" value="2400">
+          
+          <label>Desperdicio:</label>
+          <input type="number" id="cil_desperdicio" class="form-control" value="1.05" step="0.01">
+        </div>
+
+        <div class="parameter-group">
+          <label>Cant. Varillas Vert:</label>
+          <input type="number" id="cil_cant_vert" class="form-control" value="4">
+          
+          <label>Tipo Varilla:</label>
+          <select id="cil_tipo_vert" class="form-control"> <option value="#4" selected>#4 (1/2")</option>
+            <option value="#5">#5 (5/8")</option>
+            <option value="#6">#6 (3/4")</option>
+          </select>
+        </div>
+
+        <div class="parameter-group">
+          <label>Tipo Anillo:</label>
+          <select id="cil_tipo_anillo" class="form-control">
+            <option value="#3" selected>#3 (3/8")</option>
+            <option value="#4">#4 (1/2")</option>
+          </select>
+
+          <label>Criterio Anillos:</label>
+          <select id="cil_modo_anillos" class="form-control">
+            <option value="fijo" selected>Cantidad Fija</option>
+            <option value="separacion">Por Separación</option>
+          </select>
+
+          <label>Cant. o Sep(mm):</label>
+          <input type="number" id="cil_dato_anillos" class="form-control" value="3" placeholder="3 o 250">
+        </div>
+
+      </div>
     </div>
-  </main>
-              
+
+    <div class="table-container mt-3">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        
+        <button id="btnCargarMurosCil" class="btn btn-outline-secondary btn-sm">🔄 Cargar Muros</button>
+      </div>
+      
+      <div style="max-height: 300px; overflow-y: auto;">
+        <table class="results-table" id="tablaInputsCilindrico">
+          <thead>
+            <tr>
+              <th>Muro</th>
+              <th>Fuerza Viento (kg)</th>
+              <th>Diámetro (mm)</th>
+              <th>Profundidad (mm)</th>
+              <th>Muertos (#)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="5" style="text-align:center; color:#888;">Presiona "Cargar Muros" para iniciar...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div style="text-align: center; margin: 20px 0;">
+      <button id="btnCalcularCilindrico" class="btn btn--primary">
+        🧮 Calcular Materiales Cilíndricos
+      </button>
+    </div>
+
+    <div class="table-container mt-3">
+      
+      <div id="resultadosCilindricoContainer">
+        <table id="tablaResultadosCilindrico" class="results-table">
+          <thead>
+            </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+  </div>
+</div>
+
+      <div class="accordion-item">
+        <div class="accordion-header" data-target="armado-triangular-section">
+          <h2 class="accordion-title">
+            <span class="accordion-icon"></span>
+            🔺 Armado Triangular (Prisma)
+          </h2>
+          <span class="accordion-toggle">▼</span>
+        </div>
+
+      <!-- SECCIÓN TRIANGULAR (NUEVO) - DENTRO DEL ACORDEÓN -->
+        <div class="accordion-content" id="armado-triangular-section">
+          <div class="configuracion-global">
+            <h3>Configuración Triangular</h3>
+            <div class="parameter-groups">
+              <div class="parameter-group">
+                <label>Base del Triángulo (m):</label>
+                <input type="number" id="tri_base" class="form-control" value="0.80" step="0.10">
+                
+                <label>Cant. Varillas Long:</label>
+                <input type="number" id="tri_cant_long" class="form-control" value="3">
+              </div>
+              <div class="parameter-group">
+                <label>Separación Estribos (cm):</label>
+                <input type="number" id="tri_sep_estribos" class="form-control" value="20">
+              </div>
             </div>
+            <button id="btnCalcularTriangular" class="btn btn--primary mt-3">Calcular Triangulares</button>
+          </div>
+
+          <div class="table-container mt-3">
+            <table id="tablaTriangular" class="results-table">
+              <thead>
+                <tr>
+                  <th>Grupo</th><th>Eje</th>
+                  <th>Base</th><th>Alto</th><th>Largo</th>
+                  <th>Volumen</th><th>Peso Conc.</th>
+                  <th>Peso Acero</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
           </div>
         </div>
       </div>
 
-    </div>
-  </main>
-  
+    </div> <!-- FIN DEL DIV ACCORDION -->
+  </main> <!-- FIN DEL MAIN -->
 
   <footer class="footer">
-    <div class="container"></div>
+    <div class="container">
       <p>© <span id="year"></span> PuntaLink — Todos los derechos reservados</p>
     </div>
   </footer>
@@ -747,11 +762,13 @@
   <!-- SISTEMA DE NOTIFICACIONES MEJORADO -->
   <script src="js/notifications.js"></script>
   
-  <!-- ELIMINADO: <script type="module" src="js/factoresRepeticion.js"></script> -->
-  <!-- Factores de repetición deben venir de BD, no de archivos hardcodeados -->
+  <!-- SCRIPTS DE CÁLCULO -->
   <script type="module" src="js/muertoRectangular.js"></script>
   <script type="module" src="js/muertoCilindrico.js"></script>
+  <script type="module" src="js/muertoTriangular.js"></script>
+  
   <script type="module" src="js/usability.js"></script>
+  <script type="module" src="dashboard.js"></script>
   <script type="module" src="script.js"></script>
 </body>
 </html>

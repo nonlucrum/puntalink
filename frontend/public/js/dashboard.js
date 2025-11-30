@@ -1,6 +1,52 @@
+// === FUNCIÓN PARA PREPARAR DATOS DE MUERTOS CILÍNDRICOS ===
+/**
+ * Prepara los datos de entrada para el cálculo de muertos cilíndricos.
+ * Agrupa por eje, suma fuerzas y lee los parámetros de la UI.
+ * Devuelve un arreglo de grupos listos para calcular.
+ */
+function prepararDatosCilindricos() {
+  // Obtener los grupos de muertos globales
+  const grupos = window.gruposMuertosGlobal || {};
+  const resultado = [];
+  let idx = 1;
+  for (const clave in grupos) {
+    const grupo = grupos[clave];
+    // Sumar la fuerza total requerida (FBy) de los muros del grupo
+    let sumaFBy = 0;
+    let murosList = [];
+    (grupo.muros || []).forEach(muro => {
+      let m = typeof muro === 'object' ? muro : (window.lastResultadosMuertos || []).find(x => x.id_muro === muro || x.id === muro);
+      if (m && (m.fby || m.FBy)) {
+        sumaFBy += parseFloat(m.fby || m.FBy) || 0;
+      }
+      if (m && (m.id_muro || m.id)) {
+        murosList.push(m.id_muro || m.id);
+      }
+    });
+    // Leer profundidad desde la UI (si existe input por grupo)
+    let profundidad = 2.0;
+    if (window.configGruposMuertos && window.configGruposMuertos[clave] && window.configGruposMuertos[clave].profundo) {
+      profundidad = parseFloat(window.configGruposMuertos[clave].profundo) || 2.0;
+    }
+    // Leer diámetro desde la UI global (puede ser único para todos)
+    const diametro = parseFloat(document.getElementById('cil_diametro')?.value) || 0.6;
+    resultado.push({
+      clave,
+      numero_grupo: idx,
+      eje: grupo.eje || '',
+      muros_list: murosList.join(', '),
+      sumaFBy,
+      profundidad,
+      diametro
+    });
+    idx++;
+  }
+  return resultado;
+}
 console.log('[DEPURACIÓN] dashboard.js cargado correctamente');
 // ===== MÓDULO CONSOLIDADO DE BOTONES =====
 // import * as Muertos from './muertos.js'; // ELIMINADO - Cálculos cilíndricos ahora son funcionalidades independientes
+
 
 import {
   prepararGruposParaMuertos,
@@ -8,7 +54,264 @@ import {
   generarTablaResultadosMacizos
 } from './muertoRectangular.js';
 
+import {
+  calcularMacizosCilindricos,
+  generarTablaResultadosCilindricos,
+  obtenerProfundidadRecomendada
+} from './muertoCilindrico.js';
+
+import {
+  calcularMacizosTriangulares,
+  generarTablaResultadosTriangulares
+} from './muertoTriangular.js';
+
+
 import {mostrarResultadosViento} from '../script.js';
+// === EVENT HANDLERS PARA CÁLCULOS CILÍNDRICO Y TRIANGULAR ===
+document.addEventListener('DOMContentLoaded', () => {
+  // Cálculo Cilíndrico
+  if (document.getElementById('btnCalcularArmado')) {
+    console.log('[ARMADO] Inicializando armado rectangular...');
+    initArmadoRectangular();
+  }
+
+
+  // ==========================================
+  // 🕳️ LÓGICA DE MUERTOS CILÍNDRICOS (NUEVA)
+  // ==========================================
+  // ==========================================
+  // 🕳️ LÓGICA DE MUERTOS CILÍNDRICOS (CORREGIDA)
+  // ==========================================
+
+  // Definimos la variable AFUERA para que sea accesible por los botones y los eventos de cambio
+  const tbodyCilindrico = document.querySelector('#tablaInputsCilindrico tbody');
+
+  // 1. Botón para CARGAR los muros en la Tabla de Diseño
+  const btnCargarCil = document.getElementById('btnCargarMurosCil');
+  
+  if (btnCargarCil) {
+    btnCargarCil.addEventListener('click', () => {
+      
+      // Validación: Verificar que existan grupos calculados
+      if (!window.gruposMuertosGlobal || Object.keys(window.gruposMuertosGlobal).length === 0) {
+        alert("⚠️ No hay grupos generados. Primero calcula el Viento/Braces.");
+        return;
+      }
+
+      // Validación: Verificar que la tabla exista en el HTML
+      if (!tbodyCilindrico) {
+          console.error("❌ Error: No se encontró el elemento #tablaInputsCilindrico tbody en el HTML");
+          return;
+      }
+
+      tbodyCilindrico.innerHTML = ''; // Limpiar tabla usando la variable correcta
+
+      // Iterar sobre los grupos globales
+      Object.values(window.gruposMuertosGlobal).forEach((grupo, index) => {
+        // Calcular fuerza total referencial del grupo
+        let fuerzaRef = 0;
+        let numBraces = 0;
+        if (grupo.muros) {
+          grupo.muros.forEach(m => {
+              const f = parseFloat(m.FBy || m.fby || 0);
+              const b = parseInt(m.num_braces || m.CANT_Brace || 1); 
+              fuerzaRef += f;
+              numBraces += b;
+          });
+        }
+
+        // --- CÁLCULO AUTOMÁTICO DE PROFUNDIDAD ---
+        // Usamos 914mm (36") como default para sugerir la profundidad inicial
+        const diametroDefault = 914; 
+        // Asegúrate de que obtenerProfundidadRecomendada esté importada arriba
+        const profundidadSugerida = typeof obtenerProfundidadRecomendada === 'function' 
+            ? obtenerProfundidadRecomendada(fuerzaRef, numBraces, diametroDefault)
+            : 1829; // Fallback por seguridad
+        // -----------------------------------------
+
+        const tr = document.createElement('tr');
+        tr.dataset.fuerza = fuerzaRef;
+        tr.dataset.braces = numBraces;
+        tr.dataset.id = grupo.clave || `G${index + 1}`; 
+
+        tr.innerHTML = `
+          <td class="fw-bold text-center align-middle">${grupo.clave || `G${index + 1}`}</td>
+          <td class="text-center align-middle text-secondary">
+            <small>F: ${fuerzaRef.toFixed(0)} kg<br>#: ${numBraces}</small>
+          </td>
+          <td>
+            <select class="form-select form-select-sm input-dia trigger-recalc">
+                <option value="610">610 mm (24")</option>
+                <option value="762">762 mm (30")</option>
+                <option value="914" selected>914 mm (36")</option>
+                <option value="1067">1067 mm (42")</option>
+                <option value="1219">1219 mm (48")</option>
+            </select>
+          </td>
+          <td>
+            <input type="number" class="form-control form-control-sm input-prof" 
+                  value="${profundidadSugerida}" step="10">
+          </td>
+          <td>
+            <input type="number" class="form-control form-control-sm input-qty" 
+                  value="${numBraces > 0 ? numBraces : 1}">
+          </td>
+        `;
+        tbodyCilindrico.appendChild(tr); // Usamos la variable correcta
+      });
+      
+      alert("✅ Muros cargados. Ajusta Diámetro y Profundidad según ingeniería.");
+    });
+  }
+
+  // Listener para Recálculo Dinámico (Cambio de Diámetro)
+  if (tbodyCilindrico) {
+      tbodyCilindrico.addEventListener('change', (e) => {
+        if (e.target && e.target.classList.contains('trigger-recalc')) {
+            const select = e.target;
+            const row = select.closest('tr');
+            
+            const fuerza = parseFloat(row.dataset.fuerza || 0);
+            const braces = parseFloat(row.dataset.braces || 1);
+            const nuevoDiametro = parseFloat(select.value);
+
+            if (typeof obtenerProfundidadRecomendada === 'function') {
+                const nuevaProfundidad = obtenerProfundidadRecomendada(fuerza, braces, nuevoDiametro);
+                const inputProf = row.querySelector('.input-prof');
+                if (inputProf) {
+                    inputProf.value = nuevaProfundidad;
+                    inputProf.style.backgroundColor = '#e8f0fe'; 
+                    setTimeout(() => inputProf.style.backgroundColor = '', 500);
+                }
+            }
+        }
+      });
+  }
+
+  // 2. Botón para CALCULAR Materiales Cilíndricos
+  const btnCalcCil = document.getElementById('btnCalcularCilindrico');
+  if (btnCalcCil) {
+    btnCalcCil.addEventListener('click', () => {
+      // Validar si la tabla existe
+      if (!tbodyCilindrico) return;
+
+      const modoAnillos = document.getElementById('cil_modo_anillos')?.value || 'fijo';
+      const datoAnillos = parseFloat(document.getElementById('cil_dato_anillos')?.value) || 3;
+
+      const configUI = {
+        densidadConcreto: parseFloat(document.getElementById('cil_densidad_concreto')?.value) || 2400,
+        desperdicioConcreto: parseFloat(document.getElementById('cil_desperdicio')?.value) || 1.05,
+        tipoVarillaVert: document.getElementById('cil_tipo_vert')?.value || '#4',
+        cantVarillasVert: parseInt(document.getElementById('cil_cant_vert')?.value) || 4,
+        tipoVarillaAnillo: document.getElementById('cil_tipo_anillo')?.value || '#3',
+        usarSeparacion: (modoAnillos === 'separacion'),
+        cantAnillos: (modoAnillos === 'fijo') ? datoAnillos : 0,
+        separacionAnillosMm: (modoAnillos === 'separacion') ? datoAnillos : 0
+      };
+
+      const filas = tbodyCilindrico.querySelectorAll('tr');
+      const listaMuros = [];
+
+      filas.forEach(row => {
+        if (!row.dataset.id) return; 
+        const diametro = parseFloat(row.querySelector('.input-dia').value);
+        const profundidad = parseFloat(row.querySelector('.input-prof').value);
+        const cantidad = parseInt(row.querySelector('.input-qty').value);
+
+        listaMuros.push({
+          id: row.dataset.id,
+          diametro_mm: diametro,
+          profundidad_mm: profundidad,
+          cantidad_muertos: cantidad
+        });
+      });
+
+      if (listaMuros.length === 0) {
+        alert("⚠️ La tabla de diseño está vacía. Presiona 'Cargar Muros' primero.");
+        return;
+      }
+
+      const resultados = calcularMacizosCilindricos(listaMuros, configUI);
+
+      const container = document.getElementById('resultadosCilindricoContainer');
+      if(container) {
+          container.innerHTML = generarTablaResultadosCilindricos(resultados);
+      }
+
+      window.ultimosResultadosCilindricos = resultados;
+    });
+  }
+
+  // ==========================================
+  // 🔺 LÓGICA DE MUERTOS TRIANGULARES
+  // ==========================================
+  const btnTri = document.getElementById('btnCalcularTriangular');
+  if (btnTri) {
+    btnTri.addEventListener('click', () => {
+      // CORRECCIÓN: Validación visual
+      if (!window.gruposMuertosGlobal || Object.keys(window.gruposMuertosGlobal).length === 0) {
+          alert("⚠️ No hay grupos generados. Primero realiza el cálculo de Viento/Braces.");
+          return;
+      }
+
+      // IMPORTANTE: Asegúrate de que 'prepararGruposParaMuertos' está importado de muertoRectangular.js
+      // Si muertoRectangular.js no se cargó, esto fallará.
+      if (typeof prepararGruposParaMuertos !== 'function') {
+          console.error("Falta la función 'prepararGruposParaMuertos'. Verifica los imports.");
+          alert("Error interno: Falta módulo de preparación de grupos (muertoRectangular.js).");
+          return;
+      }
+
+      const grupos = prepararGruposParaMuertos(window.gruposMuertosGlobal);
+      
+      const config = {
+        baseTriangulo: parseFloat(document.getElementById('tri_base')?.value) || 0.8,
+        cantLongitudinal: parseInt(document.getElementById('tri_cant_long')?.value) || 3,
+        separacionEstribos: parseFloat(document.getElementById('tri_sep_estribos')?.value) || 20,
+        densidadConcreto: parseFloat(document.getElementById('tipoConcreto')?.value) || 2400
+      };
+
+      try {
+          const resultados = calcularMacizosTriangulares(grupos, config);
+          const tabla = document.getElementById('tablaTriangular');
+          
+          if (tabla) {
+            // Guardar encabezado, limpiar body, pegar resultados
+            const thead = tabla.querySelector('thead');
+            tabla.innerHTML = ''; 
+            if(thead) tabla.appendChild(thead);
+            // Insertar HTML generado
+            tabla.insertAdjacentHTML('beforeend', generarTablaResultadosTriangulares(resultados));
+          }
+
+          window.ultimosResultadosMacizos = resultados;
+          actualizarTotalesCards(resultados);
+          alert("✅ Cálculo Triangular completado.");
+      } catch (e) {
+          console.error(e);
+          alert("Error al calcular triangulares: " + e.message);
+      }
+    });
+  }
+});
+
+function actualizarTotalesCards(resultados) {
+    let tVol = 0, tPesoConc = 0, tAcero = 0;
+    resultados.forEach(r => {
+        tVol += r.volumen_m3 || r.volumenConcreto_m3 || 0;
+        tPesoConc += r.peso_concreto_kg || r.pesoConcreto_kg || 0;
+        // Sumar aceros (la estructura de propiedad puede variar ligeramente entre módulos, aseguramos fallback)
+        let acero = (r.acero_long?.peso_kg || r.pesoLongitudinal_kg || 0) + 
+                    (r.acero_trans?.peso_kg || r.pesoEstribos_kg || 0);
+        tAcero += acero;
+    });
+
+    const elTotalConcreto = document.getElementById('totalConcreto');
+    const elTotalAcero = document.getElementById('totalAcero');
+    
+    if (elTotalConcreto) elTotalConcreto.textContent = `${tVol.toFixed(2)} m³ / ${(tPesoConc/1000).toFixed(2)} T`;
+    if (elTotalAcero) elTotalAcero.textContent = `${tAcero.toFixed(1)} kg`;
+}
 
 const API_BASE =
   window.location.hostname === "localhost"
@@ -1377,15 +1680,6 @@ export function cancelarEliminacion() {
 
 // ===== ARMADO RECTANGULAR =====
 
-// Cargar el módulo de armado rectangular
-import { 
-  calcularReporteMuerto
-} from './muertoRectangular.js';
-
-// Cargar el módulo de armado cilíndrico
-import { 
-  calcularReporteProyectoCilindrico 
-} from './muertoCilindrico.js';
 
 // Configuración global del armado rectangular
 let configArmado = {
@@ -2100,78 +2394,63 @@ async function reagruparMuertos() {
 }
 
 // Función principal para ejecutar los cálculos de armado
+// Función principal para ejecutar los cálculos de armado (RECTANGULAR)
 async function ejecutarCalculosArmado() {
-    console.log('[DEPURACIÓN] Iniciando ejecutarCalculosArmado');
+  console.log('[DEPURACIÓN] Iniciando ejecutarCalculosArmado (Rectangular)');
+
   try {
-    console.log('[DASHBOARD] ejecutarCalculosArmado - Iniciando cálculos de macizos de anclaje');
-    
-    // PASO 0: Guardar todos los cambios en la BD antes de calcular
+    // =================================================================
+    // PASO 0: GUARDADO Y SINCRONIZACIÓN CON BASE DE DATOS
+    // =================================================================
     console.log('[DASHBOARD] Guardando todos los cambios en la BD antes de calcular armado...');
+    
     try {
-      // Ejecutar el botón de guardar si existe (simular click)
+      // 1. Intentar guardar cambios pendientes en la UI
       const btnGuardarTop = document.getElementById('btnGuardarTodosBracesTop');
       const btnGuardarBottom = document.getElementById('btnGuardarTodosBraces');
-      
+
       if (btnGuardarTop && btnGuardarTop.onclick) {
         console.log('[DASHBOARD] Ejecutando guardar cambios automáticamente...');
         await btnGuardarTop.onclick();
-        console.log('[DASHBOARD] Cambios guardados exitosamente');
       } else if (btnGuardarBottom && btnGuardarBottom.onclick) {
         console.log('[DASHBOARD] Ejecutando guardar cambios automáticamente (botón inferior)...');
         await btnGuardarBottom.onclick();
-        console.log('[DASHBOARD] Cambios guardados exitosamente');
-      } else {
-        console.log('[DASHBOARD] No se encontró botón de guardar, intentando función directa...');
-        // Intentar llamar la función directamente desde el scope global
-        if (window.guardarTodosBraces && typeof window.guardarTodosBraces === 'function') {
-          await window.guardarTodosBraces();
-          console.log('[DASHBOARD] Cambios guardados con función global');
-        }
+      } else if (window.guardarTodosBraces && typeof window.guardarTodosBraces === 'function') {
+        // Fallback a función global
+        await window.guardarTodosBraces();
       }
-      
-      // Pausa para asegurar que los cambios se han procesado en la BD
-      console.log('[DASHBOARD] Esperando 1 segundo para que la BD procese los cambios...');
+
+      // 2. Esperar propagación en BD
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // RECARGAR datos desde la BD para tener los valores actualizados
+
+      // 3. Recargar datos frescos desde el Backend
       console.log('[DASHBOARD] Recargando datos actualizados desde la base de datos...');
-      
       const projectConfig = localStorage.getItem('projectConfig');
-      if (!projectConfig) {
-        throw new Error('No hay proyecto seleccionado');
-      }
+      
+      if (!projectConfig) throw new Error('No hay proyecto seleccionado');
       
       const project = JSON.parse(projectConfig);
       const pid = project.pid || project.id;
-      console.log('[DASHBOARD] PID para cargar muros:', pid);
-      
-      if (!pid) {
-        throw new Error('No se encontró ID del proyecto');
-      }
-      
-      // Recargar datos de muros desde la BD
+
+      if (!pid) throw new Error('No se encontró ID del proyecto');
+
       const response = await fetch(`${API_BASE}/api/importar-muros/muros?pk_proyecto=${pid}`);
-      if (!response.ok) {
-        throw new Error('Error al recargar datos de muros');
-      }
-      
+      if (!response.ok) throw new Error('Error al recargar datos de muros');
+
       const responseData = await response.json();
       const murosActualizados = responseData.muros || responseData;
-      console.log('[DASHBOARD] Datos recargados desde BD:', murosActualizados.length, 'muros');
-      console.log('[DASHBOARD] Primer muro de BD (con fb):', murosActualizados[0]);
-      
-      // Regenerar gruposMuertosGlobal con los datos actualizados
-      console.log('[DASHBOARD] Regenerando gruposMuertosGlobal con datos actualizados...');
+
+      // 4. Regenerar agrupación en memoria (window.gruposMuertosGlobal)
       const gruposMuertosActualizados = {};
-      
+
       murosActualizados.forEach(muro => {
         const xBraces = muro.x_braces || 2;
         const angulo = Math.round(muro.angulo_brace || muro.angulo || 55);
         const eje = muro.eje || 1;
         
-        // Usar formato script.js (clave: x_ang_eje)
+        // Clave única de agrupación: X_ANGULO_EJE
         const clave = `${xBraces}_${angulo}_${eje}`;
-        
+
         if (!gruposMuertosActualizados[clave]) {
           gruposMuertosActualizados[clave] = {
             x_braces: xBraces,
@@ -2180,249 +2459,134 @@ async function ejecutarCalculosArmado() {
             muros: []
           };
         }
-        
         gruposMuertosActualizados[clave].muros.push(muro);
       });
-      
-      // Actualizar global
+
       window.gruposMuertosGlobal = gruposMuertosActualizados;
-      console.log('[DASHBOARD] gruposMuertosGlobal actualizado con datos de BD');
-      console.log('[DASHBOARD] Claves:', Object.keys(gruposMuertosActualizados));
-      console.log('[DASHBOARD] Primer grupo (debug):', Object.values(gruposMuertosActualizados)[0]);
-      
+      console.log('[DASHBOARD] Grupos sincronizados con BD:', Object.keys(gruposMuertosActualizados));
+
     } catch (errorGuardar) {
-      console.error('[DASHBOARD] Error al guardar/recargar cambios:', errorGuardar);
-      alert('⚠️ Advertencia: No se pudieron guardar los cambios automáticamente. Los cálculos pueden usar datos desactualizados.');
+      console.error('[DASHBOARD] Advertencia en sincronización:', errorGuardar);
+      // No detenemos el flujo, intentamos calcular con lo que hay en memoria
     }
-    
-    console.log('[DASHBOARD] window.gruposMuertosGlobal:', window.gruposMuertosGlobal);
-    console.log('[DASHBOARD] window.lastResultadosMuertos:', window.lastResultadosMuertos);
-    
-    // 1. Obtener datos de gruposMuertos desde el global (ya actualizado)
+
+    // =================================================================
+    // PASO 1: PREPARACIÓN DE DATOS
+    // =================================================================
     const gruposMuertos = window.gruposMuertosGlobal;
-    
+
     if (!gruposMuertos || Object.keys(gruposMuertos).length === 0) {
-      console.error('[DASHBOARD] No hay gruposMuertos disponibles');
-      alert('⚠️ Error: No hay datos de grupos de muros. Por favor:\n1. Importa un archivo TXT\n2. Calcula los braces\n3. Haz clic en "Reagrupar Muertos"\nLuego intenta de nuevo.');
+      alert('⚠️ Error: No hay datos de grupos. Por favor calcula las cargas de viento primero.');
       return;
     }
-    
-    console.log('[DASHBOARD] gruposMuertos disponible. Claves:', Object.keys(gruposMuertos));
-    
-    // 2. Preparar grupos (sumar dimensiones dentro de cada grupo)
-        // Sincronización mejorada de profundidad manual
-        // 2. Preparar grupos (sumar dimensiones dentro de cada grupo)
-    // Sincronización mejorada de profundidad manual
+
+    console.log('[DASHBOARD] Preparando grupos para macizos rectangulares...');
+
+    // Sincronización de profundidades manuales (Configuración específica por grupo)
     if (window.configGruposMuertos) {
-        Object.keys(gruposMuertos).forEach(clave => {
-            let profundidadManual = null;
-            const grupo = gruposMuertos[clave]; // Referencia al grupo actual
+      Object.keys(gruposMuertos).forEach(clave => {
+        let profundidadManual = null;
+        const grupo = gruposMuertos[clave];
 
-            // 1. Intentar buscar por la clave compleja exacta (ej: '2_53_1')
-            if (window.configGruposMuertos[clave] && window.configGruposMuertos[clave].profundo) {
-                profundidadManual = window.configGruposMuertos[clave].profundo;
-            }
-            
-            // 2. Intentar buscar por Eje Simple (ej: 'M1') <- ESTO ES LO QUE FALTA
-            if (!profundidadManual && grupo.eje) {
-                // Convertir eje a entero para quitar ceros a la izquierda (01 -> 1) y agregar 'M'
-                const claveCorta = `M${parseInt(grupo.eje)}`; 
-                if (window.configGruposMuertos[claveCorta] && window.configGruposMuertos[claveCorta].profundo) {
-                    console.log(`[DEPURACIÓN] Profundidad encontrada por clave corta (${claveCorta}): ${window.configGruposMuertos[claveCorta].profundo}`);
-                    profundidadManual = window.configGruposMuertos[claveCorta].profundo;
-                }
-            }
+        // Prioridad 1: Configuración por clave exacta (ej: '2_55_A')
+        if (window.configGruposMuertos[clave]?.profundo) {
+          profundidadManual = window.configGruposMuertos[clave].profundo;
+        }
+        
+        // Prioridad 2: Configuración por Eje simple (ej: 'MA')
+        if (!profundidadManual && grupo.eje) {
+          const claveCorta = `M${grupo.eje}`; // Asumiendo eje es 'A', '1', etc.
+          if (window.configGruposMuertos[claveCorta]?.profundo) {
+            profundidadManual = window.configGruposMuertos[claveCorta].profundo;
+          }
+        }
 
-            // 3. Intentar buscar dentro de los muros individuales (ej: 'M01')
-            if (!profundidadManual && grupo && Array.isArray(grupo.muros)) {
-                for (let muro of grupo.muros) {
-                    let claveMuerto = (typeof muro === 'object' ? muro.id_muro || muro.id : muro);
-                    
-                    // Buscar coincidencia exacta de ID muro
-                    if (claveMuerto && window.configGruposMuertos[claveMuerto] && window.configGruposMuertos[claveMuerto].profundo) {
-                        profundidadManual = window.configGruposMuertos[claveMuerto].profundo;
-                        break;
-                    }
-                }
-            }
-
-            console.log(`[DEPURACIÓN] Grupo: ${clave} | Profundidad final aplicada:`, profundidadManual);
-            
-            // Asignar valor encontrado
-            if (profundidadManual) {
-                gruposMuertos[clave].configGrupo = gruposMuertos[clave].configGrupo || {};
-                gruposMuertos[clave].configGrupo.profundo = profundidadManual;
-            }
-        });
+        // Aplicar si se encontró configuración manual
+        if (profundidadManual) {
+          gruposMuertos[clave].configGrupo = gruposMuertos[clave].configGrupo || {};
+          gruposMuertos[clave].configGrupo.profundo = profundidadManual;
+        }
+      });
     }
-    console.log('[DASHBOARD] Preparando grupos para macizos...');
+
+    // Preparar la estructura plana para el cálculo
     const gruposPreparados = prepararGruposParaMuertos(gruposMuertos);
-    console.log('[DASHBOARD] Grupos preparados:', gruposPreparados.length, gruposPreparados);
+
+    // =================================================================
+    // PASO 2: CÁLCULO RECTANGULAR
+    // =================================================================
+    console.log('[DASHBOARD] Ejecutando cálculo rectangular...');
     
-    // 3. Calcular macizos rectangulares (usando imports directos)
-    console.log('[DASHBOARD] Calculando macizos rectangulares...');
+    // configArmado es la variable global definida en dashboard.js con los inputs del usuario
     const resultados = calcularMacizosRectangulares(gruposPreparados, configArmado);
-    console.log('[DASHBOARD] Macizos calculados:', resultados.length, resultados);
+
+    // =================================================================
+    // PASO 3: RENDERIZADO Y TOTALES
+    // =================================================================
     
+    // 3.1. Calcular Totales para las tarjetas
     let totalVolumenConcreto = 0;
     let totalPesoConcreto = 0;
-    let totalPesoAcero = 0;   // Longitudinal + Transversal
+    let totalPesoAcero = 0;
     let totalPesoAlambre = 0;
 
     resultados.forEach(res => {
-        totalVolumenConcreto += res.volumenConcreto_m3 || 0;
-        totalPesoConcreto += res.pesoConcreto_kg || 0;
-        
-        // Sumar acero longitudinal y transversal (estribos)
-        const aceroLong = res.pesoLongitudinal_kg || 0;
-        const aceroTrans = res.pesoEstribos_kg || 0;
-        totalPesoAcero += (aceroLong + aceroTrans);
-        
-        totalPesoAlambre += res.pesoAlambre_kg || 0;
+      totalVolumenConcreto += res.volumenConcreto_m3 || 0;
+      totalPesoConcreto += res.pesoConcreto_kg || 0;
+      
+      const aceroLong = res.pesoLongitudinal_kg || 0;
+      const aceroTrans = res.pesoEstribos_kg || 0;
+      totalPesoAcero += (aceroLong + aceroTrans);
+      
+      totalPesoAlambre += res.pesoAlambre_kg || 0;
     });
 
     const totalMetal = totalPesoAcero + totalPesoAlambre;
 
-    // Actualizar elementos del DOM (Las tarjetas azules/blancas inferiores)
+    // 3.2. Actualizar UI (Tarjetas de resumen)
     const elTotalConcreto = document.getElementById('totalConcreto');
     const elTotalAcero = document.getElementById('totalAcero');
     const elTotalAlambre = document.getElementById('totalAlambre');
     const elTotalMetal = document.getElementById('totalMetal');
 
-    if (elTotalConcreto) {
-        // Formato: 0.00 m³ / 0.00 ton
-        elTotalConcreto.textContent = `${totalVolumenConcreto.toFixed(2)} m³ / ${(totalPesoConcreto / 1000).toFixed(2)} ton`;
-    }
+    if (elTotalConcreto) elTotalConcreto.textContent = `${totalVolumenConcreto.toFixed(2)} m³ / ${(totalPesoConcreto / 1000).toFixed(2)} ton`;
+    if (elTotalAcero) elTotalAcero.textContent = `${totalPesoAcero.toFixed(1)} kg / ${(totalPesoAcero / 1000).toFixed(3)} ton`;
+    if (elTotalAlambre) elTotalAlambre.textContent = `${totalPesoAlambre.toFixed(1)} kg / ${(totalPesoAlambre / 1000).toFixed(3)} ton`;
+    if (elTotalMetal) elTotalMetal.textContent = `${totalMetal.toFixed(1)} kg / ${(totalMetal / 1000).toFixed(3)} ton`;
 
-    if (elTotalAcero) {
-        // Formato: 0.00 kg / 0.00 ton
-        elTotalAcero.textContent = `${totalPesoAcero.toFixed(1)} kg / ${(totalPesoAcero / 1000).toFixed(3)} ton`;
-    }
-
-    if (elTotalAlambre) {
-        elTotalAlambre.textContent = `${totalPesoAlambre.toFixed(1)} kg / ${(totalPesoAlambre / 1000).toFixed(3)} ton`;
-    }
-
-    if (elTotalMetal) {
-        elTotalMetal.textContent = `${totalMetal.toFixed(1)} kg / ${(totalMetal / 1000).toFixed(3)} ton`;
-    }
-    
-    console.log('[DASHBOARD] Totales actualizados en UI');
-
-
-
-    // 4. Generar tabla HTML con resultados
-    console.log('[DASHBOARD] Generando tabla de resultados...');
+    // 3.3. Generar e inyectar Tabla HTML
     const tablaHTML = generarTablaResultadosMacizos(resultados);
-    console.log('[DASHBOARD] tablaHTML:', tablaHTML.substring(0, 200) + '...');
-    
-    // 5. Mostrar resultados en la tabla
     const tabla = document.getElementById('tablaArmadoResultados');
-    
-    console.log('[DASHBOARD] Buscando tabla #tablaArmadoResultados:', !!tabla);
-    
+
     if (tabla) {
-      console.log('[DASHBOARD] Tabla encontrada. Insertando tbody y tfoot...');
-      
-      // La función generarTablaResultadosMacizos() devuelve <tbody>...</tbody><tfoot>...</tfoot>
-      // Insertamos directamente en innerHTML de la tabla (mantiene thead intacto)
+      // Mantenemos el thead original y reemplazamos tbody/tfoot
       tabla.innerHTML = tabla.querySelector('thead').outerHTML + tablaHTML;
-      
-      console.log('[DASHBOARD] ✅ HTML (thead + tbody + tfoot) insertado en tabla');
-      
-      // Mostrar la tabla
-      tabla.style.display = '';
-      console.log('[DASHBOARD] ✅ Tabla visible');
-      
+      tabla.style.display = ''; // Asegurar visibilidad
+      console.log('[DASHBOARD] Tabla rectangular actualizada correctamente');
     } else {
-      console.error('[DASHBOARD] ❌ No se encontró #tablaArmadoResultados');
-      alert('Error: No se encontró la tabla para mostrar resultados');
+      console.error('[DASHBOARD] No se encontró la tabla #tablaArmadoResultados en el DOM');
     }
+
+    // =================================================================
+    // PASO 4: FINALIZACIÓN
+    // =================================================================
     
-    // 6. Guardar resultados globalmente
+    // Guardar en variable global para la generación de PDF
     window.ultimosResultadosMacizos = resultados;
-    console.log('[DASHBOARD] ✅ ejecutarCalculosArmado - Completado');
     
-    // 7. LOG DETALLADO: Verificar todos los valores de las tablas del proyecto
-    console.log('═══════════════════════════════════════════════════════════');
-    console.log('📊 VERIFICACIÓN COMPLETA DE DATOS DEL PROYECTO');
-    console.log('═══════════════════════════════════════════════════════════');
-    
-    // Obtener proyecto actual
-    const projectConfig = JSON.parse(localStorage.getItem('projectConfig') || '{}');
-    console.log('🔧 Proyecto:', projectConfig);
-    
-    // Verificar muros en la base de datos
-    try {
-      const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:4008' : '';
-      const murosResponse = await fetch(`${API_BASE}/api/importar-muros/muros?pk_proyecto=${projectConfig.pid}`);
-      const murosData = await murosResponse.json();
-      
-      console.log(`📋 TABLA MURO - Total registros: ${murosData.muros?.length || 0}`);
-      murosData.muros?.forEach((muro, index) => {
-        console.log(`   Muro ${index + 1} (PID: ${muro.pid}):`);
-        console.log(`      ID: ${muro.id_muro}`);
-        console.log(`      Eje: ${muro.eje || 'sin asignar'}`);
-        console.log(`      Ángulo: ${muro.angulo_brace}°`);
-        console.log(`      NPT: ${muro.npt}m`);
-        console.log(`      Tipo brace: ${muro.tipo_brace_seleccionado}`);
-        console.log(`      X braces: ${muro.x_braces}`);
-        console.log(`      FB: ${muro.fb} kN`);
-        console.log(`      FBX: ${muro.fbx} kN`);
-        console.log(`      FBY: ${muro.fby} kN`);
-        console.log(`      Cant B14: ${muro.cant_b14}`);
-        console.log(`      Cant B12: ${muro.cant_b12}`);
-        console.log(`      Cant B04: ${muro.cant_b04}`);
-        console.log(`      Cant B15: ${muro.cant_b15}`);
-        console.log(`      X inserto: ${muro.x_inserto}m`);
-        console.log(`      Y inserto: ${muro.y_inserto}m`);
-        console.log(`      Área: ${muro.area}m²`);
-        console.log(`      Peso: ${muro.peso} ton`);
-        console.log(`      Grosor: ${muro.grosor}m`);
-        console.log(`      Altura: ${muro.overall_height}m`);
-        console.log(`      FK grupo muerto: ${muro.fk_grupo_muerto || 'sin asignar'}`);
-        console.log(`   ───────────────────────────────────────`);
-      });
-      
-      // Verificar grupos de muertos
-      const gruposResponse = await fetch(`${API_BASE}/api/grupos-muertos/${projectConfig.pid}`);
-      const gruposData = await gruposResponse.json();
-      
-      console.log(`📦 TABLA GRUPO_MUERTO - Total registros: ${gruposData.grupos?.length || 0}`);
-      gruposData.grupos?.forEach((grupo, index) => {
-        console.log(`   Grupo ${index + 1} (PID: ${grupo.pid}):`);
-        console.log(`      Número muerto: M${grupo.numero_muerto}`);
-        console.log(`      Nombre: ${grupo.nombre || 'sin nombre'}`);
-        console.log(`      Eje: ${grupo.eje}`);
-        console.log(`      X braces: ${grupo.x_braces}`);
-        console.log(`      Ángulo: ${grupo.angulo_brace}°`);
-        console.log(`      Tipo construcción: ${grupo.tipo_construccion}`);
-        console.log(`      Cantidad muros: ${grupo.cantidad_muros}`);
-        console.log(`      Profundidad: ${grupo.profundidad}m`);
-        console.log(`      Largo: ${grupo.largo}m`);
-        console.log(`      Ancho: ${grupo.ancho}m`);
-        console.log(`      Fuerza total: ${grupo.fuerza_total} kN`);
-        console.log(`      Volumen concreto: ${grupo.volumen_concreto}m³`);
-        console.log(`      Peso muerto: ${grupo.peso_muerto} kN`);
-        console.log(`   ───────────────────────────────────────`);
-      });
-      
-      // Verificar datos en memoria
-      console.log(`💾 DATOS EN MEMORIA:`);
-      console.log(`   gruposMuertosGlobal:`, window.gruposMuertosGlobal);
-      console.log(`   ultimosResultadosMacizos:`, window.ultimosResultadosMacizos);
-      
-    } catch (error) {
-      console.error('❌ Error al verificar tablas:', error);
-    }
-    
-    console.log('═══════════════════════════════════════════════════════════');
-    
+    console.log('[DASHBOARD] ✅ Cálculo Rectangular completado exitosamente');
+
   } catch (error) {
-    console.error('❌ Error al calcular armado:', error);
-    alert('❌ Error al calcular armado rectangular: ' + error.message);
+    console.error('[DASHBOARD] ❌ Error crítico en cálculo rectangular:', error);
+    alert('Ocurrió un error al calcular el armado rectangular: ' + error.message);
   }
 }
+
+
+
+
+
+
 
 // Función para llenar la tabla de armado
 function llenarTablaArmado(reporte) {
