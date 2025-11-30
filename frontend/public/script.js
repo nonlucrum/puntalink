@@ -903,9 +903,9 @@ export async function mostrarResultadosViento(data) {
     console.error('[WIND] Formato de data inválido:', data);
     return;
   }
-  
+
   console.log(`[WIND] Procesando ${resultados.length} resultados`);
-  
+
   const resultadosViento = document.getElementById('resultadosViento');
   const tablaResultados = document.getElementById('tablaResultadosViento');
   const detalleCalculos = document.getElementById('detalleCalculosViento');
@@ -913,11 +913,11 @@ export async function mostrarResultadosViento(data) {
   // Mostrar la sección de resultados
   resultadosViento.style.display = 'block';
 
-  // Mostrar panel de asignación de ejes si no existe
-  mostrarPanelAsignacionEjes();
-  
   // Mostrar panel de edición masiva de parámetros si no existe
   mostrarPanelEdicionMasiva();
+
+  // Mostrar panel de asignación de ejes si no existe
+  mostrarPanelAsignacionEjes();
 
   // Obtener valores globales para braces
   const anguloGlobal = parseFloat(document.getElementById('angulo_global')?.value) || 55;
@@ -1044,7 +1044,8 @@ export async function mostrarResultadosViento(data) {
   `;
 
   // Insertar botón de guardado antes de la tabla
-  const htmlConBotones = `
+  const panelGuardarBraces = document.getElementById('panelGuardarBraces');
+  const htmlBotones = `
     <!-- Botón de guardado posicionado arriba de la tabla -->
     <div class="table-controls" style="margin-bottom: 1rem; padding: 0.75rem; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; display: flex; gap: 1rem; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
       <button id="btnGuardarTodosBracesTop" class="btn btn--primary" title="Guardar todos los cambios realizados en la tabla" style="font-weight: bold;">
@@ -1054,10 +1055,9 @@ export async function mostrarResultadosViento(data) {
         💡 Recuerda guardar después de editar los valores en la tabla para que se reflejen en la reagrupación
       </span>
     </div>
-    ${htmlTabla}
   `;
-
-  tablaResultados.innerHTML = htmlConBotones;
+  panelGuardarBraces.innerHTML = htmlBotones;
+  tablaResultados.innerHTML = htmlTabla;
   
   console.log('[BRACES] Tabla HTML insertada con botón de guardado arriba');
   
@@ -2743,8 +2743,7 @@ function mostrarPanelEdicionMasiva() {
   }
 
   // Crear el panel si no existe
-  const resultadosViento = document.getElementById('resultadosViento');
-  const tablaResultados = document.getElementById('tablaResultadosViento');
+  const tablaEdicionMasiva = document.getElementById('tablaEdicionMasiva');
   
   const panelHTML = `
     <div id="edicionMasivaPanel" class="panel" style="margin-bottom: 1rem; background: linear-gradient(135deg, #fff8e1 0%, #fff3c4 100%); border: 1px solid #ffcc02; border-radius: 0.5rem; padding: 1.5rem;">
@@ -2812,13 +2811,9 @@ function mostrarPanelEdicionMasiva() {
     </div>
   `;
 
-  // Insertar antes de la tabla de resultados
-  if (tablaResultados && tablaResultados.parentNode) {
-    tablaResultados.insertAdjacentHTML('beforebegin', panelHTML);
-    
+    tablaEdicionMasiva.innerHTML = panelHTML;
     // Agregar event listeners
     configurarEventosEdicionMasiva();
-  }
 }
 
 /**
@@ -2905,6 +2900,8 @@ function eliminarRangoMasiva(numero) {
     rango.remove();
   }
 }
+// Agregar a window para acceso global
+window.eliminarRangoMasiva = eliminarRangoMasiva;
 
 /**
  * Auto-generar rangos basado en la cantidad de muros
@@ -3215,6 +3212,8 @@ function eliminarRango(rangoId) {
     actualizarVistaPrevia();
   }
 }
+
+window.eliminarRango = eliminarRango;
 
 /**
  * Inicializar configuración de rangos (limpiar y mostrar información)
