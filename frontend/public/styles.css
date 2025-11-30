@@ -3321,23 +3321,19 @@ label {
   }
 }
 
-/* ==== Dock lateral tipo Mac (solo imágenes + tooltip al hover) ==== */
 .dock-left {
   position: fixed;
-  left: 16px;
-  top: 16px;
-  bottom: 16px;
-  width: 64px;
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(10px);
-  border-radius: 18px;
-  padding: 10px 8px;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);     
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  align-items: center;
+  justify-content: center;          
+  gap: 12px;                        
+  padding: 12px 0;
+  width: 70px;                      
   z-index: 1000;
-  border: 1px solid rgba(0,0,0,0.08);
-  box-shadow: 0 6px 24px rgba(0,0,0,0.08);
 }
 
 .dock-item {

@@ -3978,29 +3978,19 @@ window.enableAccordionAfterGrouping = function() {
   // Define tus acciones aquí (solo imágenes; tooltip con texto)
 // ===== Dock: items superiores (solo imágenes) =====
 const itemsTop = [
-  { action: 'home',            label: 'Inicio',         icon: 'img/backgrounds/10.png' },
-  { action: 'importar-pdf',    label: 'Importar PDF',   icon: 'img/backgrounds/6.png'  },
-  { action: 'paneles',         label: 'Paneles',        icon: 'img/backgrounds/8.png'  },
-  { action: 'calculos-libro',  label: 'Cálculos libro', icon: 'img/backgrounds/7.png'  },
-  { action: 'resultados',      label: 'Resultados',     icon: 'img/backgrounds/9.png'  },
-  { action: 'armado',          label: 'Armado',         icon: 'img/backgrounds/11.png' },
-  { action: 'proyecto',        label: 'Proyecto',       icon: 'img/backgrounds/8.png'  },
-];
-
-const itemsIntegrations = [
-  { action: 'integration-1', label: 'Integración 1', icon: 'img/backgrounds/6.png' },
-  { action: 'integration-2', label: 'Integración 2', icon: 'img/backgrounds/7.png' },
-  { action: 'integration-3', label: 'Integración 3', icon: 'img/backgrounds/8.png' },
-  // agregar mas
-  // { action: 'integration-4', label: 'Integración 4', icon: 'img/backgrounds/9.png' },
-  // { action: 'integration-5', label: 'Integración 5', icon: 'img/backgrounds/10.png' },
+  { action: 'home',              label: 'Home',               icon: 'img/backgrounds/10.png' },
+  { action: 'import-txt',        label: 'Importar TXT',       icon: 'img/backgrounds/11.png' },
+  { action: 'paneles-importados',label: 'Paneles importados', icon: 'img/backgrounds/6.png'  },
+  { action: 'calculos-libro',    label: 'Cálculos libro',     icon: 'img/backgrounds/7.png'  },
+  { action: 'resultados-calculo',label: 'Resultados cálculo', icon: 'img/backgrounds/9.png'  },
+  { action: 'armado-deadman',    label: 'Armado Deadman',     icon: 'img/backgrounds/8.png'  },
 ];
 
 
-  const itemsBottom = [
-    { action: 'settings', label: 'Ajustes', icon: '/assets/icons/settings.svg' },
-    { action: 'help',     label: 'Ayuda',   icon: '/assets/icons/help.svg' },
-  ];
+const itemsBottom = [
+  { action: 'help', label: 'Ayuda', icon: 'img/.../help.png' },
+];
+
 
   // Mapeo de acciones a funciones reales (no tocamos tu lógica existente)
 const clickHandlers = {
@@ -4082,17 +4072,11 @@ const clickHandlers = {
   );
 
   const dock = el('aside', { class: 'dock-left', 'aria-label': 'Barra de acceso rápido' });
+// Top
+itemsTop.forEach(it => dock.appendChild(makeButton(it)));
 
-  // Top
-  itemsTop.forEach(it => dock.appendChild(makeButton(it)));
-
-  // Divider + Integraciones
-  dock.appendChild(el('div', { class: 'dock-divider', role: 'separator' }));
-  itemsIntegrations.forEach(it => dock.appendChild(makeButton(it)));
-
-  // Spacer + Bottom
-  dock.appendChild(el('div', { class: 'dock-spacer' }));
-  itemsBottom.forEach(it => dock.appendChild(makeButton(it)));
+// Bottom (Ajustes / Ayuda)
+itemsBottom.forEach(it => dock.appendChild(makeButton(it)));
 
   document.body.appendChild(dock);
 
