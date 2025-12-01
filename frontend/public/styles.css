@@ -856,7 +856,14 @@ pre{
   overflow-x: auto;
   margin-bottom: 2rem;
   max-width: 100%;
+  /* Forzar barra de scroll arriba */
+  transform: rotateX(180deg);
   color: #000; /* Texto en negro */
+}
+
+/* Restaurar orientación del contenido */
+.table-container > * {
+  transform: rotateX(180deg);
 }
 
 /* Personalizar scrollbar */
@@ -882,6 +889,7 @@ pre{
   width: 100%;
   border-collapse: collapse;
   background: var(--card);
+  border-radius: var(--radius);
   overflow: hidden;
   box-shadow: var(--shadow);
 }
@@ -1057,6 +1065,7 @@ pre{
   width: 100%;
   border-collapse: collapse;
   background: var(--card);
+  border-radius: calc(var(--radius) - 4px);
   overflow: hidden;
   box-shadow: var(--shadow);
   color: var(--text);
@@ -1542,10 +1551,10 @@ pre{
 /* ====== Tabla Unificada de Viento y Braces ====== */
 .unified-table {
   width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
+  border-collapse: collapse;
   font-size: 0.85rem;
   background: white;
+  margin-top: 1rem;
 }
 
 .unified-table thead th {
@@ -1554,17 +1563,14 @@ pre{
   font-weight: 600;
   padding: 0.6rem 0.4rem;
   text-align: center;
-  border-top: 1px solid #0c0d0e;
-  border-right: 1px solid #0c0d0e;
-  border-bottom: 1px solid #0c0d0e;
+  border: 1px solid #0c0d0e;
   font-size: 0.8rem;
   white-space: nowrap;
 }
 
 .unified-table tbody td {
   padding: 0.4rem;
-  border-bottom: 1px solid #dee2e6;
-  border-right: 1px solid #dee2e6;
+  border: 1px solid #dee2e6;
   text-align: center;
   font-size: 0.8rem;
 }
@@ -3340,7 +3346,7 @@ label {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
 }
 
-
+/*CONFIGURACION BARRA DE NAVEGACION*/
 .dock-item {
   position: relative;
   width: 48px; height: 48px;
@@ -3360,7 +3366,7 @@ label {
   outline: 2px solid #0ea5e9; outline-offset: 2px;
 }
 
-/* Tooltip (solo texto al hover; el botón muestra solo imagen) */
+/* Tooltip */
 .dock-tooltip {
   position: absolute;
   left: 64px; top: 50%;
