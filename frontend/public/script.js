@@ -1,3 +1,26 @@
+// ===== SUBMENÚS DINÁMICOS PARA TODAS LAS SECCIONES PRINCIPALES =====
+document.addEventListener("DOMContentLoaded", () => {
+  const sections = [
+    { menu: "menu-paneles", section: "results-section", submenu: "submenu-paneles" },
+    { menu: "menu-viento", section: "wind-section", submenu: "submenu-viento" },
+    { menu: "menu-resultados", section: "calculations-section", submenu: "submenu-resultados" },
+    { menu: "menu-armado", section: "armado-section", submenu: "submenu-armado" },
+    { menu: "menu-proyecto", section: "info-proyecto", submenu: "submenu-proyecto" }
+  ];
+  sections.forEach(({ menu, section, submenu }) => {
+    const header = document.getElementById(menu);
+    const submenuEl = document.getElementById(submenu);
+    if (header && submenuEl) {
+      header.addEventListener("click", () => {
+        setTimeout(() => {
+          const sectionEl = document.getElementById(section);
+          const isVisible = sectionEl && sectionEl.style.display !== "none";
+          submenuEl.style.display = isVisible ? "block" : "none";
+        }, 200);
+      });
+    }
+  });
+});
 // ===== IMPORTACIÓN DE MÓDULOS =====
 import { 
   handleFileValidation,
@@ -148,6 +171,7 @@ const { confirmar, mostrarNotificacion, BarraProgreso, ejecutarConLoading, debou
     }
   });
 })();
+
 
 // --- API BASE ---
 const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
@@ -3946,3 +3970,143 @@ window.enableAccordionAfterGrouping = function() {
     console.log('[FRONTEND] Primera sección habilitada automáticamente');
   }
 };
+
+// ==== Dock lateral tipo mac: SOLO dashboard, no altera nada más ====
+(function initDockOnlyOnDashboard() {
+  if (window.location.pathname !== '/dashboard') return;
+
+  // Helper para crear elementos
+  const el = (tag, attrs = {}, children = []) => {
+    const n = document.createElement(tag);
+    Object.entries(attrs).forEach(([k, v]) => {
+      if (k === 'class') n.className = v;
+      else if (k === 'dataset') Object.entries(v).forEach(([dk, dv]) => n.dataset[dk] = dv);
+      else if (k === 'aria') Object.entries(v).forEach(([ak, av]) => n.setAttribute(`aria-${ak}`, av));
+      else if (k.startsWith('on') && typeof v === 'function') n.addEventListener(k.slice(2), v);
+      else n.setAttribute(k, v);
+    });
+    (Array.isArray(children) ? children : [children]).forEach(c => c && n.appendChild(c));
+    return n;
+  };
+
+  // Define tus acciones aquí (solo imágenes; tooltip con texto)
+// ===== Dock: items superiores (solo imágenes) =====
+const itemsTop = [
+  { action: 'home',              label: 'Home',               icon: 'img/backgrounds/10.png' },
+  { action: 'import-txt',        label: 'Importar TXT',       icon: 'img/backgrounds/11.png' },
+  { action: 'paneles-importados',label: 'Paneles importados', icon: 'img/backgrounds/6.png'  },
+  { action: 'calculos-libro',    label: 'Cálculos libro',     icon: 'img/backgrounds/7.png'  },
+  { action: 'resultados-calculo',label: 'Resultados cálculo', icon: 'img/backgrounds/9.png'  },
+  { action: 'armado-deadman',    label: 'Armado Deadman',     icon: 'img/backgrounds/8.png'  },
+];
+
+
+const itemsBottom = [
+  { action: 'help', label: 'Ayuda', icon: 'img/backgrounds/12.png' },
+];
+
+
+// Mapeo de acciones a funciones reales
+const clickHandlers = {
+  // Buscar por nombre de proyecto 
+  'open-search': () => {
+    const el = document.getElementById('nombreProyecto');
+    if (el) el.focus();
+  },
+
+  // 1) HOME
+  'home': () => {
+    if (window.location.pathname !== '/dashboard') {
+      window.location.assign('/dashboard');
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  },
+
+  // 2) IMPORTAR TXT  -> Sección 1
+  'import-txt': () => {
+    const sec = document.getElementById('section-import-txt');
+    if (sec) {
+      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    const input = document.getElementById('txtInput');
+    if (input) input.focus();
+  },
+
+  // 3) PANELES IMPORTADOS -> Sección 2
+  'paneles-importados': () => {
+    const sec = document.getElementById('section-paneles-importados');
+    if (sec) {
+      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  },
+
+  // 4) CÁLCULOS LIBRO III -> Sección 3
+  'calculos-libro': () => {
+    const sec = document.getElementById('section-calculos-libro');
+    if (sec) {
+      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  },
+
+  // 5) RESULTADOS DE CÁLCULOS -> Sección 4
+  'resultados-calculo': () => {
+    const sec = document.getElementById('section-resultados-calculo');
+    if (sec) {
+      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  },
+
+  // 6) ARMADO DEADMAN -> Sección 5
+  'armado-deadman': () => {
+    const sec = document.getElementById('section-armado-deadman');
+    if (sec) {
+      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  },
+
+  // Botón CALCULAR (si lo sigues usando)
+  'calc': () => {
+    const btn = document.getElementById('btnCalcular');
+    if (btn) btn.click();
+  },
+
+  // Botón EXPORTAR PDF
+  'export-pdf': () => {
+    const btn = document.getElementById('btnInforme');
+    if (btn) btn.click();
+  },
+
+  // AYUDA (botón amarillo)
+  'help': () => {
+    // Aquí luego puedes abrir modal o página de ayuda
+    alert('Aquí irá la ayuda de PuntaLink 😊');
+  },
+};
+
+  const makeButton = ({ action, label, icon }) => el('button',
+    { class: 'dock-item', type: 'button', 'aria-label': label, dataset: { action } },
+    [
+      el('img', { src: icon, alt: '' }),
+      el('span', { class: 'dock-tooltip' }, document.createTextNode(label))
+    ]
+  );
+
+  const dock = el('aside', { class: 'dock-left', 'aria-label': 'Barra de acceso rápido' });
+// Top
+itemsTop.forEach(it => dock.appendChild(makeButton(it)));
+
+// Bottom (Ajustes / Ayuda)
+itemsBottom.forEach(it => dock.appendChild(makeButton(it)));
+
+  document.body.appendChild(dock);
+
+  // Delegación de eventos
+  dock.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('.dock-item');
+    if (!btn) return;
+    const action = btn.dataset.action;
+    const handler = clickHandlers[action];
+    if (typeof handler === 'function') handler();
+  });
+})();

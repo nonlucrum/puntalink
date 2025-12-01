@@ -1,3 +1,51 @@
+/* Ocultar sidebar (desplazada a la izquierda) */
+.sidebar.collapsed {
+  transform: translateX(-100%);
+}
+
+/* Botón de hamburguesa */
+.toggle-btn {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  z-index: 1001;
+  background-color: #1f2937;
+  color: white;
+  border: none;
+  padding: 0.5rem 0.7rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1.5rem;
+  box-shadow: 1px 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Ajustar contenido para no quedar debajo */
+.content {
+  padding-left: 0; /* si colapsado */
+  transition: margin-left 0.3s ease;
+}
+
+.sidebar.collapsed ~ .content {
+  margin-left: 0px;
+}
+
+.sidebar:not(.collapsed) ~ .content {
+  margin-left: var(--sidebar-width);
+}
+/* ===== SUBMENÚ DINÁMICO ===== */
+.submenu {
+  list-style: none;
+  padding-left: 1rem;
+  margin-top: 0.3rem;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.submenu[style*="block"] {
+  max-height: 500px;
+  overflow: visible;
+}
 /* ====== Tema base ====== */
 :root{
   --bg: #f6f7fb;
@@ -10,6 +58,7 @@
   --shadow-color: rgba(0,0,0,.1);
   --shadow: 0 8px 24px var(--shadow-color);
   --radius: 16px;
+  --sidebar-width: 13em;
 }
 
 @media (prefers-color-scheme: dark){
@@ -35,6 +84,53 @@ input[type=number] {
   appearance:         textfield;
 }
 
+
+/* ===== SIDEBAR LATERAL ===== */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: var(--sidebar-width);
+  height: 100vh;
+  background-color: #1f2937;
+  color: white;
+  padding: 1.5rem 1rem;
+  box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+  z-index: 1000;
+}
+
+.sidebar-title {
+  font-size: 1.2rem;
+  margin-bottom: 1.5rem;
+  color: #ffffff;
+  text-align: center;
+}
+
+.sidebar-nav {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.sidebar-nav a {
+  color: #e0e0e0;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.3s;
+}
+
+.sidebar-nav a:hover {
+  color: #ffffff;
+  font-weight: bold;
+}
+
+/* Scroll suave */
+html {
+  scroll-behavior: smooth;
+}
+
 /* ====== Layout ====== */
 *{ box-sizing: border-box; }
 html,body{ height:100%; }
@@ -45,7 +141,13 @@ body{
   color: var(--text);
 }
 
-.container{ max-width: 95%; margin: 0 auto; padding: 1.25rem; }
+.container{
+    max-width: 95%;
+    margin: 0 auto;
+    padding: 1.25rem;
+    margin-left: 77px;
+
+}
 .space-y > * + *{ margin-top: 1rem; }
 
 .header{
@@ -55,7 +157,8 @@ body{
   backdrop-filter: blur(6px);
 }
 .header__inner{ display:flex; align-items:center; gap:.75rem; }
-.brand{ margin: .5rem 0; font-size: 1.4rem; }
+.brand{ margin: .5rem 0 .5em 0; font-size: 1.4rem; }
+
 
 .footer{
   margin-top: 2rem;
@@ -1556,19 +1659,6 @@ pre{
   z-index: 1000;
   font-weight: normal;
   text-align: left;
-}
-
-.tooltip-icon::before {
-  content: '';
-  position: absolute;
-  bottom: calc(100% + 2px);
-  left: 50%;
-  transform: translateX(-50%) scale(0);
-  border: 8px solid transparent;
-  border-top-color: #1a1a2e;
-  opacity: 0;
-  transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-  z-index: 1001;
 }
 
 .tooltip-icon:hover::after,
@@ -3224,3 +3314,68 @@ label {
     padding: 0.4rem 0.3rem;
   }
 }
+
+.dock-left {
+  position: fixed;
+  top: 50%;
+  left: 12px;                        
+  transform: translateY(-50%);       
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+
+  padding: 16px 8px;
+  width: 70px;
+  z-index: 1000;
+
+
+  background: rgba(255, 255, 255, 0.85);   
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+
+  border-radius: 32px;                    
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+
+.dock-item {
+  position: relative;
+  width: 48px; height: 48px;
+  border: 0; padding: 0;
+  background: transparent;
+  border-radius: 12px;
+  display: grid; place-items: center;
+  cursor: pointer;
+  outline: none;
+}
+.dock-item img {
+  width: 28px; height: 28px;
+  object-fit: contain; pointer-events: none;
+}
+.dock-item:hover { background: rgba(0,0,0,0.06); }
+.dock-item:focus-visible {
+  outline: 2px solid #0ea5e9; outline-offset: 2px;
+}
+
+/* Tooltip (solo texto al hover; el botón muestra solo imagen) */
+.dock-tooltip {
+  position: absolute;
+  left: 64px; top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  background: #111; color: #fff;
+  font-size: 12px; line-height: 1;
+  padding: 6px 8px; border-radius: 6px;
+  opacity: 0; pointer-events: none;
+  transition: opacity .15s ease, transform .15s ease;
+}
+.dock-item:hover .dock-tooltip,
+.dock-item:focus-visible .dock-tooltip {
+  opacity: 1; transform: translateY(-50%) translateX(2px);
+}
+
+.dock-divider { height: 1px; background: rgba(0,0,0,0.08); margin: 6px 0; }
+.dock-spacer { flex: 1 1 auto; }
