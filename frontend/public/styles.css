@@ -292,7 +292,7 @@ input:focus, select:focus, textarea:focus{
 .table-wrap{ width: 100%; overflow: auto; }
 table{ width: 100%; border-collapse: collapse; font-size: .95rem; background: var(--card); }
 th, td{ padding: .6rem .5rem; border-bottom: 1px solid var(--border); text-align: center; }
-th{ text-transform: uppercase; letter-spacing: .02em; font-size: .8rem; color: var(--muted); }
+th{ letter-spacing: .02em; font-size: .8rem; color: var(--muted); }
 
 /* Estilos específicos para tablas de resultados (Armado Rectangular) */
 .results-table {
