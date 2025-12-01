@@ -3988,80 +3988,87 @@ const itemsTop = [
 
 
 const itemsBottom = [
-  { action: 'help', label: 'Ayuda', icon: 'img/.../help.png' },
+  { action: 'help', label: 'Ayuda', icon: 'img/backgrounds/12.png' },
 ];
 
 
-  // Mapeo de acciones a funciones reales (no tocamos tu lógica existente)
+// Mapeo de acciones a funciones reales
 const clickHandlers = {
-  // --- existentes que ya tienes ---
-  'open-search': () => { const el = document.getElementById('nombreProyecto'); if (el) el.focus(); },
+  // Buscar por nombre de proyecto 
+  'open-search': () => {
+    const el = document.getElementById('nombreProyecto');
+    if (el) el.focus();
+  },
 
-  // --- nuevos / actualizados ---
+  // 1) HOME
   'home': () => {
-    // Mantente en /dashboard y sube al inicio
-    if (window.location.pathname !== '/dashboard') window.location.assign('/dashboard');
-    else window.scrollTo({ top: 0, behavior: 'smooth' });
-  },
-
-  'paneles': () => {
-    // Intenta abrir/mostrar la sección de paneles
-    const sec = document.getElementById('tablaAccordion') || document.getElementById('panelesInfo');
-    if (sec) sec.scrollIntoView({ behavior: 'smooth' });
-    else console.warn('[Dock] No se encontró la sección de Paneles (tablaAccordion/panelesInfo).');
-  },
-
-  'calculos-libro': () => {
-    // Ancla sugerido: <div id="calculosLibro"></div> en tu dashboard
-    const sec = document.getElementById('calculosLibro');
-    if (sec) sec.scrollIntoView({ behavior: 'smooth' });
-    else console.warn('[Dock] Agrega un ancla con id="calculosLibro" donde quieras aterrizar.');
-  },
-
-  'resultados': () => {
-    // Resultados de viento/cálculos
-    const sec = document.getElementById('resultadosViento') || document.getElementById('resultadosCalculo');
-    if (sec) sec.scrollIntoView({ behavior: 'smooth' });
-    else console.warn('[Dock] No se encontró resultadosViento / resultadosCalculo.');
-  },
-
-  'armado': () => {
-    // Configuración de braces / armado
-    const sec = document.getElementById('bracesConfigPanel');
-    if (sec) sec.scrollIntoView({ behavior: 'smooth' });
-    else console.warn('[Dock] No se encontró bracesConfigPanel (armado).');
-  },
-
-  'proyecto': () => {
-    // Foco en datos del proyecto
-    const form = document.getElementById('formNuevoProyecto');
-    if (form) {
-      form.scrollIntoView({ behavior: 'smooth' });
-      const nombre = document.getElementById('nombreProyecto');
-      if (nombre) setTimeout(() => nombre.focus(), 250);
+    if (window.location.pathname !== '/dashboard') {
+      window.location.assign('/dashboard');
     } else {
-      console.warn('[Dock] No se encontró formNuevoProyecto.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   },
 
-  // --- deja tus otros handlers tal como estaban ---
+  // 2) IMPORTAR TXT  -> Sección 1
   'import-txt': () => {
+    const sec = document.getElementById('section-import-txt');
+    if (sec) {
+      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
     const input = document.getElementById('txtInput');
     if (input) input.focus();
-    const sec = document.getElementById('tablaAccordion') || document.getElementById('panelesInfo');
-    if (sec) sec.scrollIntoView({ behavior: 'smooth' });
   },
-  'calc': () => { const btn = document.getElementById('btnCalcular'); if (btn) btn.click(); },
-  'export-pdf': () => { const btn = document.getElementById('btnInforme'); if (btn) btn.click(); },
 
-  // integraciones (placeholder)
-  'integration-1': () => console.log('Integración 1'),
-  'integration-2': () => console.log('Integración 2'),
-  'integration-3': () => console.log('Integración 3'),
-  'settings': () => console.log('Ajustes'),
-  'help': () => console.log('Ayuda'),
+  // 3) PANELES IMPORTADOS -> Sección 2
+  'paneles-importados': () => {
+    const sec = document.getElementById('section-paneles-importados');
+    if (sec) {
+      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  },
+
+  // 4) CÁLCULOS LIBRO III -> Sección 3
+  'calculos-libro': () => {
+    const sec = document.getElementById('section-calculos-libro');
+    if (sec) {
+      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  },
+
+  // 5) RESULTADOS DE CÁLCULOS -> Sección 4
+  'resultados-calculo': () => {
+    const sec = document.getElementById('section-resultados-calculo');
+    if (sec) {
+      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  },
+
+  // 6) ARMADO DEADMAN -> Sección 5
+  'armado-deadman': () => {
+    const sec = document.getElementById('section-armado-deadman');
+    if (sec) {
+      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  },
+
+  // Botón CALCULAR (si lo sigues usando)
+  'calc': () => {
+    const btn = document.getElementById('btnCalcular');
+    if (btn) btn.click();
+  },
+
+  // Botón EXPORTAR PDF
+  'export-pdf': () => {
+    const btn = document.getElementById('btnInforme');
+    if (btn) btn.click();
+  },
+
+  // AYUDA (botón amarillo)
+  'help': () => {
+    // Aquí luego puedes abrir modal o página de ayuda
+    alert('Aquí irá la ayuda de PuntaLink 😊');
+  },
 };
-
 
   const makeButton = ({ action, label, icon }) => el('button',
     { class: 'dock-item', type: 'button', 'aria-label': label, dataset: { action } },
