@@ -119,6 +119,31 @@ window.guardarMuroBraces = async function(pid) {
     if (data.success) {
       console.log('[BRACES] Muro actualizado:', data.muro);
       
+      // NUEVO: Recalcular braces para guardar x_inserto, y_inserto en BD
+      const angulo = valores.angulo_brace || data.muro.angulo_brace || 55;
+      const xBraces = valores.x_braces || data.muro.x_braces || 2;
+      const tipoBrace = valores.tipo_brace_seleccionado || data.muro.tipo_brace_seleccionado;
+      const npt = valores.npt || data.muro.npt || 0;
+      
+      console.log('[BRACES] Recalculando braces para guardar x_inserto/y_inserto...');
+      const calcResponse = await fetch(`${API_BASE}/api/calculos/muros/${pid}/calcular-braces`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          angulo_brace: angulo,
+          x_braces: xBraces,
+          tipo_brace_seleccionado: tipoBrace,
+          npt: npt
+        })
+      });
+      
+      if (calcResponse.ok) {
+        const calcData = await calcResponse.json();
+        console.log('[BRACES] ✅ x_inserto/y_inserto guardados:', calcData.calculo?.x_inserto, calcData.calculo?.y_inserto);
+      } else {
+        console.warn('[BRACES] ⚠️ No se pudo recalcular braces (puede faltar cálculo de viento)');
+      }
+      
       // Mostrar feedback visual
       row.style.backgroundColor = '#d4edda';
       setTimeout(() => {

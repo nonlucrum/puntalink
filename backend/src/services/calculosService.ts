@@ -138,6 +138,7 @@ export interface WindResult {
   area_m2: number;
   peso_ton: number;
   altura_z_m: number;
+  overall_width: number;
   
   // Clasificación según normativa
   categoria_terreno: number;
@@ -464,6 +465,7 @@ export function calcularVientoMuro(muro: Muro, parametros: WindParameters): Wind
   // ✅ CORREGIDO: Asegurar que area_m2 sea un número válido
   let area_m2 = Number(muro.area) || 0;
   let peso_ton = Number(muro.peso) || 0;
+  let overall_width = Number(muro.overall_width) || 0;
   
   console.log(`[CALCULOS] DEBUG: DEBUG ÁREA: muro.area=${muro.area} (tipo: ${typeof muro.area}), area_m2=${area_m2} (tipo: ${typeof area_m2})`);
   
@@ -591,6 +593,7 @@ export function calcularVientoMuro(muro: Muro, parametros: WindParameters): Wind
     area_m2: +parseFloat(area_m2.toString()).toFixed(2),
     peso_ton: +parseFloat(peso_ton.toString()).toFixed(2),
     altura_z_m: +parseFloat(altura_z_m.toString()).toFixed(2),
+    overall_width: +parseFloat(overall_width.toString()).toFixed(2),
     
     // Clasificación según normativa
     categoria_terreno: parametros.categoria_terreno,

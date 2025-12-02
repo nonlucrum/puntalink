@@ -774,7 +774,17 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   if (btnAplicarGlobales) {
-    btnAplicarGlobales.addEventListener('click', aplicarValoresGlobales);
+    btnAplicarGlobales.addEventListener('click', () => {
+      aplicarValoresGlobales();
+      if (window.showNotification) {
+        window.showNotification(
+          'success',
+          '✅ Valores Aplicados',
+          'Ángulo, NPT y Factor W2 actualizados en todos los muros.',
+          3000
+        );
+      }
+    });
   }
 
   // ===== CONFIGURAR EVENTOS PARA EJES POR RANGOS =====
@@ -787,7 +797,21 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (btnAplicarEjesRango) {
-    btnAplicarEjesRango.addEventListener('click', aplicarEjesPorRango);
+    btnAplicarEjesRango.addEventListener('click', () => {
+      const rangosContainer = document.getElementById('rangosContainer');
+      const cantidadRangos = rangosContainer?.children.length || 0;
+      
+      aplicarEjesPorRango();
+      
+      if (window.showNotification && cantidadRangos > 0) {
+        window.showNotification(
+          'success',
+          '✅ Ejes Aplicados',
+          `Asignación de ejes por rangos completada (${cantidadRangos} rangos procesados).`,
+          4000
+        );
+      }
+    });
   }
 
   // ===== INICIALIZACIÓN =====
@@ -802,6 +826,9 @@ document.addEventListener('DOMContentLoaded', () => {
  * Implementa las fórmulas del Excel y diagramas según Tomo III
  */
 async function calcularCargasViento() {
+  // Mostrar progreso
+  const progress = window.showProgress ? window.showProgress('🌬️ Calculando cargas de viento...') : null;
+  
   try {
     console.log('[WIND] Iniciando cálculo de cargas de viento...');
     
@@ -815,6 +842,7 @@ async function calcularCargasViento() {
     const panelesData = window.globalVars?.panelesActuales || [];
     if (!panelesData || panelesData.length === 0) {
       console.error('[WIND] No hay muros importados');
+      if (progress) progress.close();
       if (mostrarNotificacion) {
         mostrarNotificacion(
           'Primero debes importar datos desde TXT. Ve a "Importar Datos desde TXT", selecciona tu archivo y haz clic en "Subir y procesar TXT".',
@@ -859,6 +887,7 @@ async function calcularCargasViento() {
 
     if (camposInvalidos.length > 0) {
       console.error('[WIND] ❌ Campos inválidos encontrados:', camposInvalidos);
+      if (progress) progress.close();
       if (mostrarNotificacion) {
         const mensaje = `Complete correctamente: ${camposInvalidos.join(', ')}. Todos los valores deben ser números válidos.`;
         mostrarNotificacion(mensaje, 'warning', 6000);
@@ -893,7 +922,7 @@ async function calcularCargasViento() {
     console.log('[WIND] Respuesta de la API:', data);
 
     if (data.success && data.resultados) {
-      mostrarResultadosViento(data);
+      mostrarResultadosViento(data, progress, panelesData.length);
       globalVars.resultadosTomoIII = data.resultados;
     } else {
       throw new Error(data.error || 'Error desconocido en el cálculo');
@@ -901,7 +930,11 @@ async function calcularCargasViento() {
 
   } catch (error) {
     console.error('[WIND] Error en cálculo de viento:', error);
-    if (mostrarNotificacion) {
+    if (progress) progress.close();
+    
+    if (window.showNotification) {
+      window.showNotification('error', '❌ Error', `Error calculando cargas de viento: ${error.message}`, 6000);
+    } else if (mostrarNotificacion) {
       mostrarNotificacion(formatearError ? formatearError(error) : error.message, 'error');
     } else {
       alert(`Error al calcular cargas de viento: ${error.message}`);
@@ -913,7 +946,7 @@ async function calcularCargasViento() {
  * Función para mostrar resultados de viento en la interfaz
  * Implementa la visualización según los resultados del Excel
  */
-export async function mostrarResultadosViento(data) {
+export async function mostrarResultadosViento(data, progress = null, totalMuros = 0) {
   console.log('[WIND] Mostrando resultados de viento');
   console.log('[WIND] Datos recibidos para mostrar:', data);
   
@@ -986,7 +1019,8 @@ export async function mostrarResultadosViento(data) {
           <th style="background: #fce4ec;">FBx (kN)</th>
           <th style="background: #fce4ec;">FBy (kN)</th>
           <th style="background: #fce4ec;">FB (kN)</th>
-          <th style="background: #fce4ec;">Cantidad</th>
+          <th style="background: #fce4ec;">Cant. Calc.</th>
+          <th style="background: #fce4ec;">Cant. Final</th>
         </tr>
       </thead>
       <tbody id="tablaUnificadaBody">
@@ -996,11 +1030,20 @@ export async function mostrarResultadosViento(data) {
     const pid = resultado.pid || 0;
     const idMuro = resultado.id_muro;
     
-    // Valores iniciales para braces (usar globales si no existen en resultado)
-    const anguloInicial = resultado.angulo_brace || anguloGlobal;
-    const nptInicial = resultado.npt || nptGlobal;
+    // Valores iniciales para braces (usar valores calculados del muro, o globales como fallback)
+    const anguloInicial = resultado.angulo_brace || resultado.grados_inclinacion_brace || anguloGlobal;
+    const nptInicial = resultado.npt || resultado.NFT || nptGlobal;
     const factorW2Inicial = resultado.factor_w2 || factorW2Global;
     const tipoInicial = resultado.tipo_brace_seleccionado || 'B12';
+    
+    console.log(`[BRACES-INIT] Muro ${idMuro} (PID ${pid}):`, {
+      altura: resultado.altura_z_m,
+      angulo_usado: anguloInicial,
+      angulo_calculado: resultado.grados_inclinacion_brace,
+      npt_usado: nptInicial,
+      nft_calculado: resultado.NFT,
+      tipo_brace: tipoInicial
+    });
     
     // Longitudes por tipo
     const longitudes = { B4: 4.6, B12: 9.75, B14: 12.75, B15: 15.8 };
@@ -1057,7 +1100,11 @@ export async function mostrarResultadosViento(data) {
         <td class="valor-calculado valor-fbx" data-pid="${pid}">-</td>
         <td class="valor-calculado valor-fby" data-pid="${pid}">-</td>
         <td class="valor-calculado valor-fb" data-pid="${pid}">-</td>
-        <td class="valor-calculado valor-cantidad" data-pid="${pid}">-</td>
+        <td class="valor-calculado valor-cantidad-calc" data-pid="${pid}" style="background: #fff3cd; font-style: italic;">-</td>
+        <td>
+          <input type="number" class="input-editable" data-pid="${pid}" data-field="x_braces" 
+                 value="2" min="1" max="20" step="1" style="width: 60px; font-weight: bold; text-align: center;">
+        </td>
       </tr>
     `;
   });
@@ -1122,6 +1169,15 @@ export async function mostrarResultadosViento(data) {
       console.log(`[BRACES] Calculando inicial para PID ${pid}`);
       await calcularBracesTiempoReal(inputAngulo);
     }
+  }
+  
+  // Guardar automáticamente todos los cálculos de braces en la BD
+  console.log('[BRACES] Guardando valores calculados en la base de datos...');
+  try {
+    await guardarTodosBraces();
+    console.log('[BRACES] ✅ Valores guardados exitosamente');
+  } catch (error) {
+    console.error('[BRACES] ❌ Error al guardar valores:', error);
   }
 
   // Crear detalle de cálculos
@@ -1250,6 +1306,17 @@ export async function mostrarResultadosViento(data) {
 
   btnInforme.style.display = '';
   btnInforme.disabled = false;
+
+  // Cerrar progreso y mostrar éxito AL FINAL, después de renderizar todo
+  if (progress) progress.close();
+  if (window.showNotification && totalMuros > 0) {
+    window.showNotification(
+      'success',
+      '✅ Cálculo Completado',
+      `Cargas de viento calculadas para ${totalMuros} muros exitosamente.`,
+      4000
+    );
+  }
 }
 
 /**
@@ -1301,6 +1368,14 @@ function agregarListenersCalculoTiempoReal() {
     input.addEventListener('change', async function() {
       console.log(`[BRACES] Change event disparado: ${this.dataset.field}`);
       await calcularBracesTiempoReal(this);
+    });
+  });
+  
+  // Agregar listeners para marcar edición manual de x_braces
+  const xBracesInputs = document.querySelectorAll('[data-field="x_braces"]');
+  xBracesInputs.forEach(input => {
+    input.addEventListener('input', function() {
+      this.dataset.manualEdit = 'true';
     });
   });
   
@@ -1369,6 +1444,10 @@ async function calcularBracesTiempoReal(input) {
     if (data.success && data.calculo) {
       const calc = data.calculo;
       
+      // Guardar valores en dataset de la fila para uso posterior
+      row.dataset.xInserto = calc.x_inserto || '0';
+      row.dataset.yInserto = calc.y_inserto || '0';
+      
       // Actualizar valores calculados en la UI
       row.querySelector(`.valor-x[data-pid="${pid}"]`).textContent = 
         calc.x_inserto !== undefined ? calc.x_inserto.toFixed(3) : '-';
@@ -1385,8 +1464,23 @@ async function calcularBracesTiempoReal(input) {
       row.querySelector(`.valor-fb[data-pid="${pid}"]`).textContent = 
         calc.fb !== undefined ? calc.fb.toFixed(2) : '-';
       
-      row.querySelector(`.valor-cantidad[data-pid="${pid}"]`).textContent = 
-        calc.cant_braces !== undefined ? calc.cant_braces : '-';
+      // Actualizar cantidad calculada (sin redondear)
+      const cantCalcCell = row.querySelector(`.valor-cantidad-calc[data-pid="${pid}"]`);
+      if (cantCalcCell && calc.fb !== undefined) {
+        // Obtener el tipo de brace de la fila para usar la capacidad correcta
+        const tipoBraceSelect = row.querySelector('[data-field="tipo_brace"]');
+        const tipoBrace = tipoBraceSelect ? tipoBraceSelect.value : 'B12';
+        const capacidad = { B12: 4100, B4: 2950, B14: 2360, B15: 1723 }[tipoBrace] || 4100;
+        const cantExacta = calc.fb / capacidad;
+        cantCalcCell.textContent = cantExacta.toFixed(2);
+        cantCalcCell.title = `Cálculo: ${calc.fb.toFixed(2)} kN / ${capacidad} kN (${tipoBrace}) = ${cantExacta.toFixed(4)}`;
+      }
+      
+      // Actualizar el input de cantidad final si no ha sido editado manualmente
+      const cantFinalInput = row.querySelector(`[data-field="x_braces"][data-pid="${pid}"]`);
+      if (cantFinalInput && !cantFinalInput.dataset.manualEdit && calc.cant_braces !== undefined) {
+        cantFinalInput.value = calc.cant_braces;
+      }
       
       // Feedback visual
       row.style.backgroundColor = '#e8f5e9';
@@ -1488,19 +1582,21 @@ async function guardarTodosBraces() {
         const anguloInput = row.querySelector('[data-field="angulo"]');
         const nptInput = row.querySelector('[data-field="npt"]');
         const ejeInput = row.querySelector('[data-field="eje"]');
+        const xBracesInput = row.querySelector('[data-field="x_braces"]');
         
         console.log(`[DEBUG] PID ${pid} - Inputs encontrados:`, {
           tipoBrace: !!tipoBraceInput,
           angulo: !!anguloInput, 
           npt: !!nptInput,
-          eje: !!ejeInput
+          eje: !!ejeInput,
+          xBraces: !!xBracesInput
         });
         
         tipoBrace = tipoBraceInput?.value || '';
         angulo = parseFloat(anguloInput?.value) || 0;
         npt = parseFloat(nptInput?.value) || 0;
         eje = ejeInput?.value || '';
-        xBraces = 2; // Valor por defecto para tabla antigua
+        xBraces = xBracesInput ? (parseInt(xBracesInput.value) || 2) : 2;
       } else {
         // Selectores para nueva tabla de braces
         tipoBrace = row.querySelector('[data-field="tipo_brace_seleccionado"]')?.value || '';
@@ -1582,6 +1678,8 @@ async function guardarTodosBraces() {
         if (calcResponse.ok) {
           const calcResultado = await calcResponse.json();
           console.log(`[BRACES] ✓ PID ${pid} guardado y calculado. Resultado:`, calcResultado);
+          console.log(`[BRACES] ✓ PID ${pid} - x_inserto: ${calcResultado.calculo?.x_inserto}, y_inserto: ${calcResultado.calculo?.y_inserto}`);
+          console.log(`[BRACES] ✓ PID ${pid} - muro.x_inserto: ${calcResultado.muro?.x_inserto}, muro.y_inserto: ${calcResultado.muro?.y_inserto}`);
           exitosos++;
         } else {
           errores++;
@@ -1948,7 +2046,7 @@ function renderTablaMuertos(resultados) {
         <thead>
           <tr>
             <th>Muerto #</th>
-            <th>X (braces)</th>
+            <th>Distancia X (m)</th>
             <th>Ángulo (°)</th>
             <th>Eje</th>
             <th>Tipo Construcción</th>
@@ -1971,7 +2069,7 @@ function renderTablaMuertos(resultados) {
     html += `
       <tr>
         <td style="font-weight: bold; color: #007bff;">M${g.muerto}</td>
-        <td style="text-align: center; font-weight: bold;">${g.x || 'No def.'}</td>
+        <td style="text-align: center; font-weight: bold;">${parseFloat(g.x || 0).toFixed(2)} m</td>
         <td style="text-align: center; font-weight: bold;">${g.ang}°</td>
         <td style="font-weight: bold; color: #28a745; background: #f8fff9; text-align: center;">${g.eje || 'Sin asignar'}</td>
         <td style="text-align: center; color: #6f42c1; font-weight: bold;">${g.tipoConst || 'No def.'}</td>
@@ -2081,7 +2179,8 @@ function buildGruposMuertosSequential(resultados, maxMuertos = 39) {
   let currentKey = null;
 
   const makeKey = (r) => {
-    const x = (r.x_braces ?? r.total_braces ?? r.x_braces_manual ?? r.cant_braces ?? '').toString().trim();
+    // Usar x_inserto (distancia X) en lugar de x_braces (cantidad)
+    const xInserto = r.x_inserto ? parseFloat(r.x_inserto).toFixed(2) : '0.00';
     const angRaw = r.angulo_brace ?? r.angulo ?? r.grados_inclinacion_brace ?? r.alpha ?? '';
     const angNum = angRaw === '' || angRaw === null || angRaw === undefined ? '' : Number(angRaw);
     const ang = Number.isFinite(angNum) ? String(Math.round(angNum)) : String(angRaw || '');
@@ -2089,8 +2188,8 @@ function buildGruposMuertosSequential(resultados, maxMuertos = 39) {
     const eje = (r.eje || r.axis || r.axis_name || r.eje_muro || r.axisLabel || '').toString().trim();
     const tipoConst = (r.tipo_construccion || r.tipo_construction || r.tipo_construccion_muro || '').toString().trim();
     
-    // INCLUIR EJE de nuevo en la agrupación - comparar: X, ángulo, tipo brace, eje, tipo construcción
-    return { key: `${x}|${ang}|${tipo}|${eje}|${tipoConst}`, x, ang, tipo, eje, tipoConst };
+    // Agrupar por: distancia X, tipo brace, ángulo, eje
+    return { key: `${xInserto}|${tipo}|${ang}|${eje}`, xInserto, ang, tipo, eje, tipoConst };
   };
 
   for (const r of resultados) {
@@ -2098,7 +2197,7 @@ function buildGruposMuertosSequential(resultados, maxMuertos = 39) {
     if (currentKey === null) {
       currentKey = kobj.key;
       const label = `M${muertoIndex}`;
-      grupos[label] = { muerto: muertoIndex, key: currentKey, x: kobj.x, ang: kobj.ang, tipo: kobj.tipo, eje: kobj.eje, tipoConst: kobj.tipoConst, muros: [], cantidadMuros: 0, totalBraces: 0 };
+      grupos[label] = { muerto: muertoIndex, key: currentKey, xInserto: kobj.xInserto, ang: kobj.ang, tipo: kobj.tipo, eje: kobj.eje, tipoConst: kobj.tipoConst, muros: [], cantidadMuros: 0, totalBraces: 0 };
     }
 
     // Si la clave cambia y aún no llegamos al máximo, incrementamos muertoIndex
@@ -2112,7 +2211,7 @@ function buildGruposMuertosSequential(resultados, maxMuertos = 39) {
       currentKey = kobj.key;
       const label = `M${muertoIndex}`;
       if (!grupos[label]) {
-        grupos[label] = { muerto: muertoIndex, key: currentKey, x: kobj.x, ang: kobj.ang, tipo: kobj.tipo, eje: kobj.eje, tipoConst: kobj.tipoConst, muros: [], cantidadMuros: 0, totalBraces: 0 };
+        grupos[label] = { muerto: muertoIndex, key: currentKey, xInserto: kobj.xInserto, ang: kobj.ang, tipo: kobj.tipo, eje: kobj.eje, tipoConst: kobj.tipoConst, muros: [], cantidadMuros: 0, totalBraces: 0 };
       }
     }
 
@@ -2136,7 +2235,8 @@ function buildGruposMuertosPorSimilitud(resultados, maxMuertos = 39) {
   if (!Array.isArray(resultados) || resultados.length === 0) return {};
 
   const makeKey = (r) => {
-    const x = (r.x_braces ?? r.total_braces ?? r.x_braces_manual ?? r.cant_braces ?? '').toString().trim();
+    // Usar x_inserto (distancia X) en lugar de x_braces (cantidad)
+    const xInserto = r.x_inserto ? parseFloat(r.x_inserto).toFixed(2) : '0.00';
     const angRaw = r.angulo_brace ?? r.angulo ?? r.grados_inclinacion_brace ?? r.alpha ?? '';
     const angNum = angRaw === '' || angRaw === null || angRaw === undefined ? '' : Number(angRaw);
     const ang = Number.isFinite(angNum) ? String(Math.round(angNum)) : String(angRaw || '');
@@ -2144,8 +2244,8 @@ function buildGruposMuertosPorSimilitud(resultados, maxMuertos = 39) {
     const eje = (r.eje || r.axis || r.axis_name || r.eje_muro || r.axisLabel || '').toString().trim();
     const tipoConst = (r.tipo_construccion || r.tipo_construction || r.tipo_construccion_muro || '').toString().trim();
     
-    // INCLUIR EJE de nuevo en la agrupación - comparar: X, ángulo, tipo brace, eje, tipo construcción
-    return { key: `${x}|${ang}|${tipo}|${eje}|${tipoConst}`, x, ang, tipo, eje, tipoConst };
+    // Agrupar por: distancia X, tipo brace, ángulo, eje
+    return { key: `${xInserto}|${tipo}|${ang}|${eje}`, xInserto, ang, tipo, eje, tipoConst };
   };
 
   // Paso 1: Agrupar por clave única (características idénticas)
@@ -2154,7 +2254,7 @@ function buildGruposMuertosPorSimilitud(resultados, maxMuertos = 39) {
     
     if (!gruposPorClave[kobj.key]) {
       gruposPorClave[kobj.key] = {
-        x: kobj.x,
+        xInserto: kobj.xInserto,
         ang: kobj.ang, 
         tipo: kobj.tipo,
         eje: kobj.eje,
@@ -2521,7 +2621,7 @@ function reagruparMuertosConValoresActuales() {
     // Obtener cantidad de braces según la tabla
     let cantidadBraces;
     if (isTablaUnificada) {
-      const cantidadCell = row.querySelector('.valor-cantidad');
+      const cantidadCell = row.querySelector('.valor-cantidad-calc');
       cantidadBraces = cantidadCell ? parseInt(cantidadCell.textContent) || 2 : 2;
     } else {
       // En la nueva tabla, usar x_braces input o buscar en las celdas de cantidad
@@ -2549,6 +2649,10 @@ function reagruparMuertosConValoresActuales() {
       // Cantidad actual (calculada o manual)
       x_braces: cantidadBraces,
       total_braces: cantidadBraces,
+      
+      // NUEVO: Leer x_inserto desde la tabla o dataset
+      x_inserto: row.dataset.xInserto || row.dataset.x_inserto || '0.00',
+      y_inserto: row.dataset.yInserto || row.dataset.y_inserto || '0.00',
       
       // Obtener eje directamente del input actualizado
       eje: ejeInput ? ejeInput.value.trim() : (row.dataset.eje || `Eje_${index + 1}`),
@@ -2592,7 +2696,8 @@ function reagruparMuertosConValoresActuales() {
           <tr>
             <th style="background: var(--primary); color: white;">#</th>
             <th style="background: var(--primary); color: white;">Muerto</th>
-            <th style="background: var(--primary); color: white;">X (braces)</th>
+            <th style="background: var(--primary); color: white;">Distancia X (m)</th>
+            <th style="background: var(--primary); color: white;">Tipo Brace</th>
             <th style="background: var(--primary); color: white;">Ángulo</th>
             <th style="background: var(--primary); color: white;">Eje</th>
             <th style="background: var(--primary); color: white;">Tipo Construcción</th>
@@ -2613,7 +2718,8 @@ function reagruparMuertosConValoresActuales() {
       <tr class="${rowClass}">
         <td>${index + 1}</td>
         <td><strong>M${g.muerto}</strong></td>
-        <td style="text-align: center; font-weight: bold;">${g.x || 'No def.'}</td>
+        <td style="text-align: center; font-weight: bold; color: #0066cc;">${g.xInserto || '0.00'}m</td>
+        <td style="text-align: center; font-weight: bold; color: #6f42c1;">${g.tipo || 'B12'}</td>
         <td><strong>${g.ang}°</strong></td>
         <td style="font-weight: bold; color: #28a745; background: #f8fff9; text-align: center;">${g.eje || 'Sin asignar'}</td>
         <td style="text-align: center; color: #6f42c1; font-weight: bold;">${g.tipoConst || 'No def.'}</td>

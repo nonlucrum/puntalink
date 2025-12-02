@@ -211,17 +211,20 @@ function calcularReporteMuerto(dimensiones, inputsUI = {}) {
 
 export function prepararGruposParaMuertos(gruposMuertos) {
   const gruposPreparados = [];
+  
   Object.keys(gruposMuertos).forEach((clave, indice) => {
     const grupo = gruposMuertos[clave];
     let largoTotal = 0;
     let murosIds = [];
+    
     grupo.muros.forEach(muro => {
       let muroObj = muro;
       if (typeof muro === 'string' && window.lastResultadosMuertos) {
         muroObj = window.lastResultadosMuertos.find(m => m.id_muro === muro || m.id === muro);
       }
       if (muroObj && typeof muroObj === 'object') {
-        largoTotal += parseFloat(muroObj.overall_width) || 0;
+        const ancho = parseFloat(muroObj.overall_width) || 0;
+        largoTotal += ancho;
         murosIds.push(muroObj.id_muro || muroObj.id);
       }
     });
