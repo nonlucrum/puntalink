@@ -1,43 +1,91 @@
 services:
-  db:
-    container_name: puntalink-db
-    image: postgres:16
+  database:
+    container_name: ${GROUP}_${PROJECT}_db
+    image: ${DB_IMAGE}
     restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: puntalink
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     volumes:
       - ./data/puntalink.sql:/docker-entrypoint-initdb.d/puntalink.sql
-    command: postgres -p 5008
+    command: postgres -p ${DATABASE_PORT}
     expose:
-      - "5008"
+      - "${DATABASE_PORT}"
     networks:
       - red_taller_software
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+    labels:
+      - "org.uach.group=${GROUP}"
+      - "org.uach.project=${PROJECT}"
+      - "org.uach.service=database"
+      - "logging=promtail" 
 
   backend:
-    container_name: puntalink-backend
+    container_name: ${GROUP}_${PROJECT}_backend
     build: ./backend
     restart: always
     env_file:
       - ./backend/.env
     depends_on:
-      - db
+      - database
     expose:
-      - "4008"
+      - "${BACKEND_PORT}"
     networks:
       - red_taller_software
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 700M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+    labels:
+      - "org.uach.group=${GROUP}"
+      - "org.uach.project=${PROJECT}"
+      - "org.uach.service=backend"
+      - "logging=promtail"
 
   frontend:
-    container_name: puntalink-frontend
+    container_name: ${GROUP}_${PROJECT}_frontend
     build: ./frontend
     restart: always
     expose:
-      - "3008"
+      - "${FRONTEND_PORT}"
     depends_on:
       - backend
     networks:
       - red_taller_software
+    deploy:
+      resources:
+        limits:
+          cpus: "0.30"
+          memory: 400M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+    labels:
+      - "org.uach.group=${GROUP}"
+      - "org.uach.project=${PROJECT}"
+      - "org.uach.service=frontend"
+      - "logging=promtail"
 
 networks:
   red_taller_software:
