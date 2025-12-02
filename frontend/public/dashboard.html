@@ -724,36 +724,161 @@
 
       <!-- SECCIÓN TRIANGULAR (NUEVO) - DENTRO DEL ACORDEÓN -->
         <div class="accordion-content" id="armado-triangular-section">
-          <div class="configuracion-global">
-            <h3>Configuración Triangular</h3>
-            <div class="parameter-groups">
-              <div class="parameter-group">
-                <label>Base del Triángulo (m):</label>
-                <input type="number" id="tri_base" class="form-control" value="0.80" step="0.10">
+          <div class="armado-container">
+            
+            <!-- Panel de Configuración Global -->
+            <div class="configuracion-global">
+              <h3>⚙️ Configuración Global - Armado Triangular</h3>
+              
+              <div class="parameter-groups">
                 
-                <label>Cant. Varillas Long:</label>
-                <input type="number" id="tri_cant_long" class="form-control" value="3">
+                <!-- Parámetros específicos del triángulo -->
+                <div class="parameter-group">
+                  <h4>🔺 Geometría Triangular</h4>
+                  <div class="form-row">
+                    <label>
+                      Base del Triángulo (m):
+                      <span class="tooltip-icon" data-tooltip="Base del muerto triangular en metros. Define el ancho de la base del prisma triangular.">i</span>
+                    </label>
+                    <input type="number" id="tri_base" class="form-control" value="0.80" step="0.10">
+                  </div>
+                  <div class="form-row">
+                    <label>
+                      Cant. Varillas Long:
+                      <span class="tooltip-icon" data-tooltip="Cantidad de varillas longitudinales (verticales) para el armado triangular. Típicamente 3 varillas.">i</span>
+                    </label>
+                    <input type="number" id="tri_cant_long" class="form-control" value="3">
+                  </div>
+                </div>
+                
+                <div class="parameter-group">
+                  <h4>🔧 Varillas Longitudinales</h4>
+                  <div class="form-row">
+                    <label>Tipo de varilla:</label>
+                    <select id="tri_tipoVarillaLongitudinal" class="form-control">
+                      <option value="3">#3 (0.560 kg/m)</option>
+                      <option value="4" selected>#4 (0.994 kg/m)</option>
+                      <option value="5">#5 (1.552 kg/m)</option>
+                      <option value="6">#6 (2.235 kg/m)</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div class="parameter-group">
+                  <h4>🔗 Varillas Transversales (Estribos)</h4>
+                  <div class="form-row">
+                    <label>Tipo de varilla:</label>
+                    <select id="tri_tipoVarillaTransversal" class="form-control">
+                      <option value="3" selected>#3 (0.560 kg/m)</option>
+                      <option value="4">#4 (0.994 kg/m)</option>
+                      <option value="5">#5 (1.552 kg/m)</option>
+                      <option value="6">#6 (2.235 kg/m)</option>
+                    </select>
+                  </div>
+                  <div class="form-row">
+                    <label>
+                      Recubrimiento (cm):
+                      <span class="tooltip-icon" data-tooltip="Recubrimiento de concreto para protección del acero según normativa NSR-10.">i</span>
+                    </label>
+                    <input type="number" id="tri_recubrimientoTransversal" class="form-control" value="4" step="0.1">
+                  </div>
+                  <div class="form-row">
+                    <label>
+                      Separación Estribos (cm):
+                      <span class="tooltip-icon" data-tooltip="Separación entre estribos transversales en centímetros. Valores típicos entre 15-25 cm según normativa.">i</span>
+                    </label>
+                    <input type="number" id="tri_separacionTransversal" class="form-control" value="25" step="1">
+                  </div>
+                  <div class="form-row">
+                    <label>
+                      Longitud ganchos (m):
+                      <span class="tooltip-icon" data-tooltip="Longitud adicional para los ganchos de los estribos. Se suma al perímetro del estribo.">i</span>
+                    </label>
+                    <input type="number" id="tri_longGanchoEstribo" class="form-control" value="0.00" step="0.05">
+                  </div>
+                </div>
+                
+                <div class="parameter-group">
+                  <h4>🏗️ Construcción</h4>
+                  <div class="form-row">
+                    <label>
+                      Resistencia del Concreto (kg/m³):
+                      <span class="tooltip-icon" data-tooltip="Densidad del concreto armado. Valor típico: 2400 kg/m³.">i</span>
+                    </label>
+                    <input type="number" id="tri_tipoConcreto" class="form-control" value="2400" step="100" min="1000">
+                  </div>
+                  <div class="form-row">
+                    <label>
+                      Factor desperdicio:
+                      <span class="tooltip-icon" data-tooltip="Factor de desperdicio para el concreto (típicamente entre 1.05 y 1.15).">i</span>
+                    </label>
+                    <input type="number" id="tri_factorDesperdicio" class="form-control" value="1.0" step="0.05" min="1">
+                  </div>
+                </div>
+                
+                <div class="parameter-group">
+                  <h4>🔗 Alambre de Amarre</h4>
+                  <div class="form-row">
+                    <label>
+                      Diámetro alambre (mm):
+                      <span class="tooltip-icon" data-tooltip="Diámetro del alambre de amarre en milímetros. Típicamente 1.22 mm (calibre 16).">i</span>
+                    </label>
+                    <input type="number" id="tri_diametroAlambre" class="form-control" value="1.22" step="0.1" min="0.5">
+                  </div>
+                  <div class="form-row">
+                    <label>
+                      Longitud por vuelta (cm):
+                      <span class="tooltip-icon" data-tooltip="Longitud de alambre usada en cada amarre o nudo entre varillas.">i</span>
+                    </label>
+                    <input type="number" id="tri_longitudVuelta" class="form-control" value="15.2" step="1" min="5">
+                  </div>
+                  <div class="form-row">
+                    <label>
+                      Factor desperdicio alambre:
+                      <span class="tooltip-icon" data-tooltip="Factor de desperdicio del alambre de amarre (típicamente 1.15).">i</span>
+                    </label>
+                    <input type="number" id="tri_factorDesperdicioAlambre" class="form-control" value="1.15" step="0.05" min="1">
+                  </div>
+                </div>
+
               </div>
-              <div class="parameter-group">
-                <label>Separación Estribos (cm):</label>
-                <input type="number" id="tri_sep_estribos" class="form-control" value="20">
+              
+              <div class="actions" style="margin-top: 1.5rem;"> 
+                <button id="btnCalcularTriangular" class="btn btn--primary">Calcular Armado Triangular</button>
               </div>
             </div>
-            <button id="btnCalcularTriangular" class="btn btn--primary mt-3">Calcular Triangulares</button>
-          </div>
 
-          <div class="table-container mt-3">
-            <table id="tablaTriangular" class="results-table">
-              <thead>
-                <tr>
-                  <th>Grupo</th><th>Eje</th>
-                  <th>Base</th><th>Alto</th><th>Largo</th>
-                  <th>Volumen</th><th>Peso Conc.</th>
-                  <th>Peso Acero</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
+            <!-- Tabla de Resultados -->
+            <h3>📋 Tabla de Armado Triangular por Grupo</h3>
+            
+            <div class="table-container mt-3">
+              <table id="tablaTriangular" class="results-table">
+                <thead>
+                  <tr>
+                    <th colspan="4">DEADMAN</th>
+                    <th colspan="4">Acero</th>
+                    <th colspan="2">Concreto</th>
+                    <th colspan="2">Alambre</th>
+                  </tr>
+                  <tr>
+                    <th>#</th>
+                    <th>Eje</th>
+                    <th>Muros</th>
+                    <th>Dim (LxHxB)</th>
+                    <th>#</th>
+                    <th>Long (m)</th>
+                    <th>Peso (kg)</th>
+                    <th>Dir.</th>
+                    <th>Vol (m³)</th>
+                    <th>Peso (T)</th>
+                    <th>Long (m)</th>
+                    <th>Peso (kg)</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            
           </div>
         </div>
       </div>

@@ -243,57 +243,95 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 🔺 LÓGICA DE MUERTOS TRIANGULARES
+  // 🔺 LÓGICA DE MUERTOS TRIANGULARES (CORREGIDA)
   // ==========================================
   const btnTri = document.getElementById('btnCalcularTriangular');
   if (btnTri) {
     btnTri.addEventListener('click', () => {
-      // CORRECCIÓN: Validación visual
+      
+      // 1. Validaciones
       if (!window.gruposMuertosGlobal || Object.keys(window.gruposMuertosGlobal).length === 0) {
           alert("⚠️ No hay grupos generados. Primero realiza el cálculo de Viento/Braces.");
           return;
       }
 
-      // IMPORTANTE: Asegúrate de que 'prepararGruposParaMuertos' está importado de muertoRectangular.js
-      // Si muertoRectangular.js no se cargó, esto fallará.
       if (typeof prepararGruposParaMuertos !== 'function') {
           console.error("Falta la función 'prepararGruposParaMuertos'. Verifica los imports.");
-          alert("Error interno: Falta módulo de preparación de grupos (muertoRectangular.js).");
           return;
       }
 
+      // 2. Preparar los grupos
       const grupos = prepararGruposParaMuertos(window.gruposMuertosGlobal);
       
-      const config = {
-        baseTriangulo: parseFloat(document.getElementById('tri_base')?.value) || 0.8,
-        cantLongitudinal: parseInt(document.getElementById('tri_cant_long')?.value) || 3,
-        separacionEstribos: parseFloat(document.getElementById('tri_sep_estribos')?.value) || 20,
-        densidadConcreto: parseFloat(document.getElementById('tipoConcreto')?.value) || 2400
+      // 3. RECOLECCIÓN DE DATOS DEL FORMULARIO (IMAGEN)
+      // Aquí "robamos" los datos que el usuario llenó en la sección Rectangular
+      const inputsUI = {
+        construccion: {
+          // Lee: Resistencia del Concreto (kg/m3)
+          resistenciaConcreto: parseFloat(document.getElementById('tipoConcreto')?.value) || 2400,
+          // Lee: Factor desperdicio
+          factorDesperdicio: parseFloat(document.getElementById('factorDesperdicio')?.value) || 1.05
+        },
+        longitudinal: {
+          // Lee: Tipo de varilla
+          tipoVarilla: document.getElementById('tipoVarillaLongitudinal')?.value,
+          // Lee: Recubrimiento (cm)
+          recubrimiento: parseFloat(document.getElementById('recubrimientoLongitudinal')?.value) || 4
+        },
+        transversal: {
+          // Lee: Tipo de varilla (Estribos)
+          tipoVarilla: document.getElementById('tipoVarillaTransversal')?.value,
+          // Lee: Recubrimiento (cm)
+          recubrimiento: parseFloat(document.getElementById('recubrimientoTransversal')?.value) || 4,
+          // Lee: Longitud ganchos (m) -> ESTE ES CLAVE
+          longitudGanchos: parseFloat(document.getElementById('longGanchoEstribo')?.value) || 0.20,
+          
+          // Nota: La separación en triangular suele ser específica, intentamos leer el input específico triangular
+          // Si no existe, usamos el del rectangular por defecto.
+          separacion: parseFloat(document.getElementById('tri_sep_estribos')?.value) || parseFloat(document.getElementById('separacionTransversal')?.value) || 20
+        },
+        alambre: {
+          // Lee: Diámetro alambre (mm)
+          diametroAlambre: parseFloat(document.getElementById('diametroAlambre')?.value) || 1.22,
+          // Lee: Longitud por vuelta (cm)
+          longitudPorVuelta: parseFloat(document.getElementById('longitudVuelta')?.value) || 35,
+          // Lee: Factor desperdicio alambre
+          factorDesperdicioAlambre: parseFloat(document.getElementById('factorDesperdicioAlambre')?.value) || 1.15
+        },
+        triangular: {
+          // Estos son los únicos inputs "nuevos" específicos para la forma triangular
+          base: parseFloat(document.getElementById('tri_base')?.value) || 0.80,
+          cantVarillas: parseInt(document.getElementById('tri_cant_long')?.value) || 3
+        }
       };
 
       try {
-          const resultados = calcularMacizosTriangulares(grupos, config);
-          const tabla = document.getElementById('tablaTriangular');
+          // 4. Calcular
+          const resultados = calcularMacizosTriangulares(grupos, inputsUI);
           
+          // 5. Renderizar Tabla
+          const tabla = document.getElementById('tablaTriangular');
           if (tabla) {
-            // Guardar encabezado, limpiar body, pegar resultados
             const thead = tabla.querySelector('thead');
             tabla.innerHTML = ''; 
             if(thead) tabla.appendChild(thead);
-            // Insertar HTML generado
+            
             tabla.insertAdjacentHTML('beforeend', generarTablaResultadosTriangulares(resultados));
           }
 
-          window.ultimosResultadosMacizos = resultados;
+          // 6. Actualizar Totales
+          window.ultimosResultadosMacizos = resultados; 
           actualizarTotalesCards(resultados);
-          alert("✅ Cálculo Triangular completado.");
+          
+          alert("✅ Cálculo Triangular completado usando los datos del formulario.");
+
       } catch (e) {
           console.error(e);
           alert("Error al calcular triangulares: " + e.message);
       }
     });
   }
-});
+  }) ;
 
 function actualizarTotalesCards(resultados) {
     let tVol = 0, tPesoConc = 0, tAcero = 0;
@@ -800,6 +838,16 @@ export async function handleUploadTxt(file, elements, callbacks, globalVars) {
     if (murosCompletos.length > 0) {
       globalVars.panelesActuales = murosCompletos;
       console.log('[DASHBOARD] Muros completos obtenidos desde BD:', globalVars.panelesActuales.length);
+      
+      // Notificación de éxito
+      if (window.showNotification) {
+        window.showNotification(
+          'success',
+          '✅ Muros Procesados',
+          `Se importaron exitosamente ${murosCompletos.length} muros del archivo TXT.`,
+          5000
+        );
+      }
       console.log('[DASHBOARD] Primer muro con overall_height:', globalVars.panelesActuales[0]);
     } else {
       // Fallback: usar los paneles del response de importación
@@ -1013,10 +1061,11 @@ export async function handleGenerarPDF(elements, globalVars) {
         return {
           ...muroViento,
           ...muro,
-          angulo_brace: muro.angulo || 55,
+          angulo_brace: muro.angulo_brace || muro.angulo || 55,
           npt: muro.npt || 0.350,
-          tipo_brace_seleccionado: muro.tipo_brace,
+          tipo_brace_seleccionado: muro.tipo_brace_seleccionado || muro.tipo_brace || 'B12',
           x_braces: muro.x_braces || 2,
+          x_inserto: muro.x_inserto || 0,
           eje: muro.eje || '',
           grosor: muro.grosor || 0,
           overall_height: muro.overall_height || 0,
@@ -1034,19 +1083,51 @@ export async function handleGenerarPDF(elements, globalVars) {
     return;
   }
   
-  // Generar grupos
-  const gruposMuertos = {};
-  let tablaMuertos = [];
+  // USAR LOS GRUPOS YA CALCULADOS DE script.js en lugar de regenerarlos
+  let gruposMuertos, tablaMuertos;
   
-  murosConBraces.forEach(muro => {
-    const xBracesVal = muro.x_braces || 2; 
+  if (window.gruposMuertosGlobal && Object.keys(window.gruposMuertosGlobal).length > 0) {
+    console.log('[DASHBOARD] ✅ Usando grupos pre-calculados de script.js:', Object.keys(window.gruposMuertosGlobal).length, 'grupos');
+    gruposMuertos = window.gruposMuertosGlobal;
+    
+    // Generar tablaMuertos desde los grupos pre-calculados
+    tablaMuertos = [];
+    let numeroMuerto = 1;
+    Object.keys(gruposMuertos).forEach(clave => {
+      const grupo = gruposMuertos[clave];
+      tablaMuertos.push({
+        numero: numeroMuerto.toString(),
+        muerto: `M${numeroMuerto}`,
+        x_inserto: typeof grupo.xInserto === 'number' ? `${grupo.xInserto.toFixed(2)}m` : `${grupo.x_inserto?.toFixed(2) || '0.00'}m`,
+        tipo_brace: grupo.tipo || grupo.tipo_brace || 'B12',
+        angulo: `${grupo.ang || grupo.angulo || 55}°`,
+        eje: (grupo.eje || 1).toString(),
+        cantidad_muros: (grupo.cantidadMuros || grupo.muros?.length || 0).toString(),
+        muros_incluidos: grupo.muros?.join?.(', ') || ''
+      });
+      numeroMuerto++;
+    });
+    
+    console.log('[DASHBOARD] 📊 tablaMuertos generada con', tablaMuertos.length, 'muertos');
+  } else {
+    console.log('[DASHBOARD] ⚠️ No hay grupos pre-calculados, generando desde murosConBraces...');
+    // Fallback: Generar grupos desde cero (código original)
+    gruposMuertos = {};
+    tablaMuertos = [];
+  
+    murosConBraces.forEach(muro => {
+    const xInserto = parseFloat(muro.x_inserto || 0).toFixed(2); // Distancia X redondeada a 2 decimales
+    const tipoBrace = muro.tipo_brace_seleccionado || 'B12';
     const anguloVal = Math.round(muro.angulo_brace || 55);
     const ejeVal = muro.eje || 1;
-    const clave = `${xBracesVal}_${anguloVal}_${ejeVal}`;
+    const clave = `${xInserto}|${tipoBrace}|${anguloVal}|${ejeVal}`;
+    
+    console.log(`[GRUPOS] Muro ${muro.id_muro}: x_inserto=${muro.x_inserto}, xInserto=${xInserto}, tipo=${tipoBrace}, angulo=${anguloVal}, eje=${ejeVal}, clave=${clave}`);
     
     if (!gruposMuertos[clave]) {
       gruposMuertos[clave] = {
-        x_braces: xBracesVal,
+        x_inserto: parseFloat(xInserto),
+        tipo_brace: tipoBrace,
         angulo: anguloVal,
         eje: ejeVal,
         muros: []
@@ -1057,24 +1138,32 @@ export async function handleGenerarPDF(elements, globalVars) {
 
   window.gruposMuertosGlobal = gruposMuertos;
   console.log('[DASHBOARD] Grupos actualizados:', Object.keys(gruposMuertos));
+  console.log('[DASHBOARD] 📊 Total de grupos (muertos únicos):', Object.keys(gruposMuertos).length);
+  Object.keys(gruposMuertos).forEach(clave => {
+    console.log(`[DASHBOARD]   - Grupo "${clave}": ${gruposMuertos[clave].muros.length} muros`);
+  });
 
   // Tabla resumen
-  let numeroMuerto = 1;
+  numeroMuerto = 1;
   Object.keys(gruposMuertos).forEach(clave => {
     const grupo = gruposMuertos[clave];
+    const primerMuro = grupo.muros[0]; // Tomar x_braces del primer muro
     tablaMuertos.push({
       numero: numeroMuerto.toString(),
       muerto: `M${numeroMuerto}`,
-      x_braces: grupo.x_braces.toString(),
+      x_braces: (primerMuro.x_braces || 2).toString(),
+      tipo_brace: grupo.tipo_brace,
       angulo: `${grupo.angulo}°`,
+      x_inserto: `${grupo.x_inserto.toFixed(2)}m`,
       eje: grupo.eje.toString(),
       profundidad: '2.0',
-      tipo_construccion: grupo.x_braces >= 3 ? 'Reforzado' : 'Estándar',
+      tipo_construccion: (primerMuro.x_braces || 2) >= 3 ? 'Reforzado' : 'Estándar',
       cantidad_muros: grupo.muros.length.toString(),
       muros_incluidos: grupo.muros.map(m => m.id_muro).join(', ')
     });
     numeroMuerto++;
   });
+  } // Cierre del else
 
   mostrarConfigGrupos(gruposMuertos);
 
@@ -1996,6 +2085,44 @@ function mostrarConfigGrupos(gruposMuertos) {
 function guardarProfundidadesMuertos() {
   console.log('[DASHBOARD] guardarProfundidadesMuertos - Guardando profundidades individuales');
   
+  // Función auxiliar para guardar profundidades con PUT
+  function guardarProfundidadesConPUT(pidProyecto, inputs, profundidadesValidas) {
+    let guardados = 0;
+    const promises = [];
+    inputs.forEach(input => {
+      const clave = input.getAttribute('data-grupo-clave');
+      const valor = parseFloat(input.value);
+      if (!clave || isNaN(valor) || valor <= 0) return;
+      const grupo = window.gruposMuertosGlobal[clave];
+      if (!grupo || !grupo.pid) return;
+      promises.push(
+        fetch(`${API_BASE}/api/grupos-muertos/${grupo.pid}/profundidad`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ profundidad: valor })
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) guardados++;
+        })
+        .catch(error => {
+          console.error(`[DASHBOARD] Error guardando profundidad para grupo ${clave}:`, error);
+        })
+      );
+    });
+    Promise.all(promises).then(() => {
+      // Resetear bordes a normal
+      inputs.forEach(input => {
+        input.style.borderColor = 'var(--border)';
+      });
+      alert(`✅ Profundidades guardadas exitosamente!\n\n` +
+            `📊 Resumen:\n` +
+            `• Total muertos: ${profundidadesValidas}\n` +
+            `• Guardados en BD: ${guardados}\n\n` +
+            `✨ Ahora puedes hacer clic en 'Calcular Armado Rectangular'`);
+    });
+  }
+  
   // Limpiar configuración anterior de profundidades
   if (!window.configGruposMuertos) {
     window.configGruposMuertos = {};
@@ -2097,20 +2224,22 @@ function guardarProfundidadesMuertos() {
         return; // No incluir claves de frontend (M1, M2, etc.) en el payload del backend
     }
     
-    // 2. Incluir y parsear solo claves de backend (ej: "4_53_M01")
-    const partes = clave.split('_');
+    // 2. Incluir y parsear solo claves de backend (ej: "7.31|PUNTALES|55|M01")
+    const partes = clave.split('|');
 
-    // Solo procesar claves que se vean como x_angulo_eje (3 o más partes)
-    if (partes.length >= 3) {
-        const x_braces_clave = parseInt(partes[0]);
-        const angulo_clave = parseFloat(partes[1]);
-        const eje_clave = partes[2]; 
+    // Solo procesar claves que se vean como x_inserto|tipo|angulo|eje (4 partes)
+    if (partes.length >= 4) {
+        const x_inserto_clave = parseFloat(partes[0]);
+        const tipo_brace_clave = partes[1];
+        const angulo_clave = parseFloat(partes[2]);
+        const eje_clave = partes[3]; 
 
-        if (!isNaN(x_braces_clave) && !isNaN(angulo_clave)) {
+        if (!isNaN(x_inserto_clave) && !isNaN(angulo_clave)) {
             // Creamos un nuevo objeto de configuración limpio
             configParaBackend[clave] = {
                 profundo: window.configGruposMuertos[clave].profundo,
-                x_braces: x_braces_clave,
+                x_inserto: x_inserto_clave,
+                tipo_brace_seleccionado: tipo_brace_clave,
                 angulo_brace: angulo_clave,
                 eje: eje_clave,
                 // Puedes añadir aquí otras propiedades de configuración que necesites guardar
@@ -2140,11 +2269,14 @@ function guardarProfundidadesMuertos() {
             if (postData.success) {
               // Actualizar window.gruposMuertosGlobal con los nuevos grupos
               postData.grupos.forEach(grupo => {
-                const clave = `${grupo.x_braces}_${Math.round(grupo.angulo_brace)}_${grupo.eje || ''}`;
+                const xInserto = parseFloat(grupo.x_inserto || 0).toFixed(2);
+                const tipoBrace = grupo.tipo_brace_seleccionado || 'PUNTALES';
+                const angulo = Math.round(grupo.angulo_brace);
+                const eje = grupo.eje || '';
+                const clave = `${xInserto}|${tipoBrace}|${angulo}|${eje}`;
                 window.gruposMuertosGlobal[clave] = grupo;
               });
-              // Ahora sí, actualizar profundidades
-              guardarProfundidadesConPUT(proyecto.pid, inputs, profundidadesValidas);
+              console.log('[DASHBOARD] ✅ Grupos creados en BD');
             } else {
               alert('Error creando grupos en BD: ' + postData.error);
             }
@@ -2152,59 +2284,21 @@ function guardarProfundidadesMuertos() {
         } else {
           // Los grupos existen, actualizar profundidades directamente
           data.grupos.forEach(grupo => {
-            const clave = `${grupo.x_braces}_${Math.round(grupo.angulo_brace)}_${grupo.eje || ''}`;
+            const xInserto = parseFloat(grupo.x_inserto || 0).toFixed(2);
+            const tipoBrace = grupo.tipo_brace_seleccionado || 'PUNTALES';
+            const angulo = Math.round(grupo.angulo_brace);
+            const eje = grupo.eje || '';
+            const clave = `${xInserto}|${tipoBrace}|${angulo}|${eje}`;
             window.gruposMuertosGlobal[clave] = grupo;
           });
-          guardarProfundidadesConPUT(proyecto.pid, inputs, profundidadesValidas);
+          console.log('[DASHBOARD] ✅ Grupos ya existen en BD');
         }
       });
   } else {
-    // Función auxiliar para guardar profundidades con PUT
-    function guardarProfundidadesConPUT(pidProyecto, inputs, profundidadesValidas) {
-      let guardados = 0;
-      const promises = [];
-      inputs.forEach(input => {
-        const clave = input.getAttribute('data-grupo-clave');
-        const valor = parseFloat(input.value);
-        if (!clave || isNaN(valor) || valor <= 0) return;
-        const grupo = window.gruposMuertosGlobal[clave];
-        if (!grupo || !grupo.pid) return;
-        promises.push(
-          fetch(`${API_BASE}/api/grupos-muertos/${grupo.pid}/profundidad`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ profundidad: valor })
-          })
-          .then(response => response.json())
-          .then(data => {
-            if (data.success) guardados++;
-          })
-          .catch(error => {
-            console.error(`[DASHBOARD] Error guardando profundidad para grupo ${clave}:`, error);
-          })
-        );
-      });
-      Promise.all(promises).then(() => {
-        // Resetear bordes a normal
-        inputs.forEach(input => {
-          input.style.borderColor = 'var(--border)';
-        });
-        alert(`✅ Profundidades guardadas exitosamente!\n\n` +
-              `📊 Resumen:\n` +
-              `• Total muertos: ${profundidadesValidas}\n` +
-              `• Guardados en BD: ${guardados}\n\n` +
-              `Los datos están disponibles para cálculos.`);
-        if (typeof window.ejecutarCalculosArmado === 'function') {
-          window.ejecutarCalculosArmado();
-        }
-      });
-    }
     alert(`✅ Profundidades guardadas en memoria!\n\n` +
           `📊 Total: ${profundidadesValidas} muertos configurados\n\n` +
-          `⚠️ No hay proyecto seleccionado para guardar en BD.`);
-    if (typeof window.ejecutarCalculosArmado === 'function') {
-      window.ejecutarCalculosArmado();
-    }
+          `⚠️ No hay proyecto seleccionado para guardar en BD.\n` +
+          `✨ Ahora puedes hacer clic en 'Calcular Armado Rectangular'`);
   }
 }
 
@@ -2230,7 +2324,11 @@ async function cargarGruposMuertosDesdeBackend(pk_proyecto) {
       window.configGruposMuertos = {};
       
       data.grupos.forEach(grupo => {
-        const clave = `${grupo.x_braces}_${Math.round(grupo.angulo_brace)}_${grupo.eje || ''}`;
+        const xInserto = parseFloat(grupo.x_inserto || 0).toFixed(2);
+        const tipoBrace = grupo.tipo_brace_seleccionado || 'PUNTALES';
+        const angulo = Math.round(grupo.angulo_brace);
+        const eje = grupo.eje || '';
+        const clave = `${xInserto}|${tipoBrace}|${angulo}|${eje}`;
         window.configGruposMuertos[clave] = {
           profundo: parseFloat(grupo.profundidad) || 2.0,
           espaciadoLong: 25, // Valores por defecto si no están en BD
@@ -2347,25 +2445,24 @@ async function reagruparMuertos() {
     gruposMuertos = window.gruposMuertosGlobal;
   } else {
     console.log('[DASHBOARD] ⚠️ window.gruposMuertosGlobal no disponible, creando grupos por eje');
-    // Fallback: crear grupos por eje si no existe window.gruposMuertosGlobal
+    // Fallback: crear grupos por x_inserto, tipo, angulo, eje si no existe window.gruposMuertosGlobal
     gruposMuertos = {};
     
     murosConBraces.forEach(muro => {
-      const xBraces = muro.x_braces || 2;
+      const xInserto = parseFloat(muro.x_inserto || 0).toFixed(2);
+      const tipoBrace = muro.tipo_brace_seleccionado || 'PUNTALES';
       const angulo = Math.round(muro.angulo_brace || 55);
       const eje = muro.eje || '1';
       
-      // Crear clave única por EJE (no solo por x, ang, eje combinados)
-      const clave = `M${eje}`;
+      // Crear clave única por X_INSERTO|TIPO|ANGULO|EJE
+      const clave = `${xInserto}|${tipoBrace}|${angulo}|${eje}`;
       
       if (!gruposMuertos[clave]) {
         gruposMuertos[clave] = {
-          muerto: parseInt(eje),
-          x: xBraces,
-          ang: angulo,
-          eje: eje,
-          x_braces: xBraces,
+          xInserto: xInserto,
+          tipo: tipoBrace,
           angulo: angulo,
+          eje: eje,
           muros: []
         };
       }
@@ -2440,30 +2537,49 @@ async function ejecutarCalculosArmado() {
       const responseData = await response.json();
       const murosActualizados = responseData.muros || responseData;
 
-      // 4. Regenerar agrupación en memoria (window.gruposMuertosGlobal)
-      const gruposMuertosActualizados = {};
+      // 4. SOLO regenerar si no hay grupos válidos en memoria
+      // Si script.js ya hizo la agrupación secuencial, NO la sobreescribimos
+      const gruposExistentes = window.gruposMuertosGlobal || {};
+      const tieneGruposSecuenciales = Object.keys(gruposExistentes).some(k => k.startsWith('M'));
+      
+      if (tieneGruposSecuenciales && Object.keys(gruposExistentes).length > 0) {
+        console.log('[DASHBOARD] ✅ Usando grupos secuenciales pre-calculados de script.js:', Object.keys(gruposExistentes).length, 'grupos');
+        // No regenerar, mantener los grupos secuenciales que ya están correctos
+      } else {
+        console.log('[DASHBOARD] ⚠️ No hay grupos secuenciales, regenerando desde BD...');
+        // Regenerar agrupación en memoria (window.gruposMuertosGlobal)
+        const gruposMuertosActualizados = {};
 
-      murosActualizados.forEach(muro => {
-        const xBraces = muro.x_braces || 2;
-        const angulo = Math.round(muro.angulo_brace || muro.angulo || 55);
-        const eje = muro.eje || 1;
-        
-        // Clave única de agrupación: X_ANGULO_EJE
-        const clave = `${xBraces}_${angulo}_${eje}`;
+        console.log('[DASHBOARD] Regenerando grupos desde BD. Total muros:', murosActualizados.length);
+        murosActualizados.forEach((muro, idx) => {
+          // Usar x_inserto (distancia) en lugar de x_braces (cantidad)
+          const xInserto = parseFloat(muro.x_inserto || 0).toFixed(2);
+          const tipoBrace = muro.tipo_brace_seleccionado || 'PUNTALES';
+          const angulo = Math.round(muro.angulo_brace || muro.angulo || 55);
+          const eje = muro.eje || '1';
+          
+          if (idx < 3) { // Log primeros 3 muros para debugging
+            console.log(`[DASHBOARD] Muro ${idx}: PID=${muro.pid}, eje="${muro.eje}", x_inserto=${muro.x_inserto}, tipo=${muro.tipo_brace_seleccionado}`);
+          }
+          
+          // Clave única de agrupación: X_INSERTO|TIPO|ANGULO|EJE
+          const clave = `${xInserto}|${tipoBrace}|${angulo}|${eje}`;
 
-        if (!gruposMuertosActualizados[clave]) {
-          gruposMuertosActualizados[clave] = {
-            x_braces: xBraces,
-            angulo: angulo,
-            eje: eje,
-            muros: []
-          };
-        }
-        gruposMuertosActualizados[clave].muros.push(muro);
-      });
+          if (!gruposMuertosActualizados[clave]) {
+            gruposMuertosActualizados[clave] = {
+              xInserto: xInserto,
+              tipo: tipoBrace,
+              angulo: angulo,
+              eje: eje,
+              muros: []
+            };
+          }
+          gruposMuertosActualizados[clave].muros.push(muro);
+        });
 
-      window.gruposMuertosGlobal = gruposMuertosActualizados;
-      console.log('[DASHBOARD] Grupos sincronizados con BD:', Object.keys(gruposMuertosActualizados));
+        window.gruposMuertosGlobal = gruposMuertosActualizados;
+        console.log('[DASHBOARD] Grupos sincronizados con BD:', Object.keys(gruposMuertosActualizados));
+      }
 
     } catch (errorGuardar) {
       console.error('[DASHBOARD] Advertencia en sincronización:', errorGuardar);
