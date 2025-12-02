@@ -129,6 +129,27 @@ export async function getMurosByProject(pk_proyecto: number): Promise<Muro[]> {
   }
 }
 
+export async function getMuroByPid(pid: number): Promise<Muro | null> {
+  const query = `
+    SELECT 
+      pid, num, pk_proyecto, id_muro, grosor, area, peso, volumen, overall_width, overall_height, cgx, cgy,
+      angulo_brace, npt, tipo_brace_seleccionado, factor_w2, eje,
+      qz_kpa, presion_kpa, fuerza_viento,
+      x_braces, fbx, fby, fb, x_inserto, y_inserto,
+      cant_b14, cant_b12, cant_b04, cant_b15, muertos, tipo_construccion
+    FROM muro 
+    WHERE pid = $1;
+  `;
+
+  try {
+    const result = await pool.query(query, [pid]);
+    return result.rows[0] || null;
+  } catch (error) {
+    console.error("Error getting muro by pid:", error);
+    throw error;
+  }
+}
+
 export async function updateMuroEditableFields(
   pid: number,
   angulo_brace?: number,
