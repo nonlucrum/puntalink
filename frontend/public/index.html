@@ -52,93 +52,170 @@
 
   <!-- Contenido -->
   <main class="app-main">
-    <section class="card-project">
-      <h1>Configuración de Proyecto</h1>
+    <!-- ===== Pantalla de Login con Grúa ===== -->
+    <div id="loginScreen" class="login-screen-crane">
+      <!-- Grúa de construcción interactiva -->
+      <div class="crane-container">
+        <svg class="crane" viewBox="0 0 400 500" xmlns="http://www.w3.org/2000/svg">
+          <!-- Base de la grúa -->
+          <g class="crane__base">
+            <rect x="160" y="450" width="80" height="50" rx="5"/>
+            <rect x="170" y="440" width="60" height="15" rx="3"/>
+          </g>
+          
+          <!-- Torre principal -->
+          <g class="crane__tower">
+            <rect x="185" y="200" width="30" height="250" rx="2"/>
+            <!-- Secciones de la torre -->
+            <line x1="185" y1="230" x2="215" y2="230" stroke-width="2"/>
+            <line x1="185" y1="270" x2="215" y2="270" stroke-width="2"/>
+            <line x1="185" y1="310" x2="215" y2="310" stroke-width="2"/>
+            <line x1="185" y1="350" x2="215" y2="350" stroke-width="2"/>
+            <line x1="185" y1="390" x2="215" y2="390" stroke-width="2"/>
+          </g>
+          
+          <!-- Brazo de la grúa -->
+          <g class="crane__arm">
+            <rect x="215" y="195" width="140" height="12" rx="2"/>
+            <rect x="90" y="195" width="95" height="12" rx="2"/>
+            <!-- Contrabalance -->
+            <rect x="50" y="207" width="40" height="30" rx="3"/>
+          </g>
+          
+          <!-- Cabina -->
+          <g class="crane__cabin">
+            <rect x="175" y="170" width="50" height="30" rx="5"/>
+            <rect x="180" y="175" width="18" height="20" rx="2" class="crane__window"/>
+            <rect x="207" y="175" width="18" height="20" rx="2" class="crane__window"/>
+          </g>
+          
+          <!-- Cable y gancho -->
+          <g class="crane__hook-system" id="craneHook">
+            <line x1="320" y1="207" x2="320" y2="280" stroke-width="3" class="crane__cable"/>
+            <g class="crane__hook" transform="translate(320, 280)">
+              <path d="M -10 0 L 10 0 L 10 15 Q 10 25, 0 25 Q -10 25, -10 15 L -10 0" class="hook-shape"/>
+              <circle cx="0" cy="-8" r="8" class="hook-pulley"/>
+            </g>
+          </g>
+          
+          <!-- Luces de señalización -->
+          <circle cx="200" cy="165" r="5" class="crane__light crane__light--left"/>
+          <circle cx="200" cy="445" r="4" class="crane__light crane__light--base"/>
+          
+          <!-- Panel de control interactivo -->
+          <g class="crane__control-panel" id="controlPanel">
+            <rect x="165" y="420" width="70" height="20" rx="3" class="control-bg"/>
+            <circle cx="180" cy="430" r="4" class="control-button"/>
+            <circle cx="200" cy="430" r="4" class="control-button control-button--main"/>
+            <circle cx="220" cy="430" r="4" class="control-button"/>
+          </g>
+        </svg>
+        
+        <!-- Botón de activación -->
+        <div class="crane-button" id="craneActivate">
+          <div class="button-text">ACTIVAR GRÚA</div>
+        </div>
+      </div>
 
-      <!-- ===== Auth (Google) ===== -->
-      <div id="authBlock" style="margin: 12px 0 20px;">
-        <!-- Carga del cliente y callback -->
+      <!-- Formulario de Login -->
+      <div class="login-form" id="loginForm">
+        <h2 class="form-title">¡Bienvenido!</h2>
+        <p class="form-subtitle">Sistema de Análisis Estructural</p>
+        
+        <!-- Carga del cliente y callback de Google -->
         <div id="g_id_onload"
           data-client_id="263905342858-atfen47bui228gtv1eckq6o1fnfgg5rf.apps.googleusercontent.com"
           data-callback="onGoogleCredential"
           data-auto_prompt="false">
         </div>
 
-        <!-- Botón visible de Google -->
-        <div class="g_id_signin"
-          data-type="standard"
-          data-size="large"
-          data-theme="outline"
-          data-text="sign_in_with"
-          data-shape="rectangular"
-          data-logo_alignment="left">
-        </div>
-
-        <!-- Info de usuario (se muestra tras login) -->
-        <div id="userInfo" style="display:none; gap:8px; align-items:center; margin-top:10px;">
-          <img id="userPic" alt="avatar" style="width:28px;height:28px;border-radius:50%;object-fit:cover"/>
-          <span id="userEmail" class="muted"></span>
-          <button id="btnLogout" class="togglebtn--ghost" type="button">Cerrar sesión</button>
-        </div>
-      </div>
-      <!-- ===== /Auth (Google) ===== -->
-
-      <div class="togglebar">
-        <button id="toggleBackG" class="togglebg"></button>
-        <button id="btnCreateNewProject" class="togglebtn">Crear Proyecto</button>
-        <button id="btnLoadOldProject" class="togglebtn--ghost"> Cargar Proyecto</button>
-      </div>
-
-      <form id="formNuevoProyecto" autocomplete="off">
-        <div class="form-group">
-          <label for="nombreProyecto">Nombre del proyecto</label>
-          <input type="text" id="nombreProyecto" name="nombreProyecto" required />
-        </div>
-
-        <div class="form-group">
-          <label for="empresaConstructora">Empresa constructora</label>
-          <input type="text" id="empresaConstructora" name="empresaConstructora" required />
-        </div>
-
-        <div class="form-group">
-          <label>Tipo de fundación (muerto)</label>
-          <div class="radio-group">
-            <div class="radio-option">
-              <input type="radio" id="cilindro" name="tipoMuerto" value="Cilindrico" checked />
-              <label for="cilindro">Aislado Cilíndrico</label>
-            </div>
-            <div class="radio-option">
-              <input type="radio" id="triangulo" name="tipoMuerto" value="Triangular" />
-              <label for="triangulo">Corrido Triangular</label>
-            </div>
-            <div class="radio-option">
-              <input type="radio" id="corrido" name="tipoMuerto" value="Corrido" />
-              <label for="corrido">Corrido Rectangular</label>
-            </div>
+        <!-- Botón de Google -->
+        <div class="google-signin-wrapper">
+          <div class="g_id_signin"
+            data-type="standard"
+            data-size="large"
+            data-theme="filled_black"
+            data-text="signin_with"
+            data-shape="rectangular"
+            data-logo_alignment="left">
           </div>
         </div>
+        
+        <p class="login-hint">Activa la grúa para comenzar</p>
+      </div>
+    </div>
+    <!-- ===== /Pantalla de Login con Grúa ===== -->
 
-        <div class="form-group">
-          <label for="velViento">Velocidad del viento (km/h)</label>
-          <input type="number" id="velViento" name="velViento" step="0.1" required />
+    <!-- ===== Contenido Principal (solo visible cuando hay sesión) ===== -->
+    <section id="mainContent" class="card-project" style="display:none;">
+      <!-- Info de usuario -->
+      <div id="userInfo" style="display:none; gap:8px; align-items:center; margin-bottom:20px; justify-content: flex-end;">
+        <img id="userPic" alt="avatar" style="width:32px;height:32px;border-radius:50%;object-fit:cover"/>
+        <span id="userEmail" class="muted"></span>
+        <button id="btnLogout" class="togglebtn--ghost" type="button">Cerrar sesión</button>
+      </div>
+
+      <h1>Configuración de Proyecto</h1>
+
+      <!-- Contenido de proyecto -->
+      <div id="projectContent">
+        <div class="togglebar">
+          <button id="toggleBackG" class="togglebg"></button>
+          <button id="btnCreateNewProject" class="togglebtn">Crear Proyecto</button>
+          <button id="btnLoadOldProject" class="togglebtn--ghost"> Cargar Proyecto</button>
         </div>
 
-        <div class="form-group">
-          <label for="tempPromedio">Temperatura promedio (°C)</label>
-          <input type="number" id="tempPromedio" name="tempPromedio" step="0.1" required />
-        </div>
+        <form id="formNuevoProyecto" autocomplete="off">
+          <div class="form-group">
+            <label for="nombreProyecto">Nombre del proyecto</label>
+            <input type="text" id="nombreProyecto" name="nombreProyecto" required />
+          </div>
 
-        <div class="form-group">
-          <label for="presionAtm">Presión atmosférica (mmHg)</label>
-          <input type="number" id="presionAtm" name="presionAtm" step="0.1" required />
-        </div>
+          <div class="form-group">
+            <label for="empresaConstructora">Empresa constructora</label>
+            <input type="text" id="empresaConstructora" name="empresaConstructora" required />
+          </div>
 
-        <div class="actions">
-          <button id="btnProjectSubmit" class="btn-primary">Crear Proyecto</button>
-        </div>
-      </form>
+          <div class="form-group">
+            <label>Tipo de fundación (muerto)</label>
+            <div class="radio-group">
+              <div class="radio-option">
+                <input type="radio" id="cilindro" name="tipoMuerto" value="Cilindrico" checked />
+                <label for="cilindro">Aislado Cilíndrico</label>
+              </div>
+              <div class="radio-option">
+                <input type="radio" id="triangulo" name="tipoMuerto" value="Triangular" />
+                <label for="triangulo">Corrido Triangular</label>
+              </div>
+              <div class="radio-option">
+                <input type="radio" id="corrido" name="tipoMuerto" value="Corrido" />
+                <label for="corrido">Corrido Rectangular</label>
+              </div>
+            </div>
+          </div>
 
-      <div id="projectList" class="project-list" style="display:none"></div>
+          <div class="form-group">
+            <label for="velViento">Velocidad del viento (km/h)</label>
+            <input type="number" id="velViento" name="velViento" step="0.1" required />
+          </div>
+
+          <div class="form-group">
+            <label for="tempPromedio">Temperatura promedio (°C)</label>
+            <input type="number" id="tempPromedio" name="tempPromedio" step="0.1" required />
+          </div>
+
+          <div class="form-group">
+            <label for="presionAtm">Presión atmosférica (mmHg)</label>
+            <input type="number" id="presionAtm" name="presionAtm" step="0.1" required />
+          </div>
+
+          <div class="actions">
+            <button id="btnProjectSubmit" class="btn-primary">Crear Proyecto</button>
+          </div>
+        </form>
+
+        <div id="projectList" class="project-list" style="display:none"></div>
+      </div>
 
       <!-- Callback global que invoca Google; delega al handler que define script.js -->
       <script>

@@ -172,6 +172,119 @@ const { confirmar, mostrarNotificacion, BarraProgreso, ejecutarConLoading, debou
   });
 })();
 
+/* =========================
+   Grúa de Construcción Interactiva
+   ========================= */
+(function initCrane() {
+  const STATE = { ON: false };
+  
+  document.addEventListener('DOMContentLoaded', () => {
+    const craneActivate = document.getElementById('craneActivate');
+    const loginForm = document.getElementById('loginForm');
+    const craneHook = document.getElementById('craneHook');
+    const crane = document.querySelector('.crane');
+    const lights = document.querySelectorAll('.crane__light');
+    const mainButton = document.querySelector('.control-button--main');
+    const craneButton = document.querySelector('.crane-button');
+    
+    if (!craneActivate || !loginForm) return;
+    
+    craneActivate.addEventListener('click', () => {
+      STATE.ON = !STATE.ON;
+      
+      // Actualizar variable CSS
+      document.documentElement.style.setProperty('--on', STATE.ON ? 1 : 0);
+      
+      // Cambiar color aleatorio cuando se activa
+      if (STATE.ON) {
+        const hue = Math.floor(Math.random() * 60) + 30; // Amarillo/Naranja para construcción
+        document.documentElement.style.setProperty('--shade-hue', hue);
+        document.documentElement.style.setProperty('--glow-color', `hsl(${hue}, 85%, 55%)`);
+        document.documentElement.style.setProperty('--glow-color-dark', `hsl(${hue}, 70%, 40%)`);
+      }
+      
+      // Activar luces
+      lights.forEach(light => {
+        if (STATE.ON) {
+          light.classList.add('active');
+        } else {
+          light.classList.remove('active');
+        }
+      });
+      
+      // Animar gancho
+      if (craneHook) {
+        if (STATE.ON) {
+          craneHook.classList.add('active');
+        } else {
+          craneHook.classList.remove('active');
+        }
+      }
+      
+      // Botón principal
+      if (mainButton) {
+        if (STATE.ON) {
+          mainButton.classList.add('active');
+        } else {
+          mainButton.classList.remove('active');
+        }
+      }
+      
+      // Cambiar texto del botón
+      if (craneButton) {
+        if (STATE.ON) {
+          craneButton.classList.add('active');
+          craneButton.querySelector('.button-text').textContent = 'GRÚA ACTIVA';
+        } else {
+          craneButton.classList.remove('active');
+          craneButton.querySelector('.button-text').textContent = 'ACTIVAR GRÚA';
+        }
+      }
+      
+      // Mostrar/ocultar formulario con delay
+      setTimeout(() => {
+        if (STATE.ON) {
+          loginForm.classList.add('active');
+        } else {
+          loginForm.classList.remove('active');
+        }
+      }, 200);
+      
+      // Efecto de vibración en la grúa
+      if (crane && STATE.ON) {
+        crane.style.animation = 'crane-shake 0.5s ease';
+        setTimeout(() => {
+          crane.style.animation = '';
+        }, 500);
+      }
+    });
+    
+    // Hover en la grúa
+    if (crane) {
+      crane.addEventListener('mouseenter', () => {
+        if (!STATE.ON) {
+          crane.style.transform = 'scale(1.02)';
+        }
+      });
+      
+      crane.addEventListener('mouseleave', () => {
+        crane.style.transform = 'scale(1)';
+      });
+    }
+  });
+  
+  // Agregar keyframes para animación de vibración
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes crane-shake {
+      0%, 100% { transform: translateX(0) rotate(0deg); }
+      25% { transform: translateX(-2px) rotate(-0.5deg); }
+      75% { transform: translateX(2px) rotate(0.5deg); }
+    }
+  `;
+  document.head.appendChild(style);
+})();
+
 
 // --- API BASE ---
 const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
@@ -258,7 +371,9 @@ async function refreshMeUI() {
     const res = await fetch(`${API_BASE}/api/auth/me`, { credentials: 'include' });
     const { ok, user } = await res.json();
 
-    const signinDiv = document.querySelector('.g_id_signin');
+    const loginScreen = document.getElementById('loginScreen');
+    const mainContent = document.getElementById('mainContent');
+    const projectContent = document.getElementById('projectContent');
     const ui = $userInfo();
     const email = $userEmail();
     const pic = $userPic();
@@ -266,21 +381,38 @@ async function refreshMeUI() {
     if (ok && user) {
       AuthState.user = user;
       localStorage.setItem('user', JSON.stringify(user));
-      if (signinDiv) signinDiv.style.display = 'none';
+      
+      // Ocultar pantalla de login y mostrar contenido principal
+      if (loginScreen) loginScreen.style.display = 'none';
+      if (mainContent) mainContent.style.display = 'block';
+      if (projectContent) projectContent.style.display = 'block';
+      
+      // Mostrar info de usuario
       if (ui) ui.style.display = 'flex';
       if (email) email.textContent = user.email || '';
       if (pic) {
         if (user.picture) { pic.src = user.picture; pic.style.display = ''; }
         else { pic.style.display = 'none'; }
       }
+      
+      // Cargar proyectos si estamos en index
       if (window.location.pathname === "/") {
         await loadPreviousProjects(user.uid);
-        }
+      }
     } else {
       AuthState.user = null;
       localStorage.removeItem('user');
-      if (signinDiv) signinDiv.style.display = '';
+      
+      // Mostrar pantalla de login y ocultar contenido principal
+      if (loginScreen) loginScreen.style.display = 'flex';
+      if (mainContent) mainContent.style.display = 'none';
+      if (projectContent) projectContent.style.display = 'none';
       if (ui) ui.style.display = 'none';
+      
+      // Resetear estado de la lámpara
+      const loginForm = document.getElementById('loginForm');
+      if (loginForm) loginForm.classList.remove('active');
+      document.documentElement.style.setProperty('--on', 0);
     }
   } catch (e) {
     console.error('Error consultando /me', e);
@@ -296,6 +428,10 @@ async function doLogout() {
     AuthState.user = null;
     localStorage.removeItem('user');
     await refreshMeUI();
+    // Recargar la página para limpiar el estado
+    if (window.location.pathname === "/") {
+      window.location.reload();
+    }
   }
 }
 
