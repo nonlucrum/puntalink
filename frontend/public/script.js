@@ -4005,6 +4005,8 @@ const itemsBottom = [
   { action: 'help', label: 'Ayuda', icon: 'img/backgrounds/12.png' },
 ];
 
+// Offset para scroll (altura del header fijo)
+const headerOffset = 110;
 
 // Mapeo de acciones a funciones reales
 const clickHandlers = {
@@ -4025,44 +4027,42 @@ const clickHandlers = {
 
   // 2) IMPORTAR TXT  -> Sección 1
   'import-txt': () => {
-    const sec = document.getElementById('section-import-txt');
-    if (sec) {
-      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-    const input = document.getElementById('txtInput');
-    if (input) input.focus();
+    var element = document.getElementById('section-import-txt');
+    var elementPosition = element.getBoundingClientRect().top;
+    var offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+    window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
   },
 
   // 3) PANELES IMPORTADOS -> Sección 2
   'paneles-importados': () => {
-    const sec = document.getElementById('section-paneles-importados');
-    if (sec) {
-      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    var element = document.getElementById('section-paneles-importados');
+    var elementPosition = element.getBoundingClientRect().top;
+    var offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+    window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
   },
 
   // 4) CÁLCULOS LIBRO III -> Sección 3
   'calculos-libro': () => {
-    const sec = document.getElementById('section-calculos-libro');
-    if (sec) {
-      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    var element = document.getElementById('section-calculos-libro');
+    var elementPosition = element.getBoundingClientRect().top;
+    var offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+    window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
   },
 
   // 5) RESULTADOS DE CÁLCULOS -> Sección 4
   'resultados-calculo': () => {
-    const sec = document.getElementById('section-resultados-calculo');
-    if (sec) {
-      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    var element = document.getElementById('section-resultados-calculo');
+    var elementPosition = element.getBoundingClientRect().top;
+    var offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+    window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
   },
 
   // 6) ARMADO DEADMAN -> Sección 5
   'armado-deadman': () => {
-    const sec = document.getElementById('section-armado-deadman');
-    if (sec) {
-      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    var element = document.getElementById('section-armado-deadman');
+    var elementPosition = element.getBoundingClientRect().top;
+    var offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+    window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
   },
 
   // Botón CALCULAR (si lo sigues usando)
