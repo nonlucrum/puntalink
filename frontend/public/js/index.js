@@ -51,15 +51,19 @@ export async function loadPreviousProjects(userId) {
         const projectList = document.getElementById('projectList');
         const data = await response.json();
         console.log('[FRONTEND] Proyectos obtenidos:', data.proyectos);
+        
+        // Ordenar proyectos del más nuevo al más antiguo (reverse)
+        const proyectosOrdenados = [...data.proyectos].reverse();
+        
         // Limpiar la lista actual
         projectList.innerHTML = '';
         // Rellenar la lista con los proyectos obtenidos
         let htmlDetalle = '';
-        if (data.proyectos.length === 0) {
+        if (proyectosOrdenados.length === 0) {
             htmlDetalle = '<p>No hay proyectos anteriores.</p>';
         }
         else {
-            data.proyectos.forEach(project => {
+            proyectosOrdenados.forEach(project => {
                 htmlDetalle += `
                     <button class="project-card" data-id="${project.pid}">
                         <div style="display: flex; flex-direction: row">

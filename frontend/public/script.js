@@ -992,9 +992,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnLoadOldProject) {
     btnLoadOldProject.addEventListener('click', () => {
       if (!requireAuthOrWarn()) return;
-      btnCreateNewProject.className = "togglebtn--ghost";
-      btnLoadOldProject.className = "togglebtn";
-      toggleBackG.style.transform = "translate(100%)"
+      btnCreateNewProject.classList.remove('active');
+      btnLoadOldProject.classList.add('active');
       formNuevoProyecto.style.display = 'none';
       projectList.style.display = '';
     });
@@ -1002,9 +1001,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (btnCreateNewProject) {
     btnCreateNewProject.addEventListener('click', () => {
-      btnCreateNewProject.className = "togglebtn";
-      btnLoadOldProject.className = "togglebtn--ghost";
-      toggleBackG.style.transform = "translate(0%)"
+      btnCreateNewProject.classList.add('active');
+      btnLoadOldProject.classList.remove('active');
       formNuevoProyecto.style.display = '';
       projectList.style.display = 'none';
     });
