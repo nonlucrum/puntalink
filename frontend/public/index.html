@@ -147,75 +147,206 @@
     <!-- ===== /Pantalla de Login con Grúa ===== -->
 
     <!-- ===== Contenido Principal (solo visible cuando hay sesión) ===== -->
-    <section id="mainContent" class="card-project" style="display:none;">
-      <!-- Info de usuario -->
-      <div id="userInfo" style="display:none; gap:8px; align-items:center; margin-bottom:20px; justify-content: flex-end;">
-        <img id="userPic" alt="avatar" style="width:32px;height:32px;border-radius:50%;object-fit:cover"/>
-        <span id="userEmail" class="muted"></span>
-        <button id="btnLogout" class="togglebtn--ghost" type="button">Cerrar sesión</button>
+    <section id="mainContent" class="main-content-wrapper" style="display:none;">
+      <!-- Header con info de usuario -->
+      <div class="user-header">
+        <div class="header-content">
+          <div class="brand-section">
+            <div class="brand-logo">
+              <img src="img/backgrounds/13.png" alt="PuntaLink Logo" />
+            </div>
+            <div class="brand-text">
+              <h2 class="brand-title">PuntaLink</h2>
+              <p class="brand-subtitle">Configuración de Proyecto</p>
+            </div>
+          </div>
+          
+          <div id="userInfo" class="user-info-section" style="display:none;">
+            <img id="userPic" alt="avatar" class="user-avatar"/>
+            <span id="userEmail" class="user-email"></span>
+            <button id="btnLogout" class="btn-logout" type="button">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6 14H3C2.44772 14 2 13.5523 2 13V3C2 2.44772 2.44772 2 3 2H6M11 11L14 8M14 8L11 5M14 8H6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Cerrar sesión
+            </button>
+          </div>
+        </div>
       </div>
 
-      <h1>Configuración de Proyecto</h1>
-
       <!-- Contenido de proyecto -->
-      <div id="projectContent">
-        <div class="togglebar">
-          <button id="toggleBackG" class="togglebg"></button>
-          <button id="btnCreateNewProject" class="togglebtn">Crear Proyecto</button>
-          <button id="btnLoadOldProject" class="togglebtn--ghost"> Cargar Proyecto</button>
+      <div id="projectContent" class="project-content-container">
+        <div class="project-tabs">
+          <button id="btnCreateNewProject" class="tab-button active">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M10 4V16M4 10H16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            Crear Proyecto
+          </button>
+          <button id="btnLoadOldProject" class="tab-button">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M4 7C4 5.89543 4.89543 5 6 5H14C15.1046 5 16 5.89543 16 7V15C16 16.1046 15.1046 17 14 17H6C4.89543 17 4 16.1046 4 15V7Z" stroke="currentColor" stroke-width="2"/>
+              <path d="M8 3H12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            Cargar Proyecto
+          </button>
+          <div class="background-menu-wrapper">
+            <button id="toggleBackG" class="tab-button tab-button--icon" title="Opciones de Fondo">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="2" y="2" width="16" height="16" rx="2" stroke="currentColor" stroke-width="2"/>
+                <path d="M2 14L6 10L9 13L14 8L18 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="14" cy="6" r="1.5" fill="currentColor"/>
+              </svg>
+            </button>
+            <div id="backgroundMenu" class="background-dropdown">
+              <button type="button" class="bg-option" id="bgToggleVisibility">
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M2.5 7.5L10 2.5L17.5 7.5M2.5 12.5L10 17.5L17.5 12.5M10 2.5V7.5M10 12.5V17.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>Mostrar/Ocultar Fondo</span>
+              </button>
+              <button type="button" class="bg-option" id="bgUploadCustom">
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M10 14V4M10 4L6 8M10 4L14 8M4 17H16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>Cargar Imagen Personalizada</span>
+              </button>
+              <button type="button" class="bg-option" id="bgResetDefault">
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M4 10C4 6.68629 6.68629 4 10 4C13.3137 4 16 6.68629 16 10C16 13.3137 13.3137 16 10 16M4 10L2 8M4 10L6 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>Restaurar Fondo Original</span>
+              </button>
+            </div>
+            <input type="file" id="customBackgroundInput" accept="image/*" style="display:none;" />
+          </div>
         </div>
 
-        <form id="formNuevoProyecto" autocomplete="off">
-          <div class="form-group">
-            <label for="nombreProyecto">Nombre del proyecto</label>
-            <input type="text" id="nombreProyecto" name="nombreProyecto" required />
-          </div>
-
-          <div class="form-group">
-            <label for="empresaConstructora">Empresa constructora</label>
-            <input type="text" id="empresaConstructora" name="empresaConstructora" required />
-          </div>
-
-          <div class="form-group">
-            <label>Tipo de fundación (muerto)</label>
-            <div class="radio-group">
-              <div class="radio-option">
-                <input type="radio" id="cilindro" name="tipoMuerto" value="Cilindrico" checked />
-                <label for="cilindro">Aislado Cilíndrico</label>
+        <form id="formNuevoProyecto" class="modern-form" autocomplete="off">
+          <div class="form-section">
+            <h3 class="section-title">
+              <span class="section-icon">📋</span>
+              Información General
+            </h3>
+            
+            <div class="form-grid">
+              <div class="form-group modern">
+                <label for="nombreProyecto">Nombre del proyecto</label>
+                <input type="text" id="nombreProyecto" name="nombreProyecto" placeholder="Ej: Parque Solar Los Molinos" required />
               </div>
-              <div class="radio-option">
-                <input type="radio" id="triangulo" name="tipoMuerto" value="Triangular" />
-                <label for="triangulo">Corrido Triangular</label>
-              </div>
-              <div class="radio-option">
-                <input type="radio" id="corrido" name="tipoMuerto" value="Corrido" />
-                <label for="corrido">Corrido Rectangular</label>
+
+              <div class="form-group modern">
+                <label for="empresaConstructora">Empresa constructora</label>
+                <input type="text" id="empresaConstructora" name="empresaConstructora" placeholder="Ej: Constructora ABC S.A." required />
               </div>
             </div>
           </div>
 
-          <div class="form-group">
-            <label for="velViento">Velocidad del viento (km/h)</label>
-            <input type="number" id="velViento" name="velViento" step="0.1" required />
+          <div class="form-section">
+            <h3 class="section-title">
+              <span class="section-icon">🏗️</span>
+              Tipo de Fundación
+            </h3>
+            
+            <div class="form-group modern">
+              <label>Tipo de fundación (muerto)</label>
+              <div class="radio-group-modern">
+                <div class="radio-card">
+                  <input type="radio" id="cilindro" name="tipoMuerto" value="Cilindrico" checked />
+                  <label for="cilindro">
+                    <div class="radio-icon">⭕</div>
+                    <div class="radio-text">
+                      <span class="radio-title">Aislado Cilíndrico</span>
+                      <span class="radio-desc">Fundación circular individual</span>
+                    </div>
+                  </label>
+                </div>
+                <div class="radio-card">
+                  <input type="radio" id="triangulo" name="tipoMuerto" value="Triangular" />
+                  <label for="triangulo">
+                    <div class="radio-icon">🔺</div>
+                    <div class="radio-text">
+                      <span class="radio-title">Corrido Triangular</span>
+                      <span class="radio-desc">Fundación continua triangular</span>
+                    </div>
+                  </label>
+                </div>
+                <div class="radio-card">
+                  <input type="radio" id="corrido" name="tipoMuerto" value="Corrido" />
+                  <label for="corrido">
+                    <div class="radio-icon">▭</div>
+                    <div class="radio-text">
+                      <span class="radio-title">Corrido Rectangular</span>
+                      <span class="radio-desc">Fundación continua rectangular</span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div class="form-group">
-            <label for="tempPromedio">Temperatura promedio (°C)</label>
-            <input type="number" id="tempPromedio" name="tempPromedio" step="0.1" required />
+          <div class="form-section">
+            <h3 class="section-title">
+              <span class="section-icon">🌤️</span>
+              Condiciones Ambientales
+            </h3>
+            
+            <div class="form-grid three-cols">
+              <div class="form-group modern">
+                <label for="velViento">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M2 5H9C10.1046 5 11 5.89543 11 7C11 8.10457 10.1046 9 9 9H2M2 11H11C12.1046 11 13 10.1046 13 9C13 7.89543 12.1046 7 11 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                  </svg>
+                  Velocidad del viento
+                </label>
+                <div class="input-with-unit">
+                  <input type="number" id="velViento" name="velViento" step="0.1" placeholder="120" required />
+                  <span class="input-unit">km/h</span>
+                </div>
+              </div>
+
+              <div class="form-group modern">
+                <label for="tempPromedio">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M8 11V4M8 11C6.89543 11 6 11.8954 6 13C6 14.1046 6.89543 15 8 15C9.10457 15 10 14.1046 10 13C10 11.8954 9.10457 11 8 11Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                  </svg>
+                  Temperatura promedio
+                </label>
+                <div class="input-with-unit">
+                  <input type="number" id="tempPromedio" name="tempPromedio" step="0.1" placeholder="25" required />
+                  <span class="input-unit">°C</span>
+                </div>
+              </div>
+
+              <div class="form-group modern">
+                <label for="presionAtm">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M8 5V8L10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                  </svg>
+                  Presión atmosférica
+                </label>
+                <div class="input-with-unit">
+                  <input type="number" id="presionAtm" name="presionAtm" step="0.1" placeholder="760" required />
+                  <span class="input-unit">mmHg</span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div class="form-group">
-            <label for="presionAtm">Presión atmosférica (mmHg)</label>
-            <input type="number" id="presionAtm" name="presionAtm" step="0.1" required />
-          </div>
-
-          <div class="actions">
-            <button id="btnProjectSubmit" class="btn-primary">Crear Proyecto</button>
+          <div class="form-actions">
+            <button id="btnProjectSubmit" class="btn-submit" type="submit">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M16 10L12 6M16 10L12 14M16 10H4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Crear Proyecto
+            </button>
           </div>
         </form>
 
         <div id="projectList" class="project-list" style="display:none"></div>
       </div>
+    </section>
 
       <!-- Callback global que invoca Google; delega al handler que define script.js -->
       <script>

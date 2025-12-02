@@ -159,15 +159,102 @@ const { confirmar, mostrarNotificacion, BarraProgreso, ejecutarConLoading, debou
   document.addEventListener('DOMContentLoaded', () => {
     start();
 
-    // Toggle opcional si existe el botón
+    // Sistema de menú de fondo personalizado
     const btn = document.getElementById('toggleBackG');
     const cont = document.getElementById('bg-slideshow');
-    if (btn && cont) {
-      btn.addEventListener('click', () => {
+    const backgroundMenu = document.getElementById('backgroundMenu');
+    const bgToggleVisibility = document.getElementById('bgToggleVisibility');
+    const bgUploadCustom = document.getElementById('bgUploadCustom');
+    const bgResetDefault = document.getElementById('bgResetDefault');
+    const customBackgroundInput = document.getElementById('customBackgroundInput');
+    
+    // Toggle menú desplegable
+    if (btn && backgroundMenu) {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        backgroundMenu.classList.toggle('active');
+      });
+      
+      // Cerrar menú al hacer click fuera
+      document.addEventListener('click', (e) => {
+        if (!btn.contains(e.target) && !backgroundMenu.contains(e.target)) {
+          backgroundMenu.classList.remove('active');
+        }
+      });
+    }
+    
+    // Opción 1: Mostrar/Ocultar fondo
+    if (bgToggleVisibility && cont) {
+      bgToggleVisibility.addEventListener('click', () => {
         const hidden = cont.style.display === 'none';
         cont.style.display = hidden ? 'block' : 'none';
         btn.setAttribute('aria-pressed', String(hidden));
+        backgroundMenu.classList.remove('active');
       });
+    }
+    
+    // Opción 2: Cargar imagen personalizada
+    if (bgUploadCustom && customBackgroundInput && cont) {
+      bgUploadCustom.addEventListener('click', () => {
+        customBackgroundInput.click();
+        backgroundMenu.classList.remove('active');
+      });
+      
+      customBackgroundInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        // Validar que sea una imagen (incluyendo jpg, jpeg, png, webp, gif, etc)
+        const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'image/bmp', 'image/svg+xml'];
+        const isValidImage = file.type.startsWith('image/') || validTypes.includes(file.type);
+        
+        if (isValidImage) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            // Guardar imagen en localStorage
+            localStorage.setItem('customBackground', event.target.result);
+            // Aplicar imagen
+            cont.style.backgroundImage = `url(${event.target.result})`;
+            cont.style.backgroundSize = 'cover';
+            cont.style.backgroundPosition = 'center';
+            cont.style.display = 'block';
+            // Limpiar capas del slideshow
+            cont.innerHTML = '';
+            console.log('[Background] Imagen personalizada cargada:', file.name, file.type);
+          };
+          reader.onerror = (error) => {
+            console.error('[Background] Error al cargar imagen:', error);
+            alert('Error al cargar la imagen. Por favor, intenta con otro archivo.');
+          };
+          reader.readAsDataURL(file);
+        } else {
+          console.error('[Background] Tipo de archivo no válido:', file.type);
+          alert('Por favor selecciona un archivo de imagen válido (JPG, PNG, WebP, GIF, etc.)');
+        }
+        // Limpiar input para permitir seleccionar el mismo archivo de nuevo
+        e.target.value = '';
+      });
+    }
+    
+    // Opción 3: Restaurar fondo original
+    if (bgResetDefault && cont) {
+      bgResetDefault.addEventListener('click', () => {
+        localStorage.removeItem('customBackground');
+        cont.style.backgroundImage = '';
+        cont.style.display = 'block';
+        // Reiniciar slideshow
+        location.reload();
+        backgroundMenu.classList.remove('active');
+      });
+    }
+    
+    // Cargar imagen personalizada guardada al inicio
+    const savedBackground = localStorage.getItem('customBackground');
+    if (savedBackground && cont) {
+      cont.style.backgroundImage = `url(${savedBackground})`;
+      cont.style.backgroundSize = 'cover';
+      cont.style.backgroundPosition = 'center';
+      cont.innerHTML = '';
     }
   });
 })();
@@ -472,6 +559,37 @@ document.addEventListener('DOMContentLoaded', () => {
   if (window.location.pathname === "/dashboard") {
    
     loadProjectInfo();
+    
+    // Mostrar info de usuario en el dashboard
+    const user = AuthState.user || JSON.parse(localStorage.getItem('user') || 'null');
+    const userInfoDashboard = document.getElementById('userInfoDashboard');
+    const userPicDashboard = document.getElementById('userPicDashboard');
+    const userEmailDashboard = document.getElementById('userEmailDashboard');
+    const btnLogoutDashboard = document.getElementById('btnLogoutDashboard');
+    
+    if (user && user.email) {
+      if (userInfoDashboard) userInfoDashboard.style.display = 'flex';
+      if (userEmailDashboard) userEmailDashboard.textContent = user.email;
+      if (userPicDashboard && user.picture) {
+        userPicDashboard.src = user.picture;
+        userPicDashboard.style.display = '';
+      }
+    }
+    
+    // Manejar logout en dashboard
+    if (btnLogoutDashboard) {
+      btnLogoutDashboard.addEventListener('click', async () => {
+        try {
+          await fetch(`${API_BASE}/api/auth/logout`, { method: 'POST', credentials: 'include' });
+        } catch (e) {
+          console.warn('Logout con warning:', e);
+        } finally {
+          AuthState.user = null;
+          localStorage.removeItem('user');
+          window.location.href = '/';
+        }
+      });
+    }
   }
   if (window.location.pathname === "/") {
     // Cargar proyectos anteriores en index solo si hay sesión
@@ -4341,7 +4459,6 @@ window.enableAccordionAfterGrouping = function() {
 const itemsTop = [
   { action: 'home',              label: 'Home',               icon: 'img/backgrounds/10.png' },
   { action: 'import-txt',        label: 'Importar TXT',       icon: 'img/backgrounds/11.png' },
-  { action: 'paneles-importados',label: 'Paneles importados', icon: 'img/backgrounds/6.png'  },
   { action: 'calculos-libro',    label: 'Cálculos libro',     icon: 'img/backgrounds/7.png'  },
   { action: 'resultados-calculo',label: 'Resultados cálculo', icon: 'img/backgrounds/9.png'  },
   { action: 'armado-deadman',    label: 'Armado Deadman',     icon: 'img/backgrounds/8.png'  },
@@ -4375,14 +4492,6 @@ const clickHandlers = {
   // 2) IMPORTAR TXT  -> Sección 1
   'import-txt': () => {
     var element = document.getElementById('section-import-txt');
-    var elementPosition = element.getBoundingClientRect().top;
-    var offsetPosition = elementPosition + window.pageYOffset - headerOffset;
-    window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
-  },
-
-  // 3) PANELES IMPORTADOS -> Sección 2
-  'paneles-importados': () => {
-    var element = document.getElementById('section-paneles-importados');
     var elementPosition = element.getBoundingClientRect().top;
     var offsetPosition = elementPosition + window.pageYOffset - headerOffset;
     window.scrollTo({ top: offsetPosition, behavior: 'smooth' });

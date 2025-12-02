@@ -18,10 +18,29 @@
 <body>
   <!-- Todo el contenido actual, encerrado -->
   <div class="content">
-    <header class="header">
-      <div class="container header__inner">
-        <h1 class="brand">PuntaLink</h1>
-        <span class="muted">Sistema de análisis y cálculo</span>
+    <!-- Header moderno con info de usuario -->
+    <header class="user-header dashboard-header">
+      <div class="header-content">
+        <div class="brand-section">
+          <div class="brand-logo">
+            <img src="img/backgrounds/13.png" alt="PuntaLink Logo" />
+          </div>
+          <div class="brand-text">
+            <h2 class="brand-title">PuntaLink</h2>
+            <p class="brand-subtitle">Sistema de análisis y cálculo</p>
+          </div>
+        </div>
+        
+        <div id="userInfoDashboard" class="user-info-section" style="display:none;">
+          <img id="userPicDashboard" alt="avatar" class="user-avatar"/>
+          <span id="userEmailDashboard" class="user-email"></span>
+          <button id="btnLogoutDashboard" class="btn-logout" type="button">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M6 14H3C2.44772 14 2 13.5523 2 13V3C2 2.44772 2.44772 2 3 2H6M11 11L14 8M14 8L11 5M14 8H6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Cerrar sesión
+          </button>
+        </div>
       </div>
     </header>
 
