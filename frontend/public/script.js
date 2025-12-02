@@ -1133,7 +1133,7 @@ export async function mostrarResultadosViento(data, progress = null, totalMuros 
   // Crear tabla de resultados unificada
   let htmlTabla = `
     <table class="wind-results-table unified-table">
-      <thead style="position: sticky;top: 0px;">
+      <thead style="position: sticky; top: 0; background: #ffffff; z-index: 2;">
         <tr>
           <th rowspan="2" style="border-left: 1px solid #0c0d0e;">Muro</th>
           <th colspan="4" style="background: #e3f2fd;border-bottom: 0px;">DATOS DEL MURO</th>
