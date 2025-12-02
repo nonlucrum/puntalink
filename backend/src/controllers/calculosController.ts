@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { calcularPaneles } from '../services/panelesService';
 import { generarInforme } from '../services/pdfService';
 import { calcularVientoMuros, getParametrosVientoDefecto, WindParameters, getParametrosTerreno, calculateBraceForces, determinarTipoBrace } from '../services/calculosService';
-import { Muro, updateMuroEditableFields, updateMuroBraceCalculations, getMurosByProject, updateMuroWindCalculations } from '../models/Muro';
+import { Muro, updateMuroEditableFields, updateMuroBraceCalculations, getMurosByProject, updateMuroWindCalculations, getMuroByPid } from '../models/Muro';
 import pool from '../services/config/db';
 
 /**
@@ -849,6 +849,48 @@ export const actualizarBracesMasivo = async (req: Request, res: Response) => {
     console.error('[CALCULOS] Error en actualización masiva:', error);
     res.status(500).json({ 
       success: false, 
+      error: 'Error interno del servidor',
+      details: error instanceof Error ? error.message : 'Error desconocido'
+    });
+  }
+};
+
+/**
+ * Obtener un muro específico por PID
+ * GET /api/calculos/muros/:pid
+ */
+export const obtenerMuroPorPid = async (req: Request, res: Response) => {
+  try {
+    const pid = parseInt(req.params.pid);
+    
+    if (isNaN(pid)) {
+      return res.status(400).json({
+        success: false,
+        error: 'PID inválido'
+      });
+    }
+    
+    console.log(`[CALCULOS] Obteniendo muro con PID ${pid}`);
+    
+    const muro = await getMuroByPid(pid);
+    
+    if (!muro) {
+      return res.status(404).json({
+        success: false,
+        error: 'Muro no encontrado'
+      });
+    }
+    
+    console.log(`[CALCULOS] ✓ Muro ${pid} encontrado`);
+    
+    res.json({
+      success: true,
+      muro
+    });
+  } catch (error) {
+    console.error('[CALCULOS] Error obteniendo muro por PID:', error);
+    res.status(500).json({
+      success: false,
       error: 'Error interno del servidor',
       details: error instanceof Error ? error.message : 'Error desconocido'
     });

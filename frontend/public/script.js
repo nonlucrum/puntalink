@@ -727,7 +727,20 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!requireAuthOrWarn()) return;
       try {
         console.log('[SCRIPT] Iniciando cálculo de macizos de anclaje...');
-        // Obtener gruposMuertos que ya están agrupados por braces
+        
+        // PASO 1: Recargar valores guardados de braces desde la BD
+        console.log('[MUERTOS] 🔄 Recargando valores de braces guardados desde la BD...');
+        try {
+          await recargarBracesDesdeDB();
+          console.log('[MUERTOS] ✅ Valores de braces recargados exitosamente');
+        } catch (error) {
+          console.error('[MUERTOS] ⚠️ Error recargando braces:', error);
+          if (window.showNotification) {
+            window.showNotification('warning', 'Advertencia', 'No se pudieron recargar los valores guardados. Se usarán los valores actuales de la tabla.');
+          }
+        }
+        
+        // PASO 2: Obtener gruposMuertos que ya están agrupados por braces
         const gruposMuertos = window.gruposMuertosGlobal;
         if (!gruposMuertos || Object.keys(gruposMuertos).length === 0) {
           alert('No hay grupos de muertos. Por favor, primero calcula los paneles/braces.');
@@ -1127,7 +1140,7 @@ export async function mostrarResultadosViento(data, progress = null, totalMuros 
           <th colspan="4" style="background: #fff3e0;border-bottom: 0px;">CÁLCULOS DE VIENTO</th>
           <th colspan="5" style="background: #f3e5f5;border-bottom: 0px;">PARÁMETROS BRACES (EDITABLES)</th>
           <th colspan="3" style="background: #e8f5e9;border-bottom: 0px;">GEOMETRÍA INSERTO</th>
-          <th colspan="4" style="background: #fce4ec;border-bottom: 0px;">FUERZAS Y CANTIDAD</th>
+          <th colspan="5" style="background: #fce4ec;border-bottom: 0px;">FUERZAS Y CANTIDAD</th>
         </tr>
         <tr>
           <!-- Datos del Muro -->
@@ -1882,8 +1895,100 @@ async function guardarTodosBraces() {
   }
 }
 
+/**
+ * Recarga los valores de braces guardados desde la base de datos
+ * y actualiza window.lastResultadosMuertos con los valores correctos
+ */
+async function recargarBracesDesdeDB() {
+  console.log('[BRACES-RELOAD] 🔄 Recargando valores guardados desde BD...');
+  
+  if (!window.lastResultadosMuertos || window.lastResultadosMuertos.length === 0) {
+    console.warn('[BRACES-RELOAD] No hay resultados previos en window.lastResultadosMuertos');
+    return;
+  }
+  
+  try {
+    // Obtener PIDs de los muros actuales
+    const pids = window.lastResultadosMuertos.map(m => m.pid).filter(p => p);
+    
+    if (pids.length === 0) {
+      console.warn('[BRACES-RELOAD] No hay PIDs válidos para recargar');
+      return;
+    }
+    
+    console.log(`[BRACES-RELOAD] Recargando ${pids.length} muros desde BD...`);
+    
+    // Crear un mapa para actualizar rápidamente
+    const murosActualizados = new Map();
+    
+    // Recargar cada muro desde la BD
+    for (const pid of pids) {
+      try {
+        const response = await fetch(`${API_BASE}/api/calculos/muros/${pid}`);
+        
+        if (response.ok) {
+          const muroData = await response.json();
+          
+          if (muroData.success && muroData.muro) {
+            murosActualizados.set(pid, muroData.muro);
+            console.log(`[BRACES-RELOAD] ✓ PID ${pid} recargado:`, {
+              angulo: muroData.muro.angulo_brace,
+              npt: muroData.muro.npt,
+              tipo: muroData.muro.tipo_brace_seleccionado,
+              x_braces: muroData.muro.x_braces,
+              eje: muroData.muro.eje,
+              fbx: muroData.muro.fbx,
+              fby: muroData.muro.fby,
+              fb: muroData.muro.fb
+            });
+          }
+        } else {
+          console.warn(`[BRACES-RELOAD] Error recargando PID ${pid}: ${response.status}`);
+        }
+      } catch (error) {
+        console.error(`[BRACES-RELOAD] Error obteniendo PID ${pid}:`, error);
+      }
+    }
+    
+    // Actualizar window.lastResultadosMuertos con los valores de la BD
+    window.lastResultadosMuertos = window.lastResultadosMuertos.map(muro => {
+      const muroActualizado = murosActualizados.get(muro.pid);
+      
+      if (muroActualizado) {
+        // Combinar datos originales con valores actualizados de BD
+        return {
+          ...muro,
+          angulo_brace: muroActualizado.angulo_brace,
+          npt: muroActualizado.npt,
+          tipo_brace_seleccionado: muroActualizado.tipo_brace_seleccionado,
+          x_braces: muroActualizado.x_braces,
+          eje: muroActualizado.eje,
+          fbx: muroActualizado.fbx,
+          fby: muroActualizado.fby,
+          fb: muroActualizado.fb,
+          x_inserto: muroActualizado.x_inserto,
+          y_inserto: muroActualizado.y_inserto,
+          FBx: muroActualizado.fbx, // Alias
+          FBy: muroActualizado.fby, // Alias
+          FB: muroActualizado.fb    // Alias
+        };
+      }
+      
+      return muro;
+    });
+    
+    console.log('[BRACES-RELOAD] ✅ window.lastResultadosMuertos actualizado con valores de BD');
+    console.log('[BRACES-RELOAD] Muestra del primer muro actualizado:', window.lastResultadosMuertos[0]);
+    
+  } catch (error) {
+    console.error('[BRACES-RELOAD] Error recargando desde BD:', error);
+    throw error;
+  }
+}
+
 // Exponer funciones globalmente
 window.guardarTodosBraces = guardarTodosBraces;
+window.recargarBracesDesdeDB = recargarBracesDesdeDB;
 
 /**
  * Aplicar valores globales a todos los muros
@@ -4247,6 +4352,8 @@ const itemsBottom = [
   { action: 'help', label: 'Ayuda', icon: 'img/backgrounds/12.png' },
 ];
 
+// Offset para scroll (altura del header fijo)
+const headerOffset = 110;
 
 // Mapeo de acciones a funciones reales
 const clickHandlers = {
@@ -4267,44 +4374,42 @@ const clickHandlers = {
 
   // 2) IMPORTAR TXT  -> Sección 1
   'import-txt': () => {
-    const sec = document.getElementById('section-import-txt');
-    if (sec) {
-      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-    const input = document.getElementById('txtInput');
-    if (input) input.focus();
+    var element = document.getElementById('section-import-txt');
+    var elementPosition = element.getBoundingClientRect().top;
+    var offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+    window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
   },
 
   // 3) PANELES IMPORTADOS -> Sección 2
   'paneles-importados': () => {
-    const sec = document.getElementById('section-paneles-importados');
-    if (sec) {
-      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    var element = document.getElementById('section-paneles-importados');
+    var elementPosition = element.getBoundingClientRect().top;
+    var offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+    window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
   },
 
   // 4) CÁLCULOS LIBRO III -> Sección 3
   'calculos-libro': () => {
-    const sec = document.getElementById('section-calculos-libro');
-    if (sec) {
-      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    var element = document.getElementById('section-calculos-libro');
+    var elementPosition = element.getBoundingClientRect().top;
+    var offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+    window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
   },
 
   // 5) RESULTADOS DE CÁLCULOS -> Sección 4
   'resultados-calculo': () => {
-    const sec = document.getElementById('section-resultados-calculo');
-    if (sec) {
-      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    var element = document.getElementById('section-resultados-calculo');
+    var elementPosition = element.getBoundingClientRect().top;
+    var offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+    window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
   },
 
   // 6) ARMADO DEADMAN -> Sección 5
   'armado-deadman': () => {
-    const sec = document.getElementById('section-armado-deadman');
-    if (sec) {
-      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    var element = document.getElementById('section-armado-deadman');
+    var elementPosition = element.getBoundingClientRect().top;
+    var offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+    window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
   },
 
   // Botón CALCULAR (si lo sigues usando)
