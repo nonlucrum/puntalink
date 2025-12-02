@@ -992,9 +992,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnLoadOldProject) {
     btnLoadOldProject.addEventListener('click', () => {
       if (!requireAuthOrWarn()) return;
-      btnCreateNewProject.className = "togglebtn--ghost";
-      btnLoadOldProject.className = "togglebtn";
-      toggleBackG.style.transform = "translate(100%)"
+      btnCreateNewProject.classList.remove('active');
+      btnLoadOldProject.classList.add('active');
       formNuevoProyecto.style.display = 'none';
       projectList.style.display = '';
     });
@@ -1002,9 +1001,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (btnCreateNewProject) {
     btnCreateNewProject.addEventListener('click', () => {
-      btnCreateNewProject.className = "togglebtn";
-      btnLoadOldProject.className = "togglebtn--ghost";
-      toggleBackG.style.transform = "translate(0%)"
+      btnCreateNewProject.classList.add('active');
+      btnLoadOldProject.classList.remove('active');
       formNuevoProyecto.style.display = '';
       projectList.style.display = 'none';
     });
@@ -1251,7 +1249,7 @@ export async function mostrarResultadosViento(data, progress = null, totalMuros 
   // Crear tabla de resultados unificada
   let htmlTabla = `
     <table class="wind-results-table unified-table">
-      <thead style="position: sticky;top: 0px;">
+      <thead style="position: sticky; top: 0; background: #ffffff; z-index: 2;">
         <tr>
           <th rowspan="2" style="border-left: 1px solid #0c0d0e;">Muro</th>
           <th colspan="4" style="background: #e3f2fd;border-bottom: 0px;">DATOS DEL MURO</th>
