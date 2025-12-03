@@ -41,8 +41,7 @@ function obtenerPesoEspecifico(tipoVarilla) {
 function calcularDimensionConRedondeo(volumen, dim1, dim2) {
   if (!dim1 || !dim2) return 0;
   const valorBase = volumen / (dim1 * dim2);
-  let dimension = Math.ceil(valorBase * 20) / 20;
-  if (dimension < 0.5) dimension = 0.5;
+  let dimension = Math.ceil(valorBase * 20) / 20; // Redondeo a 0.05m
   return dimension;
 }
 

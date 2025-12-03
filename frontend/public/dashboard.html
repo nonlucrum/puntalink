@@ -221,10 +221,30 @@
               </div>
 
               <div class="parameter-group">
+                <h4>Clasificación de Estructura (NSR-10)</h4>
+                <div class="form-row">
+                  <label for="categoria_estructura_nsr10">Categoría NSR-10:</label>
+                  <select id="categoria_estructura_nsr10">
+                    <option value="A">A - Estructuras de ocupación especial</option>
+                    <option value="B" selected>B - Estructuras de ocupación normal</option>
+                    <option value="C">C - Estructuras de ocupación miscelánea</option>
+                  </select>
+                </div>
+                <div style="margin-top: 0.5rem; padding: 0.75rem; background: rgba(31, 111, 235, 0.1); border-radius: 6px; border-left: 4px solid var(--primary);">
+                  <div style="font-size: 0.85rem; color: var(--muted); line-height: 1.4;">
+                    <strong style="color: var(--primary);">CATEGORÍA SELECCIONADA:</strong>
+                    <div id="categoria_nsr10_display" style="font-size: 1.3rem; font-weight: bold; color: var(--primary); margin-top: 0.25rem;">
+                      B
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="parameter-group">
                 <h4>Parámetros de Viento</h4>
                 <div class="form-row">
                   <label for="VR_kmh">VR (mapa regional):</label>
-                  <input type="number" id="VR_kmh" min="0" value="128">
+                  <input type="number" id="VR_kmh" min="0" value="128" readonly style="background: #f0f0f0; cursor: not-allowed;">
                   <span>km/h</span>
                 </div>
                 <div class="form-row">
@@ -234,15 +254,15 @@
               </div>
 
               <div class="parameter-group">
-                <h4>Condiciones Ambientales</h4>
+                <h4>Condiciones Ambientales (Desde Proyecto)</h4>
                 <div class="form-row">
                   <label for="temperatura_C">Temperatura:</label>
-                  <input type="number" id="temperatura_C" step="0.1" value="30">
+                  <input type="number" id="temperatura_C" step="0.1" value="30" readonly style="background: #f0f0f0; cursor: not-allowed;">
                   <span>°C</span>
                 </div>
                 <div class="form-row">
                   <label for="presion_barometrica_mmHg">Presión barométrica:</label>
-                  <input type="number" id="presion_barometrica_mmHg" step="0.1" min="0" value="760">
+                  <input type="number" id="presion_barometrica_mmHg" step="0.1" min="0" value="760" readonly style="background: #f0f0f0; cursor: not-allowed;">
                   <span>mm Hg</span>
                 </div>
               </div>

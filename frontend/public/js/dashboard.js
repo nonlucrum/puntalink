@@ -490,6 +490,17 @@ export async function loadProjectInfo() {
         document.getElementById('proyectoTempPromedio').value = project.temp_promedio || '-';
         document.getElementById('proyectoPresionAtm').value = project.presion_atmo || '-';
 
+        // Sincronizar valores del proyecto con los campos de cálculo de viento
+        const velViento = parseFloat(project.vel_viento) || 128;
+        const temperatura = parseFloat(project.temp_promedio) || 30;
+        const presion = parseFloat(project.presion_atmo) || 760;
+        
+        document.getElementById('VR_kmh').value = velViento;
+        document.getElementById('temperatura_C').value = temperatura;
+        document.getElementById('presion_barometrica_mmHg').value = presion;
+        
+        console.log('[DASHBOARD] Valores sincronizados - VR:', velViento, 'Temp:', temperatura, 'Presión:', presion);
+
         if (project.texto_entrada != null && project.texto_entrada !== undefined) {
             console.log('[FRONTEND] Cargando paneles guardados...');
             const murosCompletos = await fetchMurosFromDatabase();
@@ -1897,6 +1908,10 @@ function mostrarConfigGrupos(gruposMuertos) {
         Configuración de Grupo por Muerto
       </h3>
       
+      <p style="color: var(--muted); margin-bottom: 1rem; font-size: 0.9rem;">
+        💡 <strong>Tip:</strong> El ancho del macizo se calcula automáticamente según: <code style="background: var(--bg); padding: 0.2rem 0.4rem; border-radius: 3px;">ancho = volumen / (largo × profundidad)</code>
+      </p>
+      
       <p style="color: var(--text-dim); margin-bottom: 1.5rem;">
         Ingresa la <b>profundidad</b> y las <b>separaciones de acero</b> (longitudinal y transversal) para cada grupo de muertos.<br>
         Estos valores se usarán en los cálculos de macizos de anclaje y armado.<br>
@@ -1911,7 +1926,9 @@ function mostrarConfigGrupos(gruposMuertos) {
             <th style="padding: 0.75rem; text-align: center;">Ángulo</th>
             <th style="padding: 0.75rem; text-align: center;">Eje</th>
             <th style="padding: 0.75rem; text-align: center;">Cant. Muros</th>
-            <th style="padding: 0.75rem; text-align: center; min-width: 120px;">Profundidad (m)</th>
+            <th style="padding: 0.75rem; text-align: center; min-width: 100px;">Largo Total (m)</th>
+            <th style="padding: 0.75rem; text-align: center; min-width: 120px; background: rgba(255,193,7,0.2);">Profundidad (m)</th>
+            <th style="padding: 0.75rem; text-align: center; min-width: 100px; background: rgba(40,167,69,0.2);">Ancho Calc. (m)</th>
             <th style="padding: 0.75rem; text-align: center; min-width: 120px;">Sep. Long. (cm)</th>
             <th style="padding: 0.75rem; text-align: center; min-width: 120px;">Sep. Trans. (cm)</th>
           </tr>
@@ -1930,19 +1947,45 @@ function mostrarConfigGrupos(gruposMuertos) {
       const valorActual = window.configGruposMuertos[clave]?.profundo || 2.0;
       const sepLong = window.configGruposMuertos[clave]?.separacionLongitudinal || 25;
       const sepTrans = window.configGruposMuertos[clave]?.separacionTransversal || 25;
+      
+      // Calcular largo total y ancho del macizo
+      let largoTotal = 0;
+      let sumaFBy = 0;
+      if (grupo.muros && Array.isArray(grupo.muros)) {
+        grupo.muros.forEach(muroId => {
+          const muroObj = window.lastResultadosMuertos?.find(m => m.id_muro === muroId || m.id === muroId);
+          if (muroObj) {
+            largoTotal += parseFloat(muroObj.overall_width) || 0;
+            sumaFBy += parseFloat(muroObj.fby) || parseFloat(muroObj.FBy) || 0;
+          }
+        });
+      }
+      
+      const volumenRequerido = sumaFBy / 2400; // Densidad del concreto
+      let anchoCalculado = 0;
+      if (largoTotal > 0 && valorActual > 0) {
+        const valorBase = volumenRequerido / (largoTotal * valorActual);
+        anchoCalculado = Math.ceil(valorBase * 20) / 20; // Redondeo a 0.05m
+      }
+      
       console.log(`[DASHBOARD] Generando fila para grupo muerto:`, {
         claveGrupo: clave,
         valorActual,
+        largoTotal,
+        anchoCalculado,
         config: window.configGruposMuertos[clave],
         grupo
       });
       html += `
-        <tr style="border-bottom: 1px solid var(--border);">
+        <tr style="border-bottom: 1px solid var(--border);" data-grupo="${clave}">
           <td style="padding: 0.75rem; font-weight: bold; color: var(--primary);">${clave}</td>
           <td style="padding: 0.75rem; text-align: center;">${xBraces}</td>
           <td style="padding: 0.75rem; text-align: center;">${angulo}°</td>
           <td style="padding: 0.75rem; text-align: center; font-weight: bold; color: #28a745;">${eje}</td>
           <td style="padding: 0.75rem; text-align: center; color: #6f42c1; font-weight: bold;">${grupo.muros?.length || 0}</td>
+          <td style="padding: 0.75rem; text-align: center; font-weight: bold; color: #007bff;" data-largo-total="${largoTotal}">
+            ${largoTotal.toFixed(2)}
+          </td>
           <td style="padding: 0.75rem; text-align: center;">
             <input 
               type="number" 
@@ -1953,9 +1996,14 @@ function mostrarConfigGrupos(gruposMuertos) {
               step="0.1" 
               min="0.5"
               max="10"
-              style="width: 80px; padding: 0.5rem; text-align: center; border: 2px solid var(--border); border-radius: 4px; font-size: 1rem; font-weight: bold;"
+              style="width: 90px; padding: 0.5rem; text-align: center; border: 2px solid #ffc107; border-radius: 4px; font-size: 1rem; font-weight: bold; background: rgba(255,193,7,0.1);"
               placeholder="2.0"
             >
+          </td>
+          <td style="padding: 0.75rem; text-align: center;">
+            <span class="ancho-calculado-display" data-grupo="${clave}" style="display: inline-block; padding: 0.5rem 1rem; background: rgba(40,167,69,0.15); border: 2px solid #28a745; border-radius: 4px; font-weight: bold; color: #28a745; min-width: 80px;">
+              ${anchoCalculado.toFixed(2)} m
+            </span>
           </td>
           <td style="padding: 0.75rem; text-align: center;">
             <input 
@@ -1996,15 +2044,38 @@ function mostrarConfigGrupos(gruposMuertos) {
       const sepLong = window.configGruposMuertos[clave]?.separacionLongitudinal || 25;
       const sepTrans = window.configGruposMuertos[clave]?.separacionTransversal || 25;
       
+      // Calcular largo total y ancho del macizo
+      let largoTotal = 0;
+      let sumaFBy = 0;
+      if (grupo.muros && Array.isArray(grupo.muros)) {
+        grupo.muros.forEach(muroId => {
+          const muroObj = window.lastResultadosMuertos?.find(m => m.id_muro === muroId || m.id === muroId);
+          if (muroObj) {
+            largoTotal += parseFloat(muroObj.overall_width) || 0;
+            sumaFBy += parseFloat(muroObj.fby) || parseFloat(muroObj.FBy) || 0;
+          }
+        });
+      }
+      
+      const volumenRequerido = sumaFBy / 2400; // Densidad del concreto
+      let anchoCalculado = 0;
+      if (largoTotal > 0 && valorActual > 0) {
+        const valorBase = volumenRequerido / (largoTotal * valorActual);
+        anchoCalculado = Math.ceil(valorBase * 20) / 20; // Redondeo a 0.05m
+      }
+      
       console.log(`[DASHBOARD] Generando fila para M${indice}, clave: ${clave}`, grupo);
       
       html += `
-        <tr style="border-bottom: 1px solid var(--border);">
+        <tr style="border-bottom: 1px solid var(--border);" data-grupo="${clave}">
           <td style="padding: 0.75rem; font-weight: bold; color: var(--primary);">M${indice}</td>
           <td style="padding: 0.75rem; text-align: center;">${grupo.x_braces}</td>
           <td style="padding: 0.75rem; text-align: center;">${grupo.angulo}°</td>
           <td style="padding: 0.75rem; text-align: center; font-weight: bold; color: #28a745;">${grupo.eje || 'N/A'}</td>
           <td style="padding: 0.75rem; text-align: center; color: #6f42c1; font-weight: bold;">${grupo.muros.length}</td>
+          <td style="padding: 0.75rem; text-align: center; font-weight: bold; color: #007bff;" data-largo-total="${largoTotal}">
+            ${largoTotal.toFixed(2)}
+          </td>
           <td style="padding: 0.75rem; text-align: center;">
             <input 
               type="number" 
@@ -2015,9 +2086,14 @@ function mostrarConfigGrupos(gruposMuertos) {
               step="0.1" 
               min="0.5"
               max="10"
-              style="width: 80px; padding: 0.5rem; text-align: center; border: 2px solid var(--border); border-radius: 4px; font-size: 1rem; font-weight: bold;"
+              style="width: 90px; padding: 0.5rem; text-align: center; border: 2px solid #ffc107; border-radius: 4px; font-size: 1rem; font-weight: bold; background: rgba(255,193,7,0.1);"
               placeholder="2.0"
             >
+          </td>
+          <td style="padding: 0.75rem; text-align: center;">
+            <span class="ancho-calculado-display" data-grupo="${clave}" style="display: inline-block; padding: 0.5rem 1rem; background: rgba(40,167,69,0.15); border: 2px solid #28a745; border-radius: 4px; font-weight: bold; color: #28a745; min-width: 80px;">
+              ${anchoCalculado.toFixed(2)} m
+            </span>
           </td>
           <td style="padding: 0.75rem; text-align: center;">
             <input 
@@ -2077,6 +2153,51 @@ function mostrarConfigGrupos(gruposMuertos) {
   
   // Event listener para el botón de guardar
   document.getElementById('btnGuardarProfundidades').addEventListener('click', guardarProfundidadesMuertos);
+  
+  // Event listener para recalcular ancho en tiempo real al cambiar profundidad
+  document.querySelectorAll('.input-profundidad-muerto').forEach(input => {
+    input.addEventListener('input', function() {
+      const grupoClave = this.getAttribute('data-grupo-clave');
+      const row = this.closest('tr[data-grupo]');
+      if (!row) return;
+      
+      const largoTotal = parseFloat(row.querySelector('[data-largo-total]').getAttribute('data-largo-total')) || 0;
+      const profundidad = parseFloat(this.value) || 0;
+      
+      // Obtener suma de FBy del grupo
+      let sumaFBy = 0;
+      const grupo = window.gruposMuertosGlobal?.[grupoClave];
+      if (grupo && grupo.muros && Array.isArray(grupo.muros)) {
+        grupo.muros.forEach(muroId => {
+          const muroObj = window.lastResultadosMuertos?.find(m => m.id_muro === muroId || m.id === muroId);
+          if (muroObj) {
+            sumaFBy += parseFloat(muroObj.fby) || parseFloat(muroObj.FBy) || 0;
+          }
+        });
+      }
+      
+      // Calcular ancho del macizo
+      const volumenRequerido = sumaFBy / 2400;
+      let anchoCalculado = 0;
+      if (largoTotal > 0 && profundidad > 0) {
+        const valorBase = volumenRequerido / (largoTotal * profundidad);
+        anchoCalculado = Math.ceil(valorBase * 20) / 20; // Redondeo a 0.05m
+      }
+      
+      // Actualizar display del ancho
+      const anchoDisplay = row.querySelector(`.ancho-calculado-display[data-grupo="${grupoClave}"]`);
+      if (anchoDisplay) {
+        anchoDisplay.textContent = `${anchoCalculado.toFixed(2)} m`;
+        // Animación de actualización
+        anchoDisplay.style.transform = 'scale(1.1)';
+        anchoDisplay.style.background = 'rgba(40,167,69,0.3)';
+        setTimeout(() => {
+          anchoDisplay.style.transform = 'scale(1)';
+          anchoDisplay.style.background = 'rgba(40,167,69,0.15)';
+        }, 200);
+      }
+    });
+  });
   
   console.log('[DASHBOARD] Listado de muertos mostrado:', Object.keys(gruposMuertos).length, 'grupos');
 }
@@ -2808,6 +2929,26 @@ document.addEventListener('DOMContentLoaded', function() {
     initArmadoRectangular();
   } else {
     console.warn('[ARMADO] ⚠️ Botón btnCalcularArmado no encontrado');
+  }
+  
+  // ===== ACTUALIZAR CATEGORÍA NSR-10 =====
+  function actualizarCategoriaNSR10() {
+    const selectorCategoria = document.getElementById('categoria_estructura_nsr10');
+    const display = document.getElementById('categoria_nsr10_display');
+    
+    if (selectorCategoria && display) {
+      const categoriaNSR = selectorCategoria.value;
+      display.textContent = categoriaNSR;
+      console.log('[DASHBOARD] Categoría NSR-10 actualizada:', categoriaNSR);
+    }
+  }
+  
+  // Event listener para actualizar categoría al cambiar selector
+  const selectorCategoriaNSR = document.getElementById('categoria_estructura_nsr10');
+  if (selectorCategoriaNSR) {
+    selectorCategoriaNSR.addEventListener('change', actualizarCategoriaNSR10);
+    // Actualizar al cargar
+    actualizarCategoriaNSR10();
   }
   
   // Listener para detectar cuando script.js actualiza window.gruposMuertosGlobal
