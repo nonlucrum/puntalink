@@ -2992,8 +2992,14 @@ function reagruparMuertosConValoresActuales() {
       }
     }
     
-    // Construir objeto similar a los resultados originales
+    // Buscar el muro original en lastResultadosMuertos para preservar campos calculados
+    const muroOriginal = window.lastResultadosMuertos?.find(m => 
+      m.pid === pid || m.id_muro === (muroCell ? muroCell.textContent.trim() : null)
+    );
+    
+    // Construir objeto preservando campos calculados del original
     const resultado = {
+      // Campos básicos
       id_muro: muroCell ? muroCell.textContent.trim() : `Muro_${index + 1}`,
       pid: pid,
       altura_z_m: alturaCell ? parseFloat(alturaCell.textContent) || 0 : 0,
@@ -3007,13 +3013,28 @@ function reagruparMuertosConValoresActuales() {
       x_braces: cantidadBraces,
       total_braces: cantidadBraces,
       
-      // NUEVO: Leer x_inserto desde la tabla o dataset
+      // Leer x_inserto desde la tabla o dataset
       x_inserto: row.dataset.xInserto || row.dataset.x_inserto || '0.00',
       y_inserto: row.dataset.yInserto || row.dataset.y_inserto || '0.00',
       
       // Obtener eje directamente del input actualizado
       eje: ejeInput ? ejeInput.value.trim() : (row.dataset.eje || `Eje_${index + 1}`),
-      tipo_construccion: row.dataset.tipoConst || 'TILT-UP'
+      tipo_construccion: row.dataset.tipoConst || 'TILT-UP',
+      
+      // ✅ PRESERVAR CAMPOS CALCULADOS del muro original
+      fb: muroOriginal?.fb || 0,
+      fbx: muroOriginal?.fbx || 0,
+      fby: muroOriginal?.fby || 0,
+      cant_b14: muroOriginal?.cant_b14 || 0,
+      cant_b12: muroOriginal?.cant_b12 || 0,
+      cant_b04: muroOriginal?.cant_b04 || 0,
+      cant_b15: muroOriginal?.cant_b15 || 0,
+      grosor: muroOriginal?.grosor || 0.17,
+      area: muroOriginal?.area || 0,
+      peso: muroOriginal?.peso || 0,
+      volumen: muroOriginal?.volumen || 0,
+      overall_width: muroOriginal?.overall_width || 0,
+      overall_height: muroOriginal?.overall_height || 0
     };
     
     console.log(`[MUERTOS] Fila ${index + 1} - EJE: "${resultado.eje}" (PID: ${pid})`);
@@ -3091,6 +3112,9 @@ function reagruparMuertosConValoresActuales() {
 
   // Actualizar también el debug output
   window.lastGruposMuertos = gruposNuevos;
+  
+  // ✅ ACTUALIZAR window.lastResultadosMuertos con los resultados que ahora incluyen campos calculados
+  window.lastResultadosMuertos = resultadosActualizados;
   
   // ✅ EXPONER GLOBALMENTE para que ejecutarCalculosArmado() pueda usarlos
   window.gruposMuertosGlobal = gruposNuevos;

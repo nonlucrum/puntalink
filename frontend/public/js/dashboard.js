@@ -1956,7 +1956,26 @@ function mostrarConfigGrupos(gruposMuertos) {
           const muroObj = window.lastResultadosMuertos?.find(m => m.id_muro === muroId || m.id === muroId);
           if (muroObj) {
             largoTotal += parseFloat(muroObj.overall_width) || 0;
-            sumaFBy += parseFloat(muroObj.fby) || parseFloat(muroObj.FBy) || 0;
+            let fby = parseFloat(muroObj.fby) || parseFloat(muroObj.FBy) || 0;
+            
+            // ✅ Si fby es 0, intentar obtenerlo desde la tabla de cálculos
+            if (fby === 0) {
+              const pid = muroObj.pid;
+              const tablaCalculo = document.querySelector('.wind-results-table, .tabla-braces, #tablaBraces, #tablaResultados');
+              if (tablaCalculo && pid) {
+                const fbyCell = tablaCalculo.querySelector(`.valor-fby[data-pid="${pid}"]`);
+                if (fbyCell) {
+                  const fbyTabla = parseFloat(fbyCell.textContent);
+                  if (!isNaN(fbyTabla) && fbyTabla > 0) {
+                    fby = fbyTabla;
+                    muroObj.fby = fby;
+                    console.log(`[DASHBOARD-INIT-1] ✅ FBy recuperado de tabla para ${muroId}: ${fby.toFixed(2)} kN`);
+                  }
+                }
+              }
+            }
+            
+            sumaFBy += fby;
           }
         });
       }
@@ -2001,7 +2020,7 @@ function mostrarConfigGrupos(gruposMuertos) {
             >
           </td>
           <td style="padding: 0.75rem; text-align: center;">
-            <span class="ancho-calculado-display" data-grupo="${clave}" style="display: inline-block; padding: 0.5rem 1rem; background: rgba(40,167,69,0.15); border: 2px solid #28a745; border-radius: 4px; font-weight: bold; color: #28a745; min-width: 80px;">
+            <span class="ancho-calculado-display" data-grupo="${clave}" style="display: inline-block; padding: 0.5rem 1rem; background: rgba(40,167,69,0.15); border: 2px solid #28a745; border-radius: 4px; font-weight: bold; color: #000000ff; min-width: 80px;">
               ${anchoCalculado.toFixed(2)} m
             </span>
           </td>
@@ -2052,7 +2071,26 @@ function mostrarConfigGrupos(gruposMuertos) {
           const muroObj = window.lastResultadosMuertos?.find(m => m.id_muro === muroId || m.id === muroId);
           if (muroObj) {
             largoTotal += parseFloat(muroObj.overall_width) || 0;
-            sumaFBy += parseFloat(muroObj.fby) || parseFloat(muroObj.FBy) || 0;
+            let fby = parseFloat(muroObj.fby) || parseFloat(muroObj.FBy) || 0;
+            
+            // ✅ Si fby es 0, intentar obtenerlo desde la tabla de cálculos
+            if (fby === 0) {
+              const pid = muroObj.pid;
+              const tablaCalculo = document.querySelector('.wind-results-table, .tabla-braces, #tablaBraces, #tablaResultados');
+              if (tablaCalculo && pid) {
+                const fbyCell = tablaCalculo.querySelector(`.valor-fby[data-pid="${pid}"]`);
+                if (fbyCell) {
+                  const fbyTabla = parseFloat(fbyCell.textContent);
+                  if (!isNaN(fbyTabla) && fbyTabla > 0) {
+                    fby = fbyTabla;
+                    muroObj.fby = fby;
+                    console.log(`[DASHBOARD-INIT-2] ✅ FBy recuperado de tabla para ${muroId}: ${fby.toFixed(2)} kN`);
+                  }
+                }
+              }
+            }
+            
+            sumaFBy += fby;
           }
         });
       }
@@ -2159,21 +2197,68 @@ function mostrarConfigGrupos(gruposMuertos) {
     input.addEventListener('input', function() {
       const grupoClave = this.getAttribute('data-grupo-clave');
       const row = this.closest('tr[data-grupo]');
-      if (!row) return;
+      
+      console.log('[ANCHO-RT] Input detectado:', {
+        grupoClave,
+        valor: this.value,
+        rowEncontrado: !!row
+      });
+      
+      if (!row) {
+        console.error('[ANCHO-RT] No se encontró la fila');
+        return;
+      }
       
       const largoTotal = parseFloat(row.querySelector('[data-largo-total]').getAttribute('data-largo-total')) || 0;
       const profundidad = parseFloat(this.value) || 0;
       
+      console.log('[ANCHO-RT] Valores iniciales:', { largoTotal, profundidad });
+      
       // Obtener suma de FBy del grupo
       let sumaFBy = 0;
       const grupo = window.gruposMuertosGlobal?.[grupoClave];
+      
+      console.log('[ANCHO-RT] Grupo encontrado:', !!grupo, 'Muros:', grupo?.muros?.length);
+      console.log('[ANCHO-RT] window.lastResultadosMuertos disponible:', !!window.lastResultadosMuertos, 'Cantidad:', window.lastResultadosMuertos?.length);
+      
       if (grupo && grupo.muros && Array.isArray(grupo.muros)) {
         grupo.muros.forEach(muroId => {
           const muroObj = window.lastResultadosMuertos?.find(m => m.id_muro === muroId || m.id === muroId);
           if (muroObj) {
-            sumaFBy += parseFloat(muroObj.fby) || parseFloat(muroObj.FBy) || 0;
+            let fby = parseFloat(muroObj.fby) || parseFloat(muroObj.FBy) || 0;
+            
+            // ✅ Si fby es 0, intentar obtenerlo desde la tabla de cálculos
+            if (fby === 0) {
+              const pid = muroObj.pid;
+              const tablaCalculo = document.querySelector('.wind-results-table, .tabla-braces, #tablaBraces, #tablaResultados');
+              if (tablaCalculo && pid) {
+                const fbyCell = tablaCalculo.querySelector(`.valor-fby[data-pid="${pid}"]`);
+                if (fbyCell) {
+                  const fbyTabla = parseFloat(fbyCell.textContent);
+                  if (!isNaN(fbyTabla) && fbyTabla > 0) {
+                    fby = fbyTabla;
+                    // Actualizar el objeto en memoria para futuros cálculos
+                    muroObj.fby = fby;
+                    console.log(`[ANCHO-RT] ✅ FBy recuperado de tabla para ${muroId}: ${fby.toFixed(2)} kN`);
+                  }
+                }
+              }
+            }
+            
+            sumaFBy += fby;
+            console.log(`[ANCHO-RT] Muro ${muroId}: FBy = ${fby.toFixed(2)} kN`);
+          } else {
+            console.warn(`[ANCHO-RT] ⚠️ Muro ${muroId} NO encontrado en lastResultadosMuertos`);
           }
         });
+      }
+      
+      console.log('[ANCHO-RT] Suma FBy total:', sumaFBy);
+      
+      // ⚠️ ADVERTENCIA: Si la suma es 0, significa que no se han calculado las fuerzas
+      if (sumaFBy === 0 && grupo.muros && grupo.muros.length > 0) {
+        console.warn('[ANCHO-RT] ⚠️ ADVERTENCIA: FBy = 0. Necesitas calcular las fuerzas de viento primero.');
+        console.warn('[ANCHO-RT] Ve a la tabla de Braces y modifica algún parámetro (ángulo, tipo, NPT) para disparar el cálculo.');
       }
       
       // Calcular ancho del macizo
@@ -2184,17 +2269,31 @@ function mostrarConfigGrupos(gruposMuertos) {
         anchoCalculado = Math.ceil(valorBase * 20) / 20; // Redondeo a 0.05m
       }
       
+      console.log('[ANCHO-RT] Ancho calculado:', anchoCalculado);
+      
       // Actualizar display del ancho
       const anchoDisplay = row.querySelector(`.ancho-calculado-display[data-grupo="${grupoClave}"]`);
       if (anchoDisplay) {
-        anchoDisplay.textContent = `${anchoCalculado.toFixed(2)} m`;
-        // Animación de actualización
-        anchoDisplay.style.transform = 'scale(1.1)';
-        anchoDisplay.style.background = 'rgba(40,167,69,0.3)';
-        setTimeout(() => {
-          anchoDisplay.style.transform = 'scale(1)';
-          anchoDisplay.style.background = 'rgba(40,167,69,0.15)';
-        }, 200);
+        if (sumaFBy === 0) {
+          anchoDisplay.textContent = '⚠️ Sin calcular';
+          anchoDisplay.style.background = 'rgba(255,193,7,0.2)';
+          anchoDisplay.style.color = '#856404';
+          anchoDisplay.title = 'Las fuerzas de viento no están calculadas. Ve a la tabla de Braces y modifica algún parámetro.';
+        } else {
+          anchoDisplay.textContent = `${anchoCalculado.toFixed(2)} m`;
+          anchoDisplay.style.color = '#155724';
+          anchoDisplay.title = '';
+          // Animación de actualización
+          anchoDisplay.style.transform = 'scale(1.1)';
+          anchoDisplay.style.background = 'rgba(40,167,69,0.3)';
+          setTimeout(() => {
+            anchoDisplay.style.transform = 'scale(1)';
+            anchoDisplay.style.background = 'rgba(40,167,69,0.15)';
+          }, 200);
+        }
+        console.log('[ANCHO-RT] ✅ Display actualizado');
+      } else {
+        console.error('[ANCHO-RT] ❌ No se encontró el display del ancho');
       }
     });
   });
