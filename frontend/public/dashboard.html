@@ -244,12 +244,29 @@
                 <h4>Parámetros de Viento</h4>
                 <div class="form-row">
                   <label for="VR_kmh">VR (mapa regional):</label>
-                  <input type="number" id="VR_kmh" min="0" value="128" readonly style="background: #f0f0f0; cursor: not-allowed;">
+                  <input type="number" id="VR_kmh" min="0" value="" disabled style="cursor: not-allowed;">
                   <span>km/h</span>
                 </div>
+                <script>
+                document.addEventListener('DOMContentLoaded', () => {
+                  const projInput = document.getElementById('proyectoVelViento'); // ID del input del proyecto
+                  const vrInput = document.getElementById('VR_kmh');
+                  if (!vrInput) return;
+                  const syncVR = () => {
+                  if (!projInput) { vrInput.value = ''; return; }
+                  const v = projInput.value;
+                  vrInput.value = v === '' ? '' : parseFloat(v);
+                  };
+                  syncVR();
+                  if (projInput) {
+                  projInput.addEventListener('input', syncVR);
+                  projInput.addEventListener('change', syncVR);
+                  }
+                });
+                </script>
                 <div class="form-row">
                   <label for="FT">FT (topografía):</label>
-                  <input type="number" id="FT" step="0.01" min="0" value="1.0">
+                  <input type="number" id="FT" step="0.01" min="0" value="1.0"  disabled style="cursor: not-allowed;">
                 </div>
               </div>
 
@@ -257,16 +274,49 @@
                 <h4>Condiciones Ambientales (Desde Proyecto)</h4>
                 <div class="form-row">
                   <label for="temperatura_C">Temperatura:</label>
-                  <input type="number" id="temperatura_C" step="0.1" value="30" readonly style="background: #f0f0f0; cursor: not-allowed;">
+                  <input type="number" id="temperatura_C" step="0.1" value=""  disabled style="cursor: not-allowed;">
                   <span>°C</span>
                 </div>
+                <script>
+                document.addEventListener('DOMContentLoaded', () => {
+                  const projInput = document.getElementById('proyectoTempPromedio'); // ID del input del proyecto
+                  const vrInput = document.getElementById('temperatura_C');
+                  if (!vrInput) return;
+                  const syncVR = () => {
+                  if (!projInput) { vrInput.value = ''; return; }
+                  const v = projInput.value;
+                  vrInput.value = v === '' ? '' : parseFloat(v);
+                  };
+                  syncVR();
+                  if (projInput) {
+                  projInput.addEventListener('input', syncVR);
+                  projInput.addEventListener('change', syncVR);
+                  }
+                });
+                </script>
                 <div class="form-row">
                   <label for="presion_barometrica_mmHg">Presión barométrica:</label>
-                  <input type="number" id="presion_barometrica_mmHg" step="0.1" min="0" value="760" readonly style="background: #f0f0f0; cursor: not-allowed;">
+                  <input type="number" id="presion_barometrica_mmHg" step="0.1" min="0" value="" disabled style="cursor: not-allowed;">
                   <span>mm Hg</span>
                 </div>
               </div>
-
+              <script>
+                document.addEventListener('DOMContentLoaded', () => {
+                  const projInput = document.getElementById('proyectoPresionAtm'); // ID del input del proyecto
+                  const vrInput = document.getElementById('presion_barometrica_mmHg');
+                  if (!vrInput) return;
+                  const syncVR = () => {
+                  if (!projInput) { vrInput.value = ''; return; }
+                  const v = projInput.value;
+                  vrInput.value = v === '' ? '' : parseFloat(v);
+                  };
+                  syncVR();
+                  if (projInput) {
+                  projInput.addEventListener('input', syncVR);
+                  projInput.addEventListener('change', syncVR);
+                  }
+                });
+                </script>
               <div class="parameter-group">
                 <h4>Coeficientes de Presión</h4>
                 <div class="form-row">
