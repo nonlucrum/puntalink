@@ -550,7 +550,9 @@ document.addEventListener('DOMContentLoaded', () => {
       tipo_muerto: 'Corrido',
       vel_viento: 120,
       temp_promedio: 25,
-      presion_atmo: 760
+      presion_atmo: 760,
+      ubicacionProyecto: 'Ubicación de prueba',
+      version: 1
     };
     localStorage.setItem('projectConfig', JSON.stringify(defaultProject));
     console.log('[INIT] Proyecto por defecto configurado:', defaultProject);
@@ -977,7 +979,8 @@ document.addEventListener('DOMContentLoaded', () => {
           tipoMuerto: formData.get('tipoMuerto'),
           velViento: formData.get('velViento'),
           tempPromedio: formData.get('tempPromedio'),
-          presionAtm: formData.get('presionAtm')
+          presionAtm: formData.get('presionAtm'),
+          ubicacionProyecto: formData.get('ubicacionProyecto')
         };
 
         globalVars.projectData = projectData;

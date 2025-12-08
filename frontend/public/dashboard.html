@@ -60,9 +60,17 @@
           <div class="project-info-grid">
             <div class="project-field">
               <label>NOMBRE DEL PROYECTO</label>
-              <input type="text" id="proyectoNombre" class="project-value-dim" disabled required>
+              <div class="project-field-unit">
+                <input type="text" id="proyectoNombre" class="project-value-dim" disabled required>
+                <div type="text" class="project-value-unit" id="proyectoVersion"></div>
+              </div>
             </div>
             
+            <div class="project-field" style="display: none;">
+              <label>UBICACIÓN</label>
+              <input type="text" id="proyectoUbicacion" class="project-value-dim" disabled required>
+            </div>
+
             <div class="project-field">
               <label>EMPRESA CONSTRUCTORA</label>
               <input type="text" id="proyectoEmpresa" class="project-value-dim" disabled required>
@@ -992,7 +1000,7 @@
   <script type="module" src="js/muertoTriangular.js"></script>
   
   <script type="module" src="js/usability.js"></script>
-  <script type="module" src="dashboard.js"></script>
+  <script type="module" src="js/dashboard.js"></script>
   <script type="module" src="script.js"></script>
   <script>
   document.addEventListener('DOMContentLoaded', () => {

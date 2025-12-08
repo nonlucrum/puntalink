@@ -10,6 +10,10 @@ export interface Project {
   temp_promedio?: number;
   presion_atmo?: number;
   texto_entrada?: null | object;
+  ubicacion?: string;
+  version_proyecto?: number;
+  created_at?: Date;
+  updated_at?: Date;
 }
 
 export async function addProject(
@@ -19,14 +23,15 @@ export async function addProject(
     tipo_muerto: string,
     vel_viento: number,
     temp_promedio: number,
-    presion_atmo: number
+    presion_atmo: number,
+    ubicacion: string
 ) {
   const query = `
-    INSERT INTO proyecto (pk_usuario, nombre, empresa, tipo_muerto, vel_viento, temp_promedio, presion_atmo, texto_entrada)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    INSERT INTO proyecto (pk_usuario, nombre, empresa, tipo_muerto, vel_viento, temp_promedio, presion_atmo, texto_entrada, ubicacion)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     RETURNING row_to_json(proyecto.*);
   `;
-    const values = [pk_usuario, nombre, empresa, tipo_muerto, vel_viento, temp_promedio, presion_atmo, null];
+    const values = [pk_usuario, nombre, empresa, tipo_muerto, vel_viento, temp_promedio, presion_atmo, null, ubicacion];
     try {
         const result = await pool.query(query, values);
         return result.rows[0].row_to_json; // devuelve la fila insertada
@@ -44,15 +49,16 @@ export async function updateProject(
     tipo_muerto: string,
     vel_viento: number,
     temp_promedio: number,
-    presion_atmo: number
+    presion_atmo: number,
+    ubicacion: string
 ) {
     const query = `
     UPDATE proyecto
-    SET nombre = $3, empresa = $4, tipo_muerto = $5, vel_viento = $6, temp_promedio = $7, presion_atmo = $8
+    SET nombre = $3, empresa = $4, tipo_muerto = $5, vel_viento = $6, temp_promedio = $7, presion_atmo = $8, ubicacion = $9
     WHERE pk_usuario = $2 AND pid = $1
     RETURNING row_to_json(proyecto.*);
     `;
-    const values = [pid, pk_usuario, nombre, empresa, tipo_muerto, vel_viento, temp_promedio, presion_atmo];
+    const values = [pid, pk_usuario, nombre, empresa, tipo_muerto, vel_viento, temp_promedio, presion_atmo, ubicacion];
     try {
         const result = await pool.query(query, values);
         return result.rows[0].row_to_json; // devuelve la fila insertada

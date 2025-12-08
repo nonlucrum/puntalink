@@ -8,8 +8,8 @@ CREATE TABLE app_user (
   picture VARCHAR(512),
   provider VARCHAR(32),
   google_sub VARCHAR(64),
-  last_login TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT NOW()
+  last_login TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Create another table
@@ -23,10 +23,29 @@ CREATE TABLE proyecto (
     temp_promedio FLOAT,
     presion_atmo FLOAT,
     texto_entrada JSON,
+    ubicacion VARCHAR(45),
+    version_proyecto INT DEFAULT 1,
+    notas_version TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
 
     CONSTRAINT fk_proyecto_usuario FOREIGN KEY (pk_usuario) 
         REFERENCES app_user (id) ON DELETE CASCADE
 );
+
+-- Funcion actualizar timestamp de proyecto
+CREATE FUNCTION update_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+   NEW.updated_at = NOW();
+   RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_update_proyecto_timestamp
+BEFORE UPDATE ON proyecto
+FOR EACH ROW
+EXECUTE PROCEDURE update_timestamp();
 
 CREATE TABLE muro (
     pid SERIAL PRIMARY KEY,
@@ -85,6 +104,21 @@ CREATE TABLE muro (
         REFERENCES proyecto (pid) ON DELETE CASCADE
 );
 
+-- Trigger para actualizar timestamp de proyecto al cambiar muro
+CREATE FUNCTION update_proyecto_timestamp_on_muro_change()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE proyecto
+    SET updated_at = NOW()
+    WHERE pid = NEW.pk_proyecto;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+CREATE TRIGGER trg_update_proyecto_timestamp_on_muro_change
+AFTER INSERT OR UPDATE OR DELETE ON muro
+FOR EACH ROW
+EXECUTE PROCEDURE update_proyecto_timestamp_on_muro_change();
+
 CREATE TABLE brace (
     pid SERIAL PRIMARY KEY,
     fk_muro INT NOT NULL,
@@ -119,8 +153,8 @@ CREATE TABLE grupo_muerto (
     peso_muerto DECIMAL(10,2),            -- Peso del muerto (kN)
     peso_acero DECIMAL(10,2),             -- Peso de acero necesario (kN)
 
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
     
     CONSTRAINT fk_grupo_muerto_proyecto FOREIGN KEY (pk_proyecto) 
         REFERENCES proyecto (pid) ON DELETE CASCADE,

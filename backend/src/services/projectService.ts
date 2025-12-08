@@ -15,7 +15,8 @@ export async function crearProyectoService(projectData: any) {
             projectData.tipoMuerto,
             parseFloat(projectData.velViento),
             parseFloat(projectData.tempPromedio),
-            parseFloat(projectData.presionAtm)
+            parseFloat(projectData.presionAtm),
+            projectData.ubicacionProyecto
         );
         console.log('[service - projectService] crearProyecto - Proyecto creado exitosamente');
         return nuevoProyecto;
@@ -37,7 +38,8 @@ export async function actualizarProyectoService(projectData: any) {
             projectData.body.tipo_muerto,
             projectData.body.vel_viento,
             projectData.body.temp_promedio,
-            projectData.body.presion_atmo
+            projectData.body.presion_atmo,
+            projectData.body.ubicacion
         );
         console.log('[service - projectService] actualizarProyecto - Proyecto actualizado exitosamente');
         return proyectoActualizado;

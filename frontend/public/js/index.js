@@ -64,6 +64,8 @@ export async function loadPreviousProjects(userId) {
         }
         else {
             proyectosOrdenados.forEach(project => {
+                let fecha = formatTimestamp(project.updated_at);
+                let version = project.version_proyecto != 1 ? `Versión ${project.version_proyecto}` : "";
                 htmlDetalle += `
                     <button class="project-card" data-id="${project.pid}">
                         <div style="display: flex; flex-direction: row">
@@ -79,14 +81,17 @@ export async function loadPreviousProjects(userId) {
                 htmlDetalle += `
                         </svg>
                         <div class="project-card-title">
-                            <h3>${project.nombre}</h3>
+                            <div style="display: flex; flex-direction: row;align-items: baseline;gap: 0.5em;">
+                                <h3>${project.nombre}</h3>
+                                <h4>${version}</h4>
+                            </div>
                             <h4>${project.empresa}</h4>
                             <text class="project-card-var">Muerto ${project.tipo_muerto}</text>
-                            <text class="project-card-var">28/10/2025 18:30</text>
+                            <text class="project-card-var">${fecha}</text>
                         </div>
                         </div>
                         <div class="project-card-info">
-                        <text class="project-card-var">Hidalgo, México</text>
+                        <text class="project-card-var">${project.ubicacion}</text>
                         <text class="project-card-var">${project.vel_viento} km/h</text>
                         <text class="project-card-var">${project.temp_promedio} °C</text>
                         <text class="project-card-var">${project.presion_atmo} mmHg</text>
@@ -143,4 +148,17 @@ export async function loadProjectById(userId, projectId) {
         console.error('[FRONTEND] Error al cargar el proyecto:', error);
         alert('Error al cargar el proyecto. Por favor, inténtelo de nuevo.');
     }
+}
+
+function formatTimestamp(ts) {
+    const date = new Date(ts);
+
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
 }

@@ -489,6 +489,8 @@ export async function loadProjectInfo() {
         document.getElementById('proyectoVelViento').value = project.vel_viento || '-';
         document.getElementById('proyectoTempPromedio').value = project.temp_promedio || '-';
         document.getElementById('proyectoPresionAtm').value = project.presion_atmo || '-';
+        document.getElementById('proyectoUbicacion').value = project.ubicacion || '-';
+        document.getElementById('proyectoVersion').value = project.version_proyecto || '-';
 
         // Sincronizar valores del proyecto con los campos de cálculo de viento
         const velViento = parseFloat(project.vel_viento) || 128;
@@ -614,7 +616,8 @@ export async function guardarCambiosProyecto() {
           tipo_muerto: document.getElementById('proyectoTipoMuerto').value,
           vel_viento: parseFloat(document.getElementById('proyectoVelViento').value),
           temp_promedio: parseFloat(document.getElementById('proyectoTempPromedio').value),
-          presion_atmo: parseFloat(document.getElementById('proyectoPresionAtm').value)
+          presion_atmo: parseFloat(document.getElementById('proyectoPresionAtm').value),
+          ubicacion: document.getElementById('proyectoUbicacion').value
       };
 
       await fetch(`${API_BASE}/api/proyecto/actualizar`, {
