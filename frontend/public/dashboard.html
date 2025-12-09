@@ -48,7 +48,10 @@
       <!-- ===== Información del Proyecto ===== -->
       <section class="project-info-section" id="info-proyecto">
         <div class="project-info-header">
-          <h2>Información del Proyecto</h2>
+          <div style="display: flex; align-items: baseline; gap: 1em;">
+            <h2 id="projectNameHeader">Información del Proyecto</h2>
+            <label id="projectVersionHeader" style="font-size: 1.1rem;"></label>
+          </div>
           <div class="actions">
               <button id="btnEditProject" class="btn btn--ghost"> Editar</button>
               <button id="btnCancelUpdateProject" class="btn btn--ghost" style="display: none;">Cancelar</button>
@@ -58,22 +61,22 @@
         
         <form id="formProyecto" autocomplete="off">
           <div class="project-info-grid">
-            <div class="project-field">
+            <div class="project-field" style="display: none;">
               <label>NOMBRE DEL PROYECTO</label>
               <div class="project-field-unit">
                 <input type="text" id="proyectoNombre" class="project-value-dim" disabled required>
                 <div type="text" class="project-value-unit" id="proyectoVersion"></div>
               </div>
             </div>
-            
-            <div class="project-field" style="display: none;">
-              <label>UBICACIÓN</label>
-              <input type="text" id="proyectoUbicacion" class="project-value-dim" disabled required>
-            </div>
 
             <div class="project-field">
               <label>EMPRESA CONSTRUCTORA</label>
               <input type="text" id="proyectoEmpresa" class="project-value-dim" disabled required>
+            </div>
+            
+            <div class="project-field">
+              <label>UBICACIÓN</label>
+              <input type="text" id="proyectoUbicacion" class="project-value-dim" disabled required>
             </div>
             
             <div class="project-field">
