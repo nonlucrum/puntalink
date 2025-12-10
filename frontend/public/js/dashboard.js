@@ -1919,7 +1919,10 @@ function mostrarConfigGrupos(gruposMuertos) {
       </h3>
       
       <p style="color: var(--muted); margin-bottom: 1rem; font-size: 0.9rem;">
-        💡 <strong>Tip:</strong> El ancho del macizo se calcula automáticamente según: <code style="background: var(--bg); padding: 0.2rem 0.4rem; border-radius: 3px;">ancho = volumen / (largo × profundidad)</code>
+        💡 <strong>Tip:</strong> El ancho del macizo se calcula automáticamente según: <code style="background: var(--bg); padding: 0.2rem 0.4rem; border-radius: 3px;">ancho = volumen / (largo × profundidad)</code><br>
+        ⚠️ <strong>Importante:</strong> Cuando el <strong>Ancho (A<sub>n</sub>) &gt; 0.80 m</strong>, las columnas <strong style="color: #dc3545;">V<sub>N</sub></strong> (Volumen Nuevo) y <strong style="color: #dc3545;">P<sub>N</sub></strong> (Peso Nuevo) se activan y <strong>reemplazan los valores tabulados anteriores</strong> usando las fórmulas:<br>
+        <code style="background: var(--bg); padding: 0.2rem 0.4rem; border-radius: 3px; margin-left: 1rem;">V<sub>N</sub> = ΣF<sub>By</sub> / 2400 kg/m³</code> (basado en fuerzas, no en geometría) y 
+        <code style="background: var(--bg); padding: 0.2rem 0.4rem; border-radius: 3px;">P<sub>N</sub> = V<sub>N</sub> × 2400 kg/m³</code>
       </p>
       
       <p style="color: var(--text-dim); margin-bottom: 1.5rem;">
@@ -1932,6 +1935,7 @@ function mostrarConfigGrupos(gruposMuertos) {
         <thead>
           <tr style="background: var(--primary); color: white;">
             <th style="padding: 0.75rem; text-align: left;">Muerto</th>
+            <th style="padding: 0.75rem; text-align: center;">Distancia X (m)</th>
             <th style="padding: 0.75rem; text-align: center;">X Braces</th>
             <th style="padding: 0.75rem; text-align: center;">Ángulo</th>
             <th style="padding: 0.75rem; text-align: center;">Eje</th>
@@ -1939,6 +1943,9 @@ function mostrarConfigGrupos(gruposMuertos) {
             <th style="padding: 0.75rem; text-align: center; min-width: 100px;">Largo Total (m)</th>
             <th style="padding: 0.75rem; text-align: center; min-width: 120px; background: rgba(255,193,7,0.2);">Profundidad (m)</th>
             <th style="padding: 0.75rem; text-align: center; min-width: 100px; background: rgba(40,167,69,0.2);">Ancho Calc. (m)</th>
+            <th style="padding: 0.75rem; text-align: center; min-width: 100px; background: rgba(13,110,253,0.2);">Largo Actualizado L<sub>a</sub> (m)</th>
+            <th style="padding: 0.75rem; text-align: center; min-width: 100px; background: rgba(220,53,69,0.2);">Volumen Nuevo V<sub>N</sub> (m³)</th>
+            <th style="padding: 0.75rem; text-align: center; min-width: 100px; background: rgba(220,53,69,0.2);">Peso Nuevo P<sub>N</sub> (kg)</th>
             <th style="padding: 0.75rem; text-align: center; min-width: 120px;">Sep. Long. (cm)</th>
             <th style="padding: 0.75rem; text-align: center; min-width: 120px;">Sep. Trans. (cm)</th>
           </tr>
@@ -1950,7 +1957,8 @@ function mostrarConfigGrupos(gruposMuertos) {
     Object.keys(gruposMuertos).forEach(clave => {
       const grupo = gruposMuertos[clave];
       const numeroMuerto = grupo.muerto || parseInt(clave.replace('M', ''));
-      const xBraces = grupo.x || grupo.x_braces || 0;
+      const distanciaX = grupo.xInserto || grupo.x_inserto || grupo.x || 0;
+      const xBraces = grupo.x_braces || 2;
       const angulo = Math.round(grupo.ang || grupo.angulo || 0);
       const eje = grupo.eje || 0;
       // Usar la clave del grupo muerto directamente para config y para el input
@@ -1961,11 +1969,21 @@ function mostrarConfigGrupos(gruposMuertos) {
       // Calcular largo total y ancho del macizo
       let largoTotal = 0;
       let sumaFBy = 0;
+
+      console.group(`[DEBUG SUMA] Grupo ${clave}`);
+
       if (grupo.muros && Array.isArray(grupo.muros)) {
         grupo.muros.forEach(muroId => {
           const muroObj = window.lastResultadosMuertos?.find(m => m.id_muro === muroId || m.id === muroId);
           if (muroObj) {
-            largoTotal += parseFloat(muroObj.overall_width) || 0;
+
+            let anchoRaw = parseFloat(muroObj.overall_width) || 0;
+            
+            console.log(`👉 Muro ${muroId}: Valor en memoria = ${muroObj.overall_width} -> Parseado = ${anchoRaw}`);
+            
+            
+            largoTotal += anchoRaw;
+
             let fby = parseFloat(muroObj.fby) || parseFloat(muroObj.FBy) || 0;
             
             // ✅ Si fby es 0, intentar obtenerlo desde la tabla de cálculos
@@ -1990,24 +2008,97 @@ function mostrarConfigGrupos(gruposMuertos) {
         });
       }
       
+
+      console.log(`💰 Suma Bruta Total: ${largoTotal}`);
+
+
+      // ✅ FORZAR redondeo correcto: 8.816 → 8.82 (no 8.81)
+      largoTotal = Math.round((largoTotal + 0.0001) * 100) / 100;
+      console.log(`🏁 Suma Final Redondeada: ${largoTotal}`);
+      console.groupEnd();
+
       const volumenRequerido = sumaFBy / 2400; // Densidad del concreto
+      const ANCHO_EFECTIVO_MAX = 0.80; // m - Tope definido por cliente
       let anchoCalculado = 0;
+      let anchoParaMostrar = 0; // Ancho con tope aplicado para display
+      
       if (largoTotal > 0 && valorActual > 0) {
         const valorBase = volumenRequerido / (largoTotal * valorActual);
         anchoCalculado = Math.ceil(valorBase * 20) / 20; // Redondeo a 0.05m
+        // ⚠️ APLICAR TOPE: Si >= 0.80m, mostrar 0.80m
+        anchoParaMostrar = anchoCalculado >= ANCHO_EFECTIVO_MAX ? ANCHO_EFECTIVO_MAX : anchoCalculado;
       }
+      
+      // ✅ LÓGICA CONDICIONAL HÍBRIDA según Excel con REGLA DEL TOPE
+      // REGLA DEL TOPE: Ancho efectivo máximo = 0.80m para cálculos de volumen
+      const DENSIDAD_CONCRETO = 2400; // kg/m³
+      let largoNuevo = 0;     // Columna N: Nuevo Largo
+      let volumenNuevo = 0;   // Columna P: Nuevo Volumen
+      let pesoNuevo = 0;      // Columna O: Nuevo Peso
+      let mostrarCalculosNuevos = false;
+      
+      // COLUMNA N: Nuevo Largo - Lógica Dual
+      // Condición A: SI Ancho >= 0.80 → usar largo geométrico real (K7)
+      if (anchoCalculado >= ANCHO_EFECTIVO_MAX) {
+        largoNuevo = largoTotal;
+        mostrarCalculosNuevos = true;
+        console.log(`[DASHBOARD] Condición A: Ancho >= 0.80m para ${clave} → Usar largo geométrico`);
+      } 
+      // Condición B: SI Ancho = 0.40 → calcular largo teórico con fórmula J7/(M7*L7)*1.1
+      else if (Math.abs(anchoCalculado - 0.40) < 0.01) { // Tolerancia de 0.01m
+        largoNuevo = (volumenRequerido / (anchoCalculado * valorActual)) * 1.1;
+        mostrarCalculosNuevos = true;
+        console.log(`[DASHBOARD] Condición B: Ancho = 0.40m para ${clave} → Calcular largo teórico`);
+      }
+      // Condición C: Cualquier otro caso → vacío
+      else {
+        largoNuevo = 0;
+        mostrarCalculosNuevos = false;
+      }
+      
+      // COLUMNA P: Nuevo Volumen - Cálculo Resultante con TOPE
+      // ⚠️ REGLA: Si ancho >= 0.80, usar 0.80 fijo en volumen
+      if (largoNuevo > 0) {
+        const anchoEfectivo = anchoCalculado >= ANCHO_EFECTIVO_MAX ? ANCHO_EFECTIVO_MAX : anchoCalculado;
+        volumenNuevo = largoNuevo * anchoEfectivo * valorActual;
+      } else {
+        volumenNuevo = 0;
+      }
+      
+      // COLUMNA O: Nuevo Peso - Actualización
+      if (volumenNuevo > 0) {
+        pesoNuevo = volumenNuevo * DENSIDAD_CONCRETO;
+      } else {
+        pesoNuevo = 0;
+      }
+      
+      console.log(`[DASHBOARD] Cálculos híbridos para ${clave}:`, {
+        anchoCalculadoOriginal: anchoCalculado,
+        anchoParaMostrar: anchoParaMostrar,
+        anchoEfectivo: anchoCalculado >= ANCHO_EFECTIVO_MAX ? ANCHO_EFECTIVO_MAX : anchoCalculado,
+        reglaTope: anchoCalculado >= ANCHO_EFECTIVO_MAX ? '✅ Aplicado 0.80m máximo' : 'N/A',
+        largoOriginal: largoTotal,
+        profundidad: valorActual,
+        volumenRequerido,
+        largoNuevo,
+        volumenNuevo,
+        pesoNuevo,
+        mostrarCalculosNuevos
+      });
       
       console.log(`[DASHBOARD] Generando fila para grupo muerto:`, {
         claveGrupo: clave,
         valorActual,
         largoTotal,
         anchoCalculado,
+        mostrarCalculosNuevos,
         config: window.configGruposMuertos[clave],
         grupo
       });
       html += `
         <tr style="border-bottom: 1px solid var(--border);" data-grupo="${clave}">
           <td style="padding: 0.75rem; font-weight: bold; color: var(--primary);">${clave}</td>
+          <td style="padding: 0.75rem; text-align: center; font-weight: bold; color: #0066cc;">${parseFloat(distanciaX).toFixed(2)}m</td>
           <td style="padding: 0.75rem; text-align: center;">${xBraces}</td>
           <td style="padding: 0.75rem; text-align: center;">${angulo}°</td>
           <td style="padding: 0.75rem; text-align: center; font-weight: bold; color: #28a745;">${eje}</td>
@@ -2030,8 +2121,23 @@ function mostrarConfigGrupos(gruposMuertos) {
             >
           </td>
           <td style="padding: 0.75rem; text-align: center;">
-            <span class="ancho-calculado-display" data-grupo="${clave}" style="display: inline-block; padding: 0.5rem 1rem; background: rgba(40,167,69,0.15); border: 2px solid #28a745; border-radius: 4px; font-weight: bold; color: #000000ff; min-width: 80px;">
-              ${anchoCalculado.toFixed(2)} m
+            <span class="ancho-calculado-display" data-grupo="${clave}" style="display: inline-block; padding: 0.5rem 1rem; background: rgba(40,167,69,0.15); border: 2px solid #28a745; border-radius: 4px; font-weight: bold; color: #000000ff; min-width: 80px;" title="${anchoCalculado > anchoParaMostrar ? `Ancho calculado: ${anchoCalculado.toFixed(2)}m (limitado a ${ANCHO_EFECTIVO_MAX}m)` : ''}">
+              ${anchoParaMostrar.toFixed(2)} m
+            </span>
+          </td>
+          <td style="padding: 0.75rem; text-align: center;" data-largo-nuevo="${largoNuevo}">
+            <span class="largo-actualizado-display" data-grupo="${clave}" style="display: inline-block; padding: 0.4rem 0.8rem; ${mostrarCalculosNuevos ? 'background: rgba(13,110,253,0.15); border: 2px solid #0d6efd; color: #0d6efd;' : 'background: rgba(108,117,125,0.1); border: 1px solid #6c757d; color: #6c757d;'} border-radius: 4px; font-weight: ${mostrarCalculosNuevos ? 'bold' : 'normal'}; min-width: 70px;">
+              ${largoNuevo > 0 ? largoNuevo.toFixed(2) : (Math.round(largoTotal * 100) / 100).toFixed(2)} m
+            </span>
+          </td>
+          <td style="padding: 0.75rem; text-align: center;" data-volumen-nuevo="${volumenNuevo}">
+            <span class="volumen-nuevo-display" data-grupo="${clave}" style="display: inline-block; padding: 0.4rem 0.8rem; ${mostrarCalculosNuevos ? 'background: rgba(220,53,69,0.15); border: 2px solid #dc3545; color: #dc3545;' : 'background: rgba(108,117,125,0.1); border: 1px dashed #6c757d; color: #adb5bd;'} border-radius: 4px; font-weight: ${mostrarCalculosNuevos ? 'bold' : 'normal'}; min-width: 70px;">
+              ${mostrarCalculosNuevos ? volumenNuevo.toFixed(3) + ' m³' : '—'}
+            </span>
+          </td>
+          <td style="padding: 0.75rem; text-align: center;" data-peso-nuevo="${pesoNuevo}">
+            <span class="peso-nuevo-display" data-grupo="${clave}" style="display: inline-block; padding: 0.4rem 0.8rem; ${mostrarCalculosNuevos ? 'background: rgba(220,53,69,0.15); border: 2px solid #dc3545; color: #dc3545;' : 'background: rgba(108,117,125,0.1); border: 1px dashed #6c757d; color: #adb5bd;'} border-radius: 4px; font-weight: ${mostrarCalculosNuevos ? 'bold' : 'normal'}; min-width: 70px;">
+              ${mostrarCalculosNuevos ? pesoNuevo.toFixed(1) + ' kg' : '—'}
             </span>
           </td>
           <td style="padding: 0.75rem; text-align: center;">
@@ -2069,6 +2175,7 @@ function mostrarConfigGrupos(gruposMuertos) {
     let indice = 1;
     Object.keys(gruposMuertos).forEach(clave => {
       const grupo = gruposMuertos[clave];
+      const distanciaX = grupo.xInserto || grupo.x_inserto || 0;
       const valorActual = window.configGruposMuertos[clave]?.profundo || 2.0;
       const sepLong = window.configGruposMuertos[clave]?.separacionLongitudinal || 25;
       const sepTrans = window.configGruposMuertos[clave]?.separacionTransversal || 25;
@@ -2105,11 +2212,64 @@ function mostrarConfigGrupos(gruposMuertos) {
         });
       }
       
+      // ✅ FORZAR redondeo correcto: 8.816 → 8.82 (no 8.81)
+      largoTotal = parseFloat(largoTotal.toFixed(2));
+      
       const volumenRequerido = sumaFBy / 2400; // Densidad del concreto
+      const ANCHO_EFECTIVO_MAX = 0.80; // m - Tope definido por cliente
       let anchoCalculado = 0;
+      let anchoParaMostrar = 0; // Ancho con tope aplicado para display
+      
       if (largoTotal > 0 && valorActual > 0) {
         const valorBase = volumenRequerido / (largoTotal * valorActual);
         anchoCalculado = Math.ceil(valorBase * 20) / 20; // Redondeo a 0.05m
+        // ⚠️ APLICAR TOPE: Si >= 0.80m, mostrar 0.80m
+        anchoParaMostrar = anchoCalculado >= ANCHO_EFECTIVO_MAX ? ANCHO_EFECTIVO_MAX : anchoCalculado;
+      }
+      
+      // ✅ CÁLCULO CONDICIONAL HÍBRIDO (3 condiciones basadas en Excel N7, P7, O7)
+      // REGLA DEL TOPE: Ancho efectivo máximo = 0.80m para cálculos de volumen
+      const DENSIDAD_CONCRETO = 2400; // kg/m³
+      let largoNuevo = 0;
+      let volumenNuevo = 0;
+      let pesoNuevo = 0;
+      let mostrarCalculosNuevos = false;
+      
+      // Condición A: Si A_n >= 0.80m → usar largo real + ancho fijo 0.80m
+      if (anchoCalculado >= ANCHO_EFECTIVO_MAX) {
+        largoNuevo = largoTotal;
+        mostrarCalculosNuevos = true;
+      }
+      // Condición B: Si A_n = 0.40m (±0.01) → calcular largo teórico con factor 1.1
+      else if (Math.abs(anchoCalculado - 0.40) < 0.01) {
+        largoNuevo = (volumenRequerido / (anchoCalculado * valorActual)) * 1.1;
+        mostrarCalculosNuevos = true;
+      }
+      // Condición C: Otros valores → no mostrar cálculos nuevos
+      else {
+        largoNuevo = 0;
+        mostrarCalculosNuevos = false;
+      }
+      
+      // Calcular volumen y peso solo si tenemos largoNuevo válido
+      if (largoNuevo > 0) {
+        // ⚠️ REGLA DEL TOPE: Si ancho >= 0.80, usar 0.80 fijo en volumen
+        const anchoEfectivo = anchoCalculado >= ANCHO_EFECTIVO_MAX ? ANCHO_EFECTIVO_MAX : anchoCalculado;
+        volumenNuevo = largoNuevo * anchoEfectivo * valorActual;
+        pesoNuevo = volumenNuevo * DENSIDAD_CONCRETO;
+        console.log(`[DASHBOARD-2] ✅ Cálculos híbridos para M${indice}:`, {
+          condicion: anchoCalculado >= 0.80 ? 'A (>=0.80)' : 'B (=0.40)',
+          sumaFBy,
+          volumenRequerido,
+          anchoCalculado: anchoCalculado,
+          anchoEfectivo: anchoEfectivo,
+          reglaTope: anchoCalculado >= 0.80 ? '✅ Aplicado 0.80m máximo' : 'N/A',
+          largoTotal,
+          profundidad: valorActual,
+          largoNuevo,
+          volumenNuevo,
+          pesoNuevo
+        });
       }
       
       console.log(`[DASHBOARD] Generando fila para M${indice}, clave: ${clave}`, grupo);
@@ -2117,6 +2277,7 @@ function mostrarConfigGrupos(gruposMuertos) {
       html += `
         <tr style="border-bottom: 1px solid var(--border);" data-grupo="${clave}">
           <td style="padding: 0.75rem; font-weight: bold; color: var(--primary);">M${indice}</td>
+          <td style="padding: 0.75rem; text-align: center; font-weight: bold; color: #0066cc;">${parseFloat(distanciaX).toFixed(2)}m</td>
           <td style="padding: 0.75rem; text-align: center;">${grupo.x_braces}</td>
           <td style="padding: 0.75rem; text-align: center;">${grupo.angulo}°</td>
           <td style="padding: 0.75rem; text-align: center; font-weight: bold; color: #28a745;">${grupo.eje || 'N/A'}</td>
@@ -2139,8 +2300,23 @@ function mostrarConfigGrupos(gruposMuertos) {
             >
           </td>
           <td style="padding: 0.75rem; text-align: center;">
-            <span class="ancho-calculado-display" data-grupo="${clave}" style="display: inline-block; padding: 0.5rem 1rem; background: rgba(40,167,69,0.15); border: 2px solid #28a745; border-radius: 4px; font-weight: bold; color: #28a745; min-width: 80px;">
-              ${anchoCalculado.toFixed(2)} m
+            <span class="ancho-calculado-display" data-grupo="${clave}" style="display: inline-block; padding: 0.5rem 1rem; background: rgba(40,167,69,0.15); border: 2px solid #28a745; border-radius: 4px; font-weight: bold; color: #28a745; min-width: 80px;" title="${anchoCalculado > anchoParaMostrar ? `Ancho calculado: ${anchoCalculado.toFixed(2)}m (limitado a ${ANCHO_EFECTIVO_MAX}m)` : ''}">
+              ${anchoParaMostrar.toFixed(2)} m
+            </span>
+          </td>
+          <td style="padding: 0.75rem; text-align: center;" data-largo-nuevo="${largoNuevo}">
+            <span class="largo-actualizado-display" data-grupo="${clave}" style="display: inline-block; padding: 0.4rem 0.8rem; ${mostrarCalculosNuevos ? 'background: rgba(13,110,253,0.15); border: 2px solid #0d6efd; color: #0d6efd;' : 'background: rgba(108,117,125,0.1); border: 1px solid #6c757d; color: #6c757d;'} border-radius: 4px; font-weight: ${mostrarCalculosNuevos ? 'bold' : 'normal'}; min-width: 70px;">
+              ${largoNuevo > 0 ? largoNuevo.toFixed(2) : largoTotal.toFixed(2)} m
+            </span>
+          </td>
+          <td style="padding: 0.75rem; text-align: center;" data-volumen-nuevo="${volumenNuevo}">
+            <span class="volumen-nuevo-display" data-grupo="${clave}" style="display: inline-block; padding: 0.4rem 0.8rem; ${mostrarCalculosNuevos ? 'background: rgba(220,53,69,0.15); border: 2px solid #dc3545; color: #dc3545;' : 'background: rgba(108,117,125,0.1); border: 1px dashed #6c757d; color: #adb5bd;'} border-radius: 4px; font-weight: ${mostrarCalculosNuevos ? 'bold' : 'normal'}; min-width: 70px;">
+              ${mostrarCalculosNuevos ? volumenNuevo.toFixed(3) + ' m³' : '—'}
+            </span>
+          </td>
+          <td style="padding: 0.75rem; text-align: center;" data-peso-nuevo="${pesoNuevo}">
+            <span class="peso-nuevo-display" data-grupo="${clave}" style="display: inline-block; padding: 0.4rem 0.8rem; ${mostrarCalculosNuevos ? 'background: rgba(220,53,69,0.15); border: 2px solid #dc3545; color: #dc3545;' : 'background: rgba(108,117,125,0.1); border: 1px dashed #6c757d; color: #adb5bd;'} border-radius: 4px; font-weight: ${mostrarCalculosNuevos ? 'bold' : 'normal'}; min-width: 70px;">
+              ${mostrarCalculosNuevos ? pesoNuevo.toFixed(1) + ' kg' : '—'}
             </span>
           </td>
           <td style="padding: 0.75rem; text-align: center;">
@@ -2284,18 +2460,75 @@ function mostrarConfigGrupos(gruposMuertos) {
       
       // Calcular ancho del macizo
       const volumenRequerido = sumaFBy / 2400;
+      const ANCHO_EFECTIVO_MAX = 0.80;
       let anchoCalculado = 0;
+      let anchoParaMostrar = 0;
+      
       if (largoTotal > 0 && profundidad > 0) {
         const valorBase = volumenRequerido / (largoTotal * profundidad);
         anchoCalculado = Math.ceil(valorBase * 20) / 20; // Redondeo a 0.05m
+        // ⚠️ APLICAR TOPE: Si >= 0.80m, mostrar 0.80m
+        anchoParaMostrar = anchoCalculado >= ANCHO_EFECTIVO_MAX ? ANCHO_EFECTIVO_MAX : anchoCalculado;
       }
       
-      console.log('[ANCHO-RT] Ancho calculado:', anchoCalculado);
+      console.log('[ANCHO-RT] Ancho calculado:', anchoCalculado, '→ Mostrar:', anchoParaMostrar);
       
       // ✅ GUARDAR el ancho calculado en configGruposMuertos
+      // ⚠️ APLICAR TOPE: Si ancho >= 0.80m, guardar 0.80m para uso en armado rectangular
       if (anchoCalculado > 0) {
-        window.configGruposMuertos[grupoClave].ancho = anchoCalculado;
-        console.log(`[ANCHO-RT] ✅ Ancho guardado en config: ${anchoCalculado}m para ${grupoClave}`);
+        window.configGruposMuertos[grupoClave].ancho = anchoParaMostrar; // Ya tiene tope aplicado
+        console.log(`[ANCHO-RT] ✅ Ancho guardado en config: ${anchoParaMostrar}m para ${grupoClave}`, 
+          anchoCalculado > anchoParaMostrar ? `(tope aplicado desde ${anchoCalculado.toFixed(2)}m)` : '');
+      }
+      
+      // ✅ CALCULAR VALORES CONDICIONALES HÍBRIDOS (3 condiciones)
+      // REGLA DEL TOPE: Ancho efectivo máximo = 0.80m para cálculos de volumen
+      const DENSIDAD_CONCRETO = 2400; // kg/m³
+      let largoNuevo = 0;
+      let volumenNuevo = 0;
+      let pesoNuevo = 0;
+      let mostrarCalculosNuevos = false;
+      
+      // Condición A: Si A_n >= 0.80m → usar largo real + ancho fijo 0.80m
+      if (anchoCalculado >= ANCHO_EFECTIVO_MAX) {
+        largoNuevo = largoTotal;
+        mostrarCalculosNuevos = true;
+      }
+      // Condición B: Si A_n = 0.40m (±0.01) → calcular largo teórico con factor 1.1
+      else if (Math.abs(anchoCalculado - 0.40) < 0.01) {
+        largoNuevo = (volumenRequerido / (anchoCalculado * profundidad)) * 1.1;
+        mostrarCalculosNuevos = true;
+      }
+      // Condición C: Otros valores → no mostrar cálculos nuevos
+      else {
+        largoNuevo = 0;
+        mostrarCalculosNuevos = false;
+      }
+      
+      // Calcular volumen y peso solo si tenemos largoNuevo válido
+      if (largoNuevo > 0) {
+        // ⚠️ REGLA DEL TOPE: Si ancho >= 0.80, usar 0.80 fijo en volumen
+        const anchoEfectivo = anchoCalculado >= ANCHO_EFECTIVO_MAX ? ANCHO_EFECTIVO_MAX : anchoCalculado;
+        volumenNuevo = largoNuevo * anchoEfectivo * profundidad;
+        pesoNuevo = volumenNuevo * DENSIDAD_CONCRETO;
+        console.log(`[ANCHO-RT] ✅ Cálculos híbridos en tiempo real:`, {
+          condicion: anchoCalculado >= 0.80 ? 'A (>=0.80)' : 'B (=0.40)',
+          sumaFBy,
+          volumenRequerido,
+          anchoCalculado: anchoCalculado,
+          anchoEfectivo: anchoEfectivo,
+          reglaTope: anchoCalculado >= 0.80 ? '✅ Aplicado 0.80m máximo' : 'N/A',
+          largoTotal,
+          profundidad,
+          largoNuevo,
+          volumenNuevo,
+          pesoNuevo
+        });
+        
+        // Guardar en config para uso posterior
+        window.configGruposMuertos[grupoClave].volumenNuevo = volumenNuevo;
+        window.configGruposMuertos[grupoClave].pesoNuevo = pesoNuevo;
+        window.configGruposMuertos[grupoClave].largoNuevo = largoNuevo;
       }
       
       // Actualizar display del ancho
@@ -2307,7 +2540,8 @@ function mostrarConfigGrupos(gruposMuertos) {
           anchoDisplay.style.color = '#856404';
           anchoDisplay.title = 'Las fuerzas de viento no están calculadas. Ve a la tabla de Braces y modifica algún parámetro.';
         } else {
-          anchoDisplay.textContent = `${anchoCalculado.toFixed(2)} m`;
+          anchoDisplay.textContent = `${anchoParaMostrar.toFixed(2)} m`;
+          anchoDisplay.title = anchoCalculado > anchoParaMostrar ? `Ancho calculado: ${anchoCalculado.toFixed(2)}m (limitado a ${ANCHO_EFECTIVO_MAX}m)` : '';
           anchoDisplay.style.color = '#155724';
           anchoDisplay.title = '';
           // Animación de actualización
@@ -2321,6 +2555,64 @@ function mostrarConfigGrupos(gruposMuertos) {
         console.log('[ANCHO-RT] ✅ Display actualizado');
       } else {
         console.error('[ANCHO-RT] ❌ No se encontró el display del ancho');
+      }
+      
+      // ✅ ACTUALIZAR DISPLAYS de L_a, V_N, P_N
+      const largoDisplay = row.querySelector(`.largo-actualizado-display[data-grupo="${grupoClave}"]`);
+      const volumenDisplay = row.querySelector(`.volumen-nuevo-display[data-grupo="${grupoClave}"]`);
+      const pesoDisplay = row.querySelector(`.peso-nuevo-display[data-grupo="${grupoClave}"]`);
+      
+      if (largoDisplay) {
+        largoDisplay.textContent = `${largoNuevo > 0 ? largoNuevo.toFixed(2) : largoTotal.toFixed(2)} m`;
+        if (mostrarCalculosNuevos) {
+          largoDisplay.style.background = 'rgba(13,110,253,0.15)';
+          largoDisplay.style.border = '2px solid #0d6efd';
+          largoDisplay.style.color = '#0d6efd';
+          largoDisplay.style.fontWeight = 'bold';
+        } else {
+          largoDisplay.style.background = 'rgba(108,117,125,0.1)';
+          largoDisplay.style.border = '1px solid #6c757d';
+          largoDisplay.style.color = '#6c757d';
+          largoDisplay.style.fontWeight = 'normal';
+        }
+      }
+      
+      if (volumenDisplay) {
+        if (mostrarCalculosNuevos) {
+          volumenDisplay.textContent = `${volumenNuevo.toFixed(3)} m³`;
+          volumenDisplay.style.background = 'rgba(220,53,69,0.15)';
+          volumenDisplay.style.border = '2px solid #dc3545';
+          volumenDisplay.style.color = '#dc3545';
+          volumenDisplay.style.fontWeight = 'bold';
+          // Animación
+          volumenDisplay.style.transform = 'scale(1.1)';
+          setTimeout(() => volumenDisplay.style.transform = 'scale(1)', 200);
+        } else {
+          volumenDisplay.textContent = '—';
+          volumenDisplay.style.background = 'rgba(108,117,125,0.1)';
+          volumenDisplay.style.border = '1px dashed #6c757d';
+          volumenDisplay.style.color = '#adb5bd';
+          volumenDisplay.style.fontWeight = 'normal';
+        }
+      }
+      
+      if (pesoDisplay) {
+        if (mostrarCalculosNuevos) {
+          pesoDisplay.textContent = `${pesoNuevo.toFixed(1)} kg`;
+          pesoDisplay.style.background = 'rgba(220,53,69,0.15)';
+          pesoDisplay.style.border = '2px solid #dc3545';
+          pesoDisplay.style.color = '#dc3545';
+          pesoDisplay.style.fontWeight = 'bold';
+          // Animación
+          pesoDisplay.style.transform = 'scale(1.1)';
+          setTimeout(() => pesoDisplay.style.transform = 'scale(1)', 200);
+        } else {
+          pesoDisplay.textContent = '—';
+          pesoDisplay.style.background = 'rgba(108,117,125,0.1)';
+          pesoDisplay.style.border = '1px dashed #6c757d';
+          pesoDisplay.style.color = '#adb5bd';
+          pesoDisplay.style.fontWeight = 'normal';
+        }
       }
     });
   });

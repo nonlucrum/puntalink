@@ -593,7 +593,7 @@ export function calcularVientoMuro(muro: Muro, parametros: WindParameters): Wind
     area_m2: +parseFloat(area_m2.toString()).toFixed(2),
     peso_ton: +parseFloat(peso_ton.toString()).toFixed(2),
     altura_z_m: +parseFloat(altura_z_m.toString()).toFixed(2),
-    overall_width: +parseFloat(overall_width.toString()).toFixed(2),
+    overall_width: +parseFloat(overall_width.toString()).toFixed(3), // ✅ Mantener 3 decimales para precisión (4.515, 4.301)
     
     // Clasificación según normativa
     categoria_terreno: parametros.categoria_terreno,
