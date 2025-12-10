@@ -2215,6 +2215,17 @@ function mostrarConfigGrupos(gruposMuertos) {
       const largoTotal = parseFloat(row.querySelector('[data-largo-total]').getAttribute('data-largo-total')) || 0;
       const profundidad = parseFloat(this.value) || 0;
       
+      // ✅ GUARDAR AUTOMÁTICAMENTE en configGruposMuertos cuando cambia el valor
+      if (!window.configGruposMuertos) {
+        window.configGruposMuertos = {};
+      }
+      if (!window.configGruposMuertos[grupoClave]) {
+        window.configGruposMuertos[grupoClave] = {};
+      }
+      window.configGruposMuertos[grupoClave].profundo = profundidad;
+      window.configGruposMuertos[grupoClave].profundidad = profundidad; // Ambos nombres por compatibilidad
+      console.log(`[ANCHO-RT] ✅ Profundidad guardada en config: ${profundidad}m para ${grupoClave}`);
+      
       console.log('[ANCHO-RT] Valores iniciales:', { largoTotal, profundidad });
       
       // Obtener suma de FBy del grupo
@@ -2273,6 +2284,12 @@ function mostrarConfigGrupos(gruposMuertos) {
       }
       
       console.log('[ANCHO-RT] Ancho calculado:', anchoCalculado);
+      
+      // ✅ GUARDAR el ancho calculado en configGruposMuertos
+      if (anchoCalculado > 0) {
+        window.configGruposMuertos[grupoClave].ancho = anchoCalculado;
+        console.log(`[ANCHO-RT] ✅ Ancho guardado en config: ${anchoCalculado}m para ${grupoClave}`);
+      }
       
       // Actualizar display del ancho
       const anchoDisplay = row.querySelector(`.ancho-calculado-display[data-grupo="${grupoClave}"]`);

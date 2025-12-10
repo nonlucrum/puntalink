@@ -247,8 +247,16 @@ export function prepararGruposParaMuertos(gruposMuertos) {
 
     const volumenRequerido = sumaFBy / DENSIDAD_CONCRETO_KG_M3_DEFAULT;
     let anchoCalculado = 0;
-    if (largoTotal > 0 && profundo > 0) {
+    
+    // ✅ PRIORIDAD 1: Usar ancho manual si existe en la configuración
+    if (configGrupo.ancho && configGrupo.ancho > 0) {
+      anchoCalculado = configGrupo.ancho;
+      console.log(`[MUERTO-RECT] Usando ancho manual para ${clave}: ${anchoCalculado}m`);
+    } 
+    // PRIORIDAD 2: Calcular automáticamente
+    else if (largoTotal > 0 && profundo > 0) {
       anchoCalculado = calcularDimensionConRedondeo(volumenRequerido, largoTotal, profundo);
+      console.log(`[MUERTO-RECT] Ancho calculado automáticamente para ${clave}: ${anchoCalculado}m`);
     }
 
     gruposPreparados.push({
