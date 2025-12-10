@@ -2072,6 +2072,19 @@ function mostrarConfigGrupos(gruposMuertos) {
         pesoNuevo = 0;
       }
       
+      // ✅ Guardar valores nuevos en config para uso en armado
+      if (largoNuevo > 0) {
+        window.configGruposMuertos[clave].volumenNuevo = volumenNuevo;
+        window.configGruposMuertos[clave].pesoNuevo = pesoNuevo;
+        window.configGruposMuertos[clave].largoNuevo = largoNuevo;
+        console.log(`[DASHBOARD] ✅ Valores NUEVOS guardados para armado inicial:`, {
+          grupo: clave,
+          volumenNuevo: volumenNuevo.toFixed(3),
+          pesoNuevo: pesoNuevo.toFixed(1),
+          largoNuevo: largoNuevo.toFixed(2)
+        });
+      }
+      
       console.log(`[DASHBOARD] Cálculos híbridos para ${clave}:`, {
         anchoCalculadoOriginal: anchoCalculado,
         anchoParaMostrar: anchoParaMostrar,
@@ -2529,6 +2542,12 @@ function mostrarConfigGrupos(gruposMuertos) {
         window.configGruposMuertos[grupoClave].volumenNuevo = volumenNuevo;
         window.configGruposMuertos[grupoClave].pesoNuevo = pesoNuevo;
         window.configGruposMuertos[grupoClave].largoNuevo = largoNuevo;
+        console.log(`[ANCHO-RT] ✅ Valores NUEVOS guardados para armado:`, {
+          grupo: grupoClave,
+          volumenNuevo: volumenNuevo.toFixed(3),
+          pesoNuevo: pesoNuevo.toFixed(1),
+          largoNuevo: largoNuevo.toFixed(2)
+        });
       }
       
       // Actualizar display del ancho
