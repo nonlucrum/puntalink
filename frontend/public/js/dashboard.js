@@ -483,6 +483,8 @@ export async function loadProjectInfo() {
         const project = JSON.parse(projectConfig);
         
         // Actualizar elementos del DOM con la información del proyecto
+        document.getElementById('projectNameHeader').textContent = `Información de "${project.nombre}"` || '-';
+        document.getElementById('projectVersionHeader').textContent = project.version_proyecto > 1 ? `Versión ${project.version_proyecto || '-'}` : '';
         document.getElementById('proyectoNombre').value = project.nombre || '-';
         document.getElementById('proyectoEmpresa').value = project.empresa || '-';
         document.getElementById('proyectoTipoMuerto').value = project.tipo_muerto || '-';
@@ -491,6 +493,7 @@ export async function loadProjectInfo() {
         document.getElementById('proyectoPresionAtm').value = project.presion_atmo || '-';
         document.getElementById('proyectoUbicacion').value = project.ubicacion || '-';
         document.getElementById('proyectoVersion').value = project.version_proyecto || '-';
+
 
         // Sincronizar valores del proyecto con los campos de cálculo de viento
         const velViento = parseFloat(project.vel_viento) || 128;
@@ -587,12 +590,14 @@ export function editarProyecto(elements) {
   document.getElementById('proyectoVelViento').disabled = false;
   document.getElementById('proyectoTempPromedio').disabled = false;
   document.getElementById('proyectoPresionAtm').disabled = false;
+  document.getElementById('proyectoUbicacion').disabled = false;
 
   document.getElementById('proyectoEmpresa').classList.replace('project-value-dim', 'project-value');
   document.getElementById('proyectoTipoMuerto').classList.replace('project-value-dim', 'project-value');
   document.getElementById('proyectoVelViento').classList.replace('project-value-dim', 'project-value');
   document.getElementById('proyectoTempPromedio').classList.replace('project-value-dim', 'project-value');
   document.getElementById('proyectoPresionAtm').classList.replace('project-value-dim', 'project-value');
+  document.getElementById('proyectoUbicacion').classList.replace('project-value-dim', 'project-value');
 }
 
 export async function guardarCambiosProyecto() {
@@ -654,12 +659,14 @@ function endEditarProyecto() {
   document.getElementById('proyectoVelViento').disabled = true;
   document.getElementById('proyectoTempPromedio').disabled = true;
   document.getElementById('proyectoPresionAtm').disabled = true;
+  document.getElementById('proyectoUbicacion').disabled = true;
 
   document.getElementById('proyectoEmpresa').classList.replace('project-value', 'project-value-dim');
   document.getElementById('proyectoTipoMuerto').classList.replace('project-value', 'project-value-dim');
   document.getElementById('proyectoVelViento').classList.replace('project-value', 'project-value-dim');
   document.getElementById('proyectoTempPromedio').classList.replace('project-value', 'project-value-dim');
   document.getElementById('proyectoPresionAtm').classList.replace('project-value', 'project-value-dim');
+  document.getElementById('proyectoUbicacion').classList.replace('project-value', 'project-value-dim');
 }
 
 // ===== FUNCIONES DE UI =====
