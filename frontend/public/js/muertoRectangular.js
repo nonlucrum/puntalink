@@ -22,9 +22,9 @@ const DEFAULTS = {
   SEP_LONG_CM: 25,
   SEP_TRANS_CM: 25,
   GANCHO_TOTAL_M: 0.00, 
-  ALAMBRE_DIAM_MM: 1.22,
+  ALAMBRE_DIAM_MM: 1.5,
   ALAMBRE_VUELTA_CM: 15.2, 
-  DESPERDICIO_ALAMBRE: 1.15,
+  DESPERDICIO_ALAMBRE: 1.0,
   TIPO_VARILLA_LONG: '#4',
   TIPO_VARILLA_TRANS: '#3'
 };
@@ -228,20 +228,39 @@ function calcularAlambre(dimensiones, config = {}, longitudinal, transversal) {
   const longVuelta_m = (config.longitudPorVuelta || DEFAULTS.ALAMBRE_VUELTA_CM) / 100; 
   const factorDesp = parseFloat(config.factorDesperdicioAlambre || DEFAULTS.DESPERDICIO_ALAMBRE);
 
-  const nudos = longitudinal.totalBarrasLong * transversal.cantidad;
-  const longitudTotal_m = nudos * longVuelta_m * factorDesp;
+  // ✅ CORRECCIÓN: Solo varillas SUPERIORES se amarran (no inferiores ni medias)
+  const varillasSuperiores = longitudinal.detalles?.superior || longitudinal.totalBarrasLong;
+  const nudos = varillasSuperiores * transversal.cantidad;
+  const longitudTotal_m = Math.floor(nudos * longVuelta_m * factorDesp);
 
+  // Cálculo de peso usando fórmula directa: Densidad × Longitud × (π/4) × Diámetro²
+  const peso_kg = Math.floor(DENSIDAD_ACERO_KG_M3 * longitudTotal_m * (Math.PI / 4) * Math.pow(diametro_m, 2) * 10) / 10;
+  
+  // Valores auxiliares para el log detallado
   const radio = diametro_m / 2;
   const area_m2 = Math.PI * Math.pow(radio, 2);
-  const volumen_m3 = area_m2 * longitudTotal_m; 
-  const peso_kg = volumen_m3 * DENSIDAD_ACERO_KG_M3;
+  const volumen_m3 = area_m2 * longitudTotal_m;
 
-  // 📊 LOG: Datos de Alambre
-  console.log('[ALAMBRE] Diámetro:', (diametro_m * 1000).toFixed(2), 'mm');
-  console.log('[ALAMBRE] Longitud por vuelta:', (longVuelta_m * 100).toFixed(1), 'cm');
-  console.log('[ALAMBRE] Factor desperdicio:', factorDesp);
-  console.log('[ALAMBRE] Nudos totales:', nudos, '(', longitudinal.totalBarrasLong, 'varillas ×', transversal.cantidad, 'estribos)');
-  console.log('[ALAMBRE] Longitud total:', longitudTotal_m.toFixed(2), 'm | Peso:', peso_kg.toFixed(2), 'kg');
+  // 📊 LOG: Datos de Alambre (Cálculo Detallado)
+  console.log('[ALAMBRE] ════════════════════════════════════════════════');
+  console.log('[ALAMBRE] 📏 ENTRADA:');
+  console.log('[ALAMBRE]   - Diámetro alambre:', (diametro_m * 1000).toFixed(2), 'mm');
+  console.log('[ALAMBRE]   - Longitud por vuelta (amarre):', (longVuelta_m * 100).toFixed(1), 'cm =', longVuelta_m.toFixed(4), 'm');
+  console.log('[ALAMBRE]   - Factor desperdicio:', factorDesp);
+  console.log('[ALAMBRE] 🔢 CÁLCULO NUDOS:');
+  console.log('[ALAMBRE]   - Varillas superiores:', varillasSuperiores);
+  console.log('[ALAMBRE]   - Cantidad estribos:', transversal.cantidad);
+  console.log('[ALAMBRE]   - Total nudos =', varillasSuperiores, '×', transversal.cantidad, '=', nudos);
+  console.log('[ALAMBRE] 📐 CÁLCULO LONGITUD:');
+  console.log('[ALAMBRE]   - Long. básica =', nudos, '×', (longVuelta_m * 100).toFixed(1), 'cm =', (nudos * longVuelta_m).toFixed(2), 'm');
+  console.log('[ALAMBRE]   - Con desperdicio =', (nudos * longVuelta_m).toFixed(2), '×', factorDesp, '=', longitudTotal_m.toFixed(2), 'm');
+  console.log('[ALAMBRE] ⚖️ CÁLCULO PESO:');
+  console.log('[ALAMBRE]   - Radio alambre =', diametro_m.toFixed(6), '÷ 2 =', radio.toFixed(6), 'm');
+  console.log('[ALAMBRE]   - Área sección = π × r² = π ×', radio.toFixed(6), '² =', area_m2.toFixed(9), 'm²');
+  console.log('[ALAMBRE]   - Volumen = área × long =', area_m2.toFixed(9), '×', longitudTotal_m.toFixed(2), '=', volumen_m3.toFixed(9), 'm³');
+  console.log('[ALAMBRE]   - Peso = vol × densidad =', volumen_m3.toFixed(9), '×', DENSIDAD_ACERO_KG_M3, 'kg/m³ =', peso_kg.toFixed(4), 'kg');
+  console.log('[ALAMBRE] ✅ RESULTADO FINAL: Longitud =', longitudTotal_m.toFixed(2), 'm | Peso =', peso_kg.toFixed(2), 'kg');
+  console.log('[ALAMBRE] ════════════════════════════════════════════════');
 
   return { nudos, longitudTotal_m, peso_kg };
 }
