@@ -270,7 +270,7 @@ document.addEventListener('DOMContentLoaded', () => {
           // Lee: Resistencia del Concreto (kg/m3)
           resistenciaConcreto: parseFloat(document.getElementById('tipoConcreto')?.value) || 2400,
           // Lee: Factor desperdicio
-          factorDesperdicio: parseFloat(document.getElementById('factorDesperdicio')?.value) || 1.05
+          factorDesperdicio: parseFloat(document.getElementById('factorDesperdicio')?.value) || 1
         },
         longitudinal: {
           // Lee: Tipo de varilla
@@ -296,7 +296,7 @@ document.addEventListener('DOMContentLoaded', () => {
           // Lee: Longitud por vuelta (cm)
           longitudPorVuelta: parseFloat(document.getElementById('longitudVuelta')?.value) || 35,
           // Lee: Factor desperdicio alambre
-          factorDesperdicioAlambre: parseFloat(document.getElementById('factorDesperdicioAlambre')?.value) || 1.15
+          factorDesperdicioAlambre: parseFloat(document.getElementById('factorDesperdicioAlambre')?.value) || 1
         },
         triangular: {
           // Estos son los únicos inputs "nuevos" específicos para la forma triangular

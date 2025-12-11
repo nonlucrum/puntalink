@@ -205,13 +205,23 @@ function calcularTransversal(dimensiones, config = {}) {
   const peso_kg = longitudTotal_m * pesoVarilla_kgm;
 
   // 📊 LOG: Datos de Estribos Transversales
-  console.log('[TRANSVERSAL] Separación estribos:', (sep_m * 100).toFixed(2), 'cm');
-  console.log('[TRANSVERSAL] Tipo varilla:', tipoVarilla, '(', pesoVarilla_kgm, 'kg/m)');
-  console.log('[TRANSVERSAL] Ajuste ganchos:', ajuste_curvatura_m >= 0 ? '+' + ajuste_curvatura_m.toFixed(2) : ajuste_curvatura_m.toFixed(2), 'm');
-  console.log('[TRANSVERSAL] Cantidad de estribos:', cantidad);
-  console.log('[TRANSVERSAL] Espaciado Real:', espaciadoRealTrans_m.toFixed(4), 'm =', (espaciadoRealTrans_m * 100).toFixed(2), 'cm');
-  console.log('[TRANSVERSAL] Longitud por estribo:', longitudUno_m.toFixed(3), 'm');
-  console.log('[TRANSVERSAL] Total acero transversal:', longitudTotal_m.toFixed(2), 'm |', peso_kg.toFixed(2), 'kg');
+  console.log('[TRANSVERSAL] ════════════════════════════════════════════════');
+  console.log('[TRANSVERSAL] 📐 DIMENSIONES:');
+  console.log('[TRANSVERSAL]   - Largo (L):', L.toFixed(2), 'm | Ancho (B):', B.toFixed(2), 'm | Alto (H):', H.toFixed(2), 'm');
+  console.log('[TRANSVERSAL]   - Recubrimiento:', (r_m * 100).toFixed(0), 'cm');
+  console.log('[TRANSVERSAL]   - Núcleo Ancho:', nucleoAncho.toFixed(3), 'm | Núcleo Alto:', nucleoAlto.toFixed(3), 'm');
+  console.log('[TRANSVERSAL] 📏 CÁLCULO LONGITUD ESTRIBO:');
+  console.log('[TRANSVERSAL]   - Perímetro núcleo = 2×', nucleoAncho.toFixed(3), '+ 2×', nucleoAlto.toFixed(3), '=', (2*nucleoAncho + 2*nucleoAlto).toFixed(3), 'm');
+  console.log('[TRANSVERSAL]   - Ajuste ganchos:', ajuste_curvatura_m >= 0 ? '+' + ajuste_curvatura_m.toFixed(2) : ajuste_curvatura_m.toFixed(2), 'm');
+  console.log('[TRANSVERSAL]   - Long. por estribo =', (2*nucleoAncho + 2*nucleoAlto).toFixed(3), ajuste_curvatura_m >= 0 ? '+' : '', ajuste_curvatura_m.toFixed(2), '=', longitudUno_m.toFixed(3), 'm');
+  console.log('[TRANSVERSAL] 🔢 CANTIDAD:');
+  console.log('[TRANSVERSAL]   - Separación config:', (sep_m * 100).toFixed(2), 'cm');
+  console.log('[TRANSVERSAL]   - Cantidad estribos:', cantidad);
+  console.log('[TRANSVERSAL]   - Espaciado Real:', espaciadoRealTrans_m.toFixed(4), 'm =', (espaciadoRealTrans_m * 100).toFixed(2), 'cm');
+  console.log('[TRANSVERSAL] ✅ RESULTADO:');
+  console.log('[TRANSVERSAL]   - Total =', cantidad, '×', longitudUno_m.toFixed(3), 'm =', longitudTotal_m.toFixed(2), 'm');
+  console.log('[TRANSVERSAL]   - Peso = (', tipoVarilla, pesoVarilla_kgm, 'kg/m ) ×', longitudTotal_m.toFixed(2), 'm =', peso_kg.toFixed(2), 'kg');
+  console.log('[TRANSVERSAL] ════════════════════════════════════════════════');
 
   return { 
     tipoVarillaStr: tipoVarilla, 
