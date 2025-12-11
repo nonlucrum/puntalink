@@ -78,6 +78,14 @@ function calcularLongitudinal(dimensiones, config = {}) {
   const B = dimensiones.ancho;      
   const H = dimensiones.alto;
 
+  // 🔍 DEBUG: Ver qué configuración está llegando
+  console.log('[LONGITUDINAL] 🔍 Config recibida:', JSON.stringify({
+    varillasSuperiores: config.varillasSuperiores,
+    varillasInferiores: config.varillasInferiores,
+    varillasMedias: config.varillasMedias,
+    separacion: config.separacion
+  }));
+
   const r_m = (config.recubrimiento || DEFAULTS.RECUBRIMIENTO_CM) / 100; 
   // EVL: Espaciado Varilla Longitudinal (Entrada de Configuración)
   const evl_m = (config.separacion || DEFAULTS.SEP_LONG_CM) / 100; 
@@ -88,16 +96,20 @@ function calcularLongitudinal(dimensiones, config = {}) {
   const anchoUtil = Math.max(B - 2 * r_m, 0);
   
   // Fórmula: ((An - 2R) / EVL) + 1 -> Redondeado al entero superior
-  let cvl_calculado = Math.ceil(anchoUtil / evl_m) + 1;
+  let cvl_calculado = Math.ceil(anchoUtil / evl_m) - 1;
 
   // Restricción Mínima (PDF Item 22): Si CVL < 3 => 3
   if (cvl_calculado < 3) {
       cvl_calculado = 3;
   }
 
-  // Asignamos CVL a cantSup. 
-  // NOTA: Eliminamos la prioridad de 'config.varillasSuperiores' para forzar el cálculo por espaciado.
-  const cantSup = cvl_calculado;
+  // ✅ PRIORIDAD: Input manual de varillas superiores sobre cálculo automático
+  let cantSup = 0;
+  if (config.varillasSuperiores !== undefined && config.varillasSuperiores !== '' && config.varillasSuperiores !== null) {
+      cantSup = parseInt(config.varillasSuperiores);
+  } else {
+      cantSup = cvl_calculado; // Fallback a cálculo automático
+  }
 
   // --- 2. CÁLCULO ESPACIADO REAL (ERL) ---
   let espaciadoReal_m = 0;
@@ -121,14 +133,21 @@ function calcularLongitudinal(dimensiones, config = {}) {
       cantMed = parseInt(config.varillasMedias);
   } else {
       if (H <= 0.60) cantMed = 0;
-      else if (H <= 1.00) cantMed = 2;
-      else cantMed = 4;
+      else if (H <= 1.00) cantMed = 0;
+      else cantMed = 0;
   }
 
   // --- 4. TOTALES ---
   const totalBarras = cantSup + cantInf + cantMed;
   const largoTotal_m = totalBarras * L;
   const peso_kg = largoTotal_m * pesoVarilla_kgm;
+
+  // 📊 LOG: Datos de Varillas Longitudinales
+  console.log('[LONGITUDINAL] Espaciado Varilla Longitudinal:', (evl_m * 100).toFixed(2), 'cm');
+  console.log('[LONGITUDINAL] Cantidad de Varillas:', totalBarras, '(Sup:', cantSup, '+ Inf:', cantInf, '+ Med:', cantMed + ')');
+  console.log('[LONGITUDINAL] Espaciado Real:', espaciadoReal_m.toFixed(4), 'm =', (espaciadoReal_m * 100).toFixed(2), 'cm');
+  console.log('[LONGITUDINAL] Acero (m) Superior:', (cantSup * L).toFixed(2), 'm | Inferior:', (cantInf * L).toFixed(2), 'm | Medio:', (cantMed * L).toFixed(2), 'm');
+  console.log('[LONGITUDINAL] Total acero longitudinal:', largoTotal_m.toFixed(2), 'm |', peso_kg.toFixed(2), 'kg');
 
   return { 
       tipoVarillaStr: tipoVarilla, 
@@ -157,15 +176,15 @@ function calcularTransversal(dimensiones, config = {}) {
   const pesoVarilla_kgm = obtenerPesoEspecifico(tipoVarilla);
   const tipoStr = String(tipoVarilla);
 
-  // --- CORRECCIÓN BLINDADA ---
-  // Detecta si es #3 por nombre O por peso (0.560). 
-  // Aplica descuento de -2cm para ajustar 71.4 -> 70.8
+  // --- CORRECCIÓN DE GANCHOS ---
+  // PRIORIDAD: Si hay valor manual de longitudGanchos, usarlo siempre
+  // Si no hay valor manual Y es #3, aplicar corrección automática de -2cm
   let ajuste_curvatura_m = 0;
   
-  if (tipoStr.includes('3') || pesoVarilla_kgm === 0.560) {
+  if (config.longitudGanchos !== undefined && config.longitudGanchos !== null && config.longitudGanchos !== '') {
+      ajuste_curvatura_m = parseFloat(config.longitudGanchos);
+  } else if (tipoStr.includes('3') || pesoVarilla_kgm === 0.560) {
       ajuste_curvatura_m = -0.02; 
-  } else {
-      ajuste_curvatura_m = parseFloat(config.longitudGanchos) || 0;
   }
 
   const largoUtil = Math.max(L - 2 * r_m, 0);
@@ -184,6 +203,15 @@ function calcularTransversal(dimensiones, config = {}) {
 
   const longitudTotal_m = longitudUno_m * cantidad;
   const peso_kg = longitudTotal_m * pesoVarilla_kgm;
+
+  // 📊 LOG: Datos de Estribos Transversales
+  console.log('[TRANSVERSAL] Separación estribos:', (sep_m * 100).toFixed(2), 'cm');
+  console.log('[TRANSVERSAL] Tipo varilla:', tipoVarilla, '(', pesoVarilla_kgm, 'kg/m)');
+  console.log('[TRANSVERSAL] Ajuste ganchos:', ajuste_curvatura_m >= 0 ? '+' + ajuste_curvatura_m.toFixed(2) : ajuste_curvatura_m.toFixed(2), 'm');
+  console.log('[TRANSVERSAL] Cantidad de estribos:', cantidad);
+  console.log('[TRANSVERSAL] Espaciado Real:', espaciadoRealTrans_m.toFixed(4), 'm =', (espaciadoRealTrans_m * 100).toFixed(2), 'cm');
+  console.log('[TRANSVERSAL] Longitud por estribo:', longitudUno_m.toFixed(3), 'm');
+  console.log('[TRANSVERSAL] Total acero transversal:', longitudTotal_m.toFixed(2), 'm |', peso_kg.toFixed(2), 'kg');
 
   return { 
     tipoVarillaStr: tipoVarilla, 
@@ -207,6 +235,13 @@ function calcularAlambre(dimensiones, config = {}, longitudinal, transversal) {
   const area_m2 = Math.PI * Math.pow(radio, 2);
   const volumen_m3 = area_m2 * longitudTotal_m; 
   const peso_kg = volumen_m3 * DENSIDAD_ACERO_KG_M3;
+
+  // 📊 LOG: Datos de Alambre
+  console.log('[ALAMBRE] Diámetro:', (diametro_m * 1000).toFixed(2), 'mm');
+  console.log('[ALAMBRE] Longitud por vuelta:', (longVuelta_m * 100).toFixed(1), 'cm');
+  console.log('[ALAMBRE] Factor desperdicio:', factorDesp);
+  console.log('[ALAMBRE] Nudos totales:', nudos, '(', longitudinal.totalBarrasLong, 'varillas ×', transversal.cantidad, 'estribos)');
+  console.log('[ALAMBRE] Longitud total:', longitudTotal_m.toFixed(2), 'm | Peso:', peso_kg.toFixed(2), 'kg');
 
   return { nudos, longitudTotal_m, peso_kg };
 }
@@ -239,11 +274,15 @@ function calcularReporteMuerto(dimensiones, inputsUI = {}) {
   };
 
   // ✅ Extraer volumen/peso nuevos de la configuración si existen
-  const valoresNuevos = (inputsUI.volumenNuevo && inputsUI.volumenNuevo > 0) ? {
-    volumenNuevo: inputsUI.volumenNuevo,
-    pesoNuevo: inputsUI.pesoNuevo,
-    largoNuevo: inputsUI.largoNuevo
+  // Buscar en múltiples ubicaciones por compatibilidad
+  const volNuevo = inputsUI.volumenNuevo || inputsUI.construccion?.volumenNuevo || 0;
+  const valoresNuevos = (volNuevo > 0) ? {
+    volumenNuevo: volNuevo,
+    pesoNuevo: inputsUI.pesoNuevo || inputsUI.construccion?.pesoNuevo || 0,
+    largoNuevo: inputsUI.largoNuevo || inputsUI.construccion?.largoNuevo || 0
   } : null;
+
+  console.log('[REPORTE] Valores nuevos recibidos:', valoresNuevos);
 
   const concreto = calcularConcreto(dimensiones, configConc.densidadConcreto, configConc.factorDesperdicio, valoresNuevos);
   const longitudinal = calcularLongitudinal(concreto, configLong);
@@ -328,10 +367,27 @@ export function prepararGruposParaMuertos(gruposMuertos) {
       console.log(`[MUERTO-RECT] Ancho calculado automáticamente para ${clave}: ${anchoBase}m → Con tope: ${anchoCalculado}m`);
     }
 
+    // 🔍 CÁLCULO DE VALORES NUEVOS (cuando ancho >= 0.80m) - SIN USO AUTOMÁTICO
+    let valoresNuevosCalculados = {};
+    if (anchoCalculado >= ANCHO_EFECTIVO_MAX) {
+      // Calcular largo extendido necesario para cumplir volumen requerido con ancho fijo = 0.80m
+      const largoNuevoCalculado = calcularDimensionConRedondeo(volumenRequerido, ANCHO_EFECTIVO_MAX, profundo);
+      const volumenNuevoCalculado = largoNuevoCalculado * ANCHO_EFECTIVO_MAX * profundo;
+      const pesoNuevoCalculado = volumenNuevoCalculado * DENSIDAD_CONCRETO_KG_M3_DEFAULT;
+      
+      valoresNuevosCalculados = {
+        volumenNuevo: volumenNuevoCalculado,
+        pesoNuevo: pesoNuevoCalculado,
+        largoNuevo: largoNuevoCalculado
+      };
+      
+      console.log(`[MUERTO-RECT] 🔍 Valores nuevos calculados para ${clave} (ancho >= 0.80m):`, valoresNuevosCalculados);
+    }
+
     gruposPreparados.push({
       clave, numero_grupo: indice + 1, largo_total: largoTotal, alto_total: profundo,    
       espesor_bloque: anchoCalculado, eje: grupo.eje || '', muros_list: murosIds.join(', '),
-      sumaFBy, configGrupo: { ...configGrupo, profundo }
+      sumaFBy, configGrupo: { ...configGrupo, profundo, ...valoresNuevosCalculados }
     });
   });
   return gruposPreparados;
@@ -367,7 +423,13 @@ export function calcularMacizosRectangulares(gruposPreparados, configUI = {}) {
     const tipoVarillaLong = (grupo.configGrupo && grupo.configGrupo.tipoVarillaLong) || configDefault.tipoVarillaLong;
     const tipoVarillaTrans = (grupo.configGrupo && grupo.configGrupo.tipoVarillaTrans) || configDefault.tipoVarillaTrans;
 
-    // Aplanar la configuración para que los cálculos la reciban correctamente
+    // 🔍 RECUPERACIÓN ROBUSTA DE INPUTS MANUALES (CORRECCIÓN CLAVE)
+    // Busca en orden: 1. Grupo específico, 2. UI global directa, 3. Objeto longitudinal anidado
+    const vSup = grupo.configGrupo?.varillasSuperiores ?? configUI.cantVarillasSuperior ?? configUI.longitudinal?.varillasSuperiores;
+    const vMed = grupo.configGrupo?.varillasMedias ?? configUI.cantVarillasMedias ?? configUI.longitudinal?.varillasMedias;
+    const vInf = grupo.configGrupo?.varillasInferiores ?? configUI.cantVarillasInferior ?? configUI.longitudinal?.varillasInferiores;
+
+    // Aplanar la configuración
     const configGrupo = {
       ...configDefault,
       ...(grupo.configGrupo || {}),
@@ -378,11 +440,12 @@ export function calcularMacizosRectangulares(gruposPreparados, configUI = {}) {
       separacionTransversal: sepTrans,
       recubrimientoTransversal: recTrans,
       tipoVarillaTransversal: tipoVarillaTrans,
-      // ✅ Pasar valores nuevos si existen (condición ancho >= 0.80m) - EN PRIMER NIVEL
+      
+      // ✅ Pasar valores nuevos si existen
       volumenNuevo: grupo.configGrupo?.volumenNuevo || 0,
       pesoNuevo: grupo.configGrupo?.pesoNuevo || 0,
       largoNuevo: grupo.configGrupo?.largoNuevo || 0,
-      // Mantener estructura anidada también por compatibilidad
+      
       construccion: {
         resistenciaConcreto: grupo.densidadConcreto || configDefault.densidadConcreto,
         factorDesperdicio: 1.0
@@ -391,15 +454,16 @@ export function calcularMacizosRectangulares(gruposPreparados, configUI = {}) {
         tipoVarilla: tipoVarillaLong,
         recubrimiento: recLong,
         separacion: sepLong,
-        varillasSuperiores: grupo.configGrupo?.varillasSuperiores,
-        varillasMedias: grupo.configGrupo?.varillasMedias,
-        varillasInferiores: grupo.configGrupo?.varillasInferiores
+        // 🔥 USAR VARIABLES RESUELTAS:
+        varillasSuperiores: vSup,
+        varillasMedias: vMed,
+        varillasInferiores: vInf
       },
       transversal: {
         tipoVarilla: tipoVarillaTrans,
         recubrimiento: recTrans,
         separacion: sepTrans,
-        longitudGanchos: grupo.configGrupo?.longitudGanchos || 0
+        longitudGanchos: grupo.configGrupo?.longitudGanchos || configUI.transversal?.longitudGanchos || configUI.longGanchoEstribo || 0
       },
       alambre: {
         diametroAlambre: configDefault.diametroAlambre || 1.22,
