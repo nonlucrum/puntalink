@@ -1,8 +1,11 @@
-import { addProject } from '../models/Project';
-import { updateProject } from '../models/Project';
-import { getProjectsByUser } from '../models/Project';
-import { getProjectById } from '../models/Project';
-import { saveTXT } from '../models/Project';
+import { 
+    addProject,
+    updateProject,
+    getProjectsByUser,
+    getProjectById,
+    saveTXT,
+    duplicateProject
+} from '../models/Project';
 
 export async function crearProyectoService(projectData: any) {
     console.log('[service - projectService] crearProyecto - Inicio');
@@ -96,4 +99,24 @@ export async function guardarTxtService(pk_proyecto: number, json: object) {
         throw err;
     }
     console.log('[service - projectService] guardarTxt - Fin');
+}
+
+export async function nuevaVersionService(projectData: any) {
+    console.log('[service - projectService] nuevaVersion - Inicio');
+    const pid = projectData.body.pid;
+    const pk_usuario = projectData.body.pk_usuario;
+    const nombre = projectData.body.nombre;
+    try {
+        const nuevoProyecto = await duplicateProject(
+            pid,
+            pk_usuario,
+            nombre
+        );
+        console.log('[service - projectService] nuevaVersion - Nueva versión creada exitosamente');
+        return nuevoProyecto;
+    } catch (err) {
+        console.error('[service - projectService] nuevaVersion - Error al crear la nueva versión del proyecto:', err);
+        throw err;
+    }
+    console.log('[service - projectService] nuevaVersion - Fin');
 }
