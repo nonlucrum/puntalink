@@ -1902,22 +1902,54 @@ function initArmadoRectangular() {
 
 // Función para actualizar la configuración desde los inputs
 function actualizarConfiguracion() {
-  configArmado.tipoVarillaLongitudinal = parseInt(document.getElementById('tipoVarillaLongitudinal').value);
-  configArmado.recubrimientoLongitudinal = parseFloat(document.getElementById('recubrimientoLongitudinal').value);
-  configArmado.separacionLongitudinal = parseFloat(document.getElementById('separacionLongitudinal').value);
-  configArmado.cantVarillasSuperior = parseInt(document.getElementById('cantVarillasSuperior').value);
-  const mediasValue = document.getElementById('cantVarillasMedias').value;
-  configArmado.cantVarillasMedias = mediasValue ? parseInt(mediasValue) : null; // null = usar regla automática
-  configArmado.cantVarillasInferior = parseInt(document.getElementById('cantVarillasInferior').value);
-  configArmado.tipoVarillaTransversal = parseInt(document.getElementById('tipoVarillaTransversal').value);
-  configArmado.recubrimientoTransversal = parseFloat(document.getElementById('recubrimientoTransversal').value);
-  configArmado.separacionTransversal = parseFloat(document.getElementById('separacionTransversal').value);
-  configArmado.longGanchoEstribo = parseFloat(document.getElementById('longGanchoEstribo').value);
-  configArmado.tipoConcreto = parseFloat(document.getElementById('tipoConcreto').value);
-  configArmado.factorDesperdicio = parseFloat(document.getElementById('factorDesperdicio').value);
-  configArmado.diametroAlambre = parseFloat(document.getElementById('diametroAlambre').value);
-  configArmado.longitudVuelta = parseFloat(document.getElementById('longitudVuelta').value);
-  configArmado.factorDesperdicioAlambre = parseFloat(document.getElementById('factorDesperdicioAlambre').value);
+  // Usar valores del formulario si existen, si no mantener los defaults
+  const tipoVarLong = document.getElementById('tipoVarillaLongitudinal');
+  if (tipoVarLong) configArmado.tipoVarillaLongitudinal = parseInt(tipoVarLong.value);
+  
+  const recubLong = document.getElementById('recubrimientoLongitudinal');
+  if (recubLong) configArmado.recubrimientoLongitudinal = parseFloat(recubLong.value);
+  
+  const sepLong = document.getElementById('separacionLongitudinal');
+  if (sepLong) configArmado.separacionLongitudinal = parseFloat(sepLong.value);
+  
+  const varSup = document.getElementById('cantVarillasSuperior');
+  if (varSup) configArmado.cantVarillasSuperior = parseInt(varSup.value);
+  
+  const varMed = document.getElementById('cantVarillasMedias');
+  if (varMed) {
+    const mediasValue = varMed.value;
+    configArmado.cantVarillasMedias = mediasValue ? parseInt(mediasValue) : null;
+  }
+  
+  const varInf = document.getElementById('cantVarillasInferior');
+  if (varInf) configArmado.cantVarillasInferior = parseInt(varInf.value);
+  
+  const tipoVarTrans = document.getElementById('tipoVarillaTransversal');
+  if (tipoVarTrans) configArmado.tipoVarillaTransversal = parseInt(tipoVarTrans.value);
+  
+  const recubTrans = document.getElementById('recubrimientoTransversal');
+  if (recubTrans) configArmado.recubrimientoTransversal = parseFloat(recubTrans.value);
+  
+  const sepTrans = document.getElementById('separacionTransversal');
+  if (sepTrans) configArmado.separacionTransversal = parseFloat(sepTrans.value);
+  
+  const gancho = document.getElementById('longGanchoEstribo');
+  if (gancho) configArmado.longGanchoEstribo = parseFloat(gancho.value);
+  
+  const tipoConc = document.getElementById('tipoConcreto');
+  if (tipoConc) configArmado.tipoConcreto = parseFloat(tipoConc.value);
+  
+  const factDesp = document.getElementById('factorDesperdicio');
+  if (factDesp) configArmado.factorDesperdicio = parseFloat(factDesp.value);
+  
+  const diamAlamb = document.getElementById('diametroAlambre');
+  if (diamAlamb) configArmado.diametroAlambre = parseFloat(diamAlamb.value);
+  
+  const longVuelta = document.getElementById('longitudVuelta');
+  if (longVuelta) configArmado.longitudVuelta = parseFloat(longVuelta.value);
+  
+  const factDespAlamb = document.getElementById('factorDesperdicioAlambre');
+  if (factDespAlamb) configArmado.factorDesperdicioAlambre = parseFloat(factDespAlamb.value);
 }
 
 // ===== FUNCIONES PARA CONFIGURACIÓN DE GRUPOS DE MUERTOS =====
@@ -3086,6 +3118,15 @@ async function reagruparMuertos() {
 // Función principal para ejecutar los cálculos de armado (RECTANGULAR)
 async function ejecutarCalculosArmado() {
   console.log('[DEPURACIÓN] Iniciando ejecutarCalculosArmado (Rectangular)');
+
+  // 🔥 CRÍTICO: Actualizar configuración desde UI ANTES de calcular
+  actualizarConfiguracion();
+  console.log('[DASHBOARD] ✅ Configuración actualizada desde UI:', {
+    superior: configArmado.cantVarillasSuperior,
+    inferior: configArmado.cantVarillasInferior,
+    medias: configArmado.cantVarillasMedias,
+    sepLong: configArmado.separacionLongitudinal
+  });
 
   try {
     // =================================================================
