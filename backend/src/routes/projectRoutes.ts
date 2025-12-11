@@ -1,10 +1,13 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { crearProyecto } from '../controllers/projectController';
-import { actualizarProyecto } from '../controllers/projectController';
-import { listarProyectos } from '../controllers/projectController';
-import { cargarProyecto } from '../controllers/projectController';
-import { guardarTXT } from '../controllers/projectController';
+import {
+    crearProyecto,
+    actualizarProyecto,
+    listarProyectos,
+    cargarProyecto,
+    guardarTXT,
+    nuevaVersion
+} from '../controllers/projectController';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -33,6 +36,7 @@ router.post("/crear", crearProyecto);
 router.put("/actualizar", actualizarProyecto);
 router.get("/listar", listarProyectos);
 router.get("/cargar", cargarProyecto);
+router.post("/guardar-version", nuevaVersion);
 router.post(['/guardar-txt'], upload.single('file'), (req, res) => {
   guardarTXT(req, res);
 });

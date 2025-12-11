@@ -106,7 +106,7 @@ export async function getProjectById(pid: number, pk_usuario: number) {
 export async function getProjectsByUser(pk_usuario: number) {
     const query = `
       SELECT row_to_json(proyecto.*) FROM proyecto
-      WHERE pk_usuario = $1;
+      WHERE pk_usuario = $1 ORDER BY updated_at ASC;
     `;
     const values = [pk_usuario];
     try {
@@ -114,6 +114,66 @@ export async function getProjectsByUser(pk_usuario: number) {
         return result.rows.map(row => row.row_to_json); // devuelve las filas encontradas
     } catch (error) {
         console.error("Error fetching projects by user:", error);
+        throw error;
+    }
+}
+
+// Función para crear nueva version de proyecto existente
+export async function duplicateProject(
+    pid: number,
+    pk_usuario: number,
+    nombre: string
+) {
+    const query1 = `
+    SELECT count(*) FROM proyecto
+    WHERE pk_usuario = $1 AND nombre = $2;
+    `;
+
+    const query2 = `
+    INSERT INTO proyecto
+    SELECT nextval('proyecto_pid_seq'), pk_usuario, nombre, empresa, tipo_muerto, vel_viento, temp_promedio, presion_atmo, texto_entrada, ubicacion, $3, notas_version, created_at
+    FROM proyecto
+    WHERE pid = $1 AND pk_usuario = $2
+    RETURNING pid;
+    `;
+
+    const query3 = `
+    INSERT INTO muro (
+      pk_proyecto, num, id_muro, grosor, area, peso, volumen, overall_width, overall_height, cgx, cgy,
+      angulo_brace, npt, tipo_brace_seleccionado, factor_w2, eje,
+      qz_kpa, presion_kpa, fuerza_viento,
+      x_braces, fbx, fby, fb, x_inserto, y_inserto,
+        cant_b14, cant_b12, cant_b04, cant_b15, muertos, tipo_construccion
+    )
+    SELECT 
+      $2, num, id_muro, grosor, area, peso, volumen, overall_width, overall_height, cgx, cgy,
+      angulo_brace, npt, tipo_brace_seleccionado, factor_w2, eje,
+      qz_kpa, presion_kpa, fuerza_viento,
+      x_braces, fbx, fby, fb, x_inserto, y_inserto,
+      cant_b14, cant_b12, cant_b04, cant_b15, muertos, tipo_construccion
+    FROM muro
+    WHERE pk_proyecto = $1;
+    `;
+
+    const query4 = `
+    INSERT INTO grupo_muerto (pk_proyecto, numero_muerto, nombre, x_braces, angulo_brace, eje, tipo_construccion, cantidad_muros, profundidad, largo, ancho)
+    SELECT $2, numero_muerto, nombre, x_braces, angulo_brace, eje, tipo_construccion, cantidad_muros, profundidad, largo, ancho
+    FROM grupo_muerto
+    WHERE pk_proyecto = $1;
+    `;
+
+    try {
+        const result1 = await pool.query(query1, [pk_usuario, nombre]); // obtener el conteo de versiones existentes
+        
+        const version_nueva = parseInt(result1.rows[0].count) + 1;
+        const result2 = await pool.query(query2, [pid, pk_usuario, version_nueva]);
+        
+        const new_pid = parseInt(result2.rows[0].pid);
+        await pool.query(query3, [pid, new_pid]); // duplicar muros
+        await pool.query(query4, [pid, new_pid]); // duplicar grupos de muertos
+        return new_pid;
+    } catch (error) {
+        console.error("Error duplicating project:", error);
         throw error;
     }
 }

@@ -669,6 +669,40 @@ function endEditarProyecto() {
   document.getElementById('proyectoUbicacion').classList.replace('project-value', 'project-value-dim');
 }
 
+export async function guardarNuevaVersionProyecto() {
+
+  try {
+      const projectConfig = localStorage.getItem('projectConfig');
+
+      await fetch(`${API_BASE}/api/proyecto/guardar-version`, {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json'
+          },
+          body: projectConfig
+      })
+      .then(res => res.json())
+      .then(data => {
+          console.log("[FRONTEND] Full response:", data);
+      })
+
+  } catch (error) {
+        console.error('[FRONTEND] Error al guardar nueva versión del proyecto:', error);
+        alert('Error al guardar la nueva versión del proyecto. Por favor, inténtelo de nuevo.');
+      return;
+  }
+}
+
+const btnSaveProjectNewVersion = document.getElementById('btnSaveProjectNewVersion');
+
+if (btnSaveProjectNewVersion) {
+  btnSaveProjectNewVersion.addEventListener('click', async () => {
+      await guardarNuevaVersionProyecto();
+      // volver a index.html
+      window.location.href = 'index.html';
+  });
+}
+
 // ===== FUNCIONES DE UI =====
 export function updatePanelesDisplay(panelesActuales, elements, callbacks) {
   const { tablaPaneles, tablaAccordion, panelesInfo, btnCalcular } = elements;
