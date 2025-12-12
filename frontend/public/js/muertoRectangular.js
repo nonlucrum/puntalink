@@ -234,7 +234,7 @@ function calcularAlambre(dimensiones, config = {}, longitudinal, transversal) {
   // ✅ CORRECCIÓN: Solo varillas SUPERIORES se amarran (no inferiores ni medias)
   const varillasSuperiores = longitudinal.detalles?.superior || longitudinal.totalBarrasLong;
   const nudos = varillasSuperiores * transversal.cantidad;
-  const longitudTotal_m = Math.floor(nudos * longVuelta_m * factorDesp);
+  const longitudTotal_m = Math.round(nudos * longVuelta_m * factorDesp);
 
   // Cálculo de peso usando fórmula directa: Densidad × Longitud × (π/4) × Diámetro²
   const peso_kg = Math.round(DENSIDAD_ACERO_KG_M3 * longitudTotal_m * (Math.PI / 4) * Math.pow(diametro_m, 2) * 10) / 10;
@@ -523,7 +523,8 @@ export function generarTablaResultadosMacizos(resultados) {
     tAlambreL += res.longAlambre_m || 0;
     tAlambreP += res.pesoAlambre_kg || 0;
 
-    const pesoTon = (res.pesoConcreto_kg || 0) / 1000;
+    // ✅ Truncar peso de concreto a 1 decimal: 6515.7 kg → 6.5 ton
+    const pesoTon = Math.floor((res.pesoConcreto_kg || 0) / 1000 * 10) / 10;
 
     // Truco visual: floor para longitudinal (56.7)
     const pesoLongStr = (Math.floor(res.pesoLongitudinal_kg * 10) / 10).toFixed(1);
