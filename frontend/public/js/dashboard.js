@@ -3131,6 +3131,53 @@ async function reagruparMuertos() {
   // NOTA: No mostramos alert aquí para evitar confusión. El alert se mostrará desde el listener del evento.
 }
 
+// ============================================
+// FUNCIÓN: Generar Tabla Informativa de Muertos
+// ============================================
+function generarTablaInfoMuertos(gruposMuertos) {
+  const tbody = document.getElementById('tablaInfoMuertosBody');
+  if (!tbody) {
+    console.warn('[DASHBOARD] No se encontró tbody #tablaInfoMuertosBody');
+    return;
+  }
+
+  let html = '';
+
+  Object.keys(gruposMuertos).forEach((clave, index) => {
+    const grupo = gruposMuertos[clave];
+    const eje = grupo.eje || '-';
+    const distanciaX = grupo.xInserto || grupo.x_inserto || grupo.x || 0;
+    
+    // Obtener configuración
+    const sepLong = window.configGruposMuertos?.[clave]?.separacionLongitudinal || 25;
+    const sepTrans = window.configGruposMuertos?.[clave]?.separacionTransversal || 25;
+    const sepLongM = (sepLong / 100).toFixed(2);
+    const sepTransM = (sepTrans / 100).toFixed(2);
+    
+    // Obtener lista de muros
+    let murosLista = '-';
+    if (grupo.muros && Array.isArray(grupo.muros)) {
+      murosLista = grupo.muros.map(muroId => {
+        const muroObj = window.lastResultadosMuertos?.find(m => m.id_muro === muroId || m.id === muroId);
+        return muroObj?.id_muro || muroId;
+      }).join(', ');
+    }
+    
+    html += `
+      <tr>
+        <td style="font-weight: bold;">${clave}</td>
+        <td style="text-align: center; font-weight: 600;">${eje}</td>
+        <td class="text-left">${murosLista}</td>
+        <td style="text-align: center;">${sepLongM}</td>
+        <td style="text-align: center;">${sepTransM}</td>
+        <td style="text-align: center; font-weight: bold;">${parseFloat(distanciaX).toFixed(2)}</td>
+      </tr>`;
+  });
+
+  tbody.innerHTML = html;
+  console.log('[DASHBOARD] ✅ Tabla informativa de muertos generada');
+}
+
 // Función principal para ejecutar los cálculos de armado
 // Función principal para ejecutar los cálculos de armado (RECTANGULAR)
 async function ejecutarCalculosArmado() {
@@ -3277,6 +3324,12 @@ async function ejecutarCalculosArmado() {
 
     // Preparar la estructura plana para el cálculo
     const gruposPreparados = prepararGruposParaMuertos(gruposMuertos);
+
+    // =================================================================
+    // INSERTAR TABLA INFORMATIVA DE MUERTOS
+    // =================================================================
+    console.log('[DASHBOARD] Llamando generarTablaInfoMuertos con:', gruposMuertos);
+    generarTablaInfoMuertos(gruposMuertos);
 
     // =================================================================
     // PASO 2: CÁLCULO RECTANGULAR
