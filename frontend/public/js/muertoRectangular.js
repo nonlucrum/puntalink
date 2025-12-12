@@ -47,26 +47,18 @@ function calcularDimensionConRedondeo(volumen, dim1, dim2) {
 
 // ================== 1. CÁLCULO DE CONCRETO ==================
 
-function calcularConcreto(dimensiones, densidad = 2400, factorDesperdicio = 1, valoresNuevos = null) {
+function calcularConcreto(dimensiones, densidad = 2400, factorDesperdicio = 1) {
   const { ancho, alto, profundidad, largo } = dimensiones;
   const L = largo !== undefined ? largo : profundidad; 
   const B = ancho;
   const H = alto; 
 
-  // ✅ PRIORIDAD: Usar volumen/peso "nuevo" si están disponibles (cuando ancho >= 0.80m)
-  let volumen_geom_m3, peso_estructural_kg;
-  
-  if (valoresNuevos && valoresNuevos.volumenNuevo > 0) {
-    volumen_geom_m3 = valoresNuevos.volumenNuevo;
-    peso_estructural_kg = valoresNuevos.pesoNuevo || (volumen_geom_m3 * densidad);
-    console.log('[CONCRETO] ✅ Usando volumen/peso NUEVO:', { volumen_geom_m3, peso_estructural_kg });
-  } else {
-    volumen_geom_m3 = L * B * H;
-    peso_estructural_kg = volumen_geom_m3 * densidad;
-    console.log('[CONCRETO] Usando volumen/peso GEOMÉTRICO:', { volumen_geom_m3, peso_estructural_kg });
-  }
-  
+  // ✅ USAR SIEMPRE DIMENSIONES REALES (geometría real del grupo)
+  const volumen_geom_m3 = L * B * H;
+  const peso_estructural_kg = volumen_geom_m3 * densidad;
   const volumen_compra_m3 = volumen_geom_m3 * factorDesperdicio;
+
+  console.log('[CONCRETO] ✅ Dimensiones reales:', { L, B, H, volumen_geom_m3, peso_estructural_kg });
 
   return { largo: L, ancho: B, alto: H, volumen_geom_m3, volumen_compra_m3, peso_estructural_kg };
 }
@@ -303,18 +295,8 @@ function calcularReporteMuerto(dimensiones, inputsUI = {}) {
     factorDesperdicioAlambre: inputsUI.alambre?.factorDesperdicioAlambre
   };
 
-  // ✅ Extraer volumen/peso nuevos de la configuración si existen
-  // Buscar en múltiples ubicaciones por compatibilidad
-  const volNuevo = inputsUI.volumenNuevo || inputsUI.construccion?.volumenNuevo || 0;
-  const valoresNuevos = (volNuevo > 0) ? {
-    volumenNuevo: volNuevo,
-    pesoNuevo: inputsUI.pesoNuevo || inputsUI.construccion?.pesoNuevo || 0,
-    largoNuevo: inputsUI.largoNuevo || inputsUI.construccion?.largoNuevo || 0
-  } : null;
-
-  console.log('[REPORTE] Valores nuevos recibidos:', valoresNuevos);
-
-  const concreto = calcularConcreto(dimensiones, configConc.densidadConcreto, configConc.factorDesperdicio, valoresNuevos);
+  // ✅ USAR SIEMPRE DIMENSIONES REALES - No recalcular largo/volumen
+  const concreto = calcularConcreto(dimensiones, configConc.densidadConcreto, configConc.factorDesperdicio);
   const longitudinal = calcularLongitudinal(concreto, configLong);
   const transversal = calcularTransversal(concreto, configTrans);
   const alambre = calcularAlambre(concreto, configAlambre, longitudinal, transversal);
@@ -397,27 +379,13 @@ export function prepararGruposParaMuertos(gruposMuertos) {
       console.log(`[MUERTO-RECT] Ancho calculado automáticamente para ${clave}: ${anchoBase}m → Con tope: ${anchoCalculado}m`);
     }
 
-    // 🔍 CÁLCULO DE VALORES NUEVOS (cuando ancho >= 0.80m) - SIN USO AUTOMÁTICO
-    let valoresNuevosCalculados = {};
-    if (anchoCalculado >= ANCHO_EFECTIVO_MAX) {
-      // Calcular largo extendido necesario para cumplir volumen requerido con ancho fijo = 0.80m
-      const largoNuevoCalculado = calcularDimensionConRedondeo(volumenRequerido, ANCHO_EFECTIVO_MAX, profundo);
-      const volumenNuevoCalculado = largoNuevoCalculado * ANCHO_EFECTIVO_MAX * profundo;
-      const pesoNuevoCalculado = volumenNuevoCalculado * DENSIDAD_CONCRETO_KG_M3_DEFAULT;
-      
-      valoresNuevosCalculados = {
-        volumenNuevo: volumenNuevoCalculado,
-        pesoNuevo: pesoNuevoCalculado,
-        largoNuevo: largoNuevoCalculado
-      };
-      
-      console.log(`[MUERTO-RECT] 🔍 Valores nuevos calculados para ${clave} (ancho >= 0.80m):`, valoresNuevosCalculados);
-    }
+    // ✅ USAR SIEMPRE DIMENSIONES REALES (largo real del grupo, no recalculado)
+    console.log(`[MUERTO-RECT] ✅ Usando dimensiones reales para ${clave}: L=${largoTotal}m, B=${anchoCalculado}m, H=${profundo}m`);
 
     gruposPreparados.push({
       clave, numero_grupo: indice + 1, largo_total: largoTotal, alto_total: profundo,    
       espesor_bloque: anchoCalculado, eje: grupo.eje || '', muros_list: murosIds.join(', '),
-      sumaFBy, configGrupo: { ...configGrupo, profundo, ...valoresNuevosCalculados }
+      sumaFBy, configGrupo: { ...configGrupo, profundo }
     });
   });
   return gruposPreparados;
