@@ -471,7 +471,8 @@ export function calcularMacizosRectangulares(gruposPreparados, configUI = {}) {
     };
 
     const reporte = calcularReporteMuerto(dimensiones, configGrupo);
-    const pesoReportar_kg = (grupo.sumaFBy && grupo.sumaFBy > 0) ? grupo.sumaFBy : reporte.pesoConcreto_kg;
+    // ✅ USAR SIEMPRE el peso del concreto calculado geométricamente (no FBy)
+    const pesoReportar_kg = reporte.pesoConcreto_kg;
 
     resultados.push({
       grupo_numero: grupo.numero_grupo,
@@ -525,6 +526,7 @@ export function generarTablaResultadosMacizos(resultados) {
 
     // ✅ Truncar peso de concreto a 1 decimal: 6515.7 kg → 6.5 ton
     const pesoTon = Math.floor((res.pesoConcreto_kg || 0) / 1000 * 10) / 10;
+    console.log(`[PESO] G${res.grupo_numero}: ${res.pesoConcreto_kg} kg → floor(${(res.pesoConcreto_kg/1000*10).toFixed(3)}) / 10 = ${pesoTon} ton`);
 
     // Truco visual: floor para longitudinal (56.7)
     const pesoLongStr = (Math.floor(res.pesoLongitudinal_kg * 10) / 10).toFixed(1);
