@@ -199,7 +199,8 @@ function calcularTransversal(dimensiones, config = {}) {
   const nucleoAncho = Math.max(B - 2 * r_m, 0);
   const nucleoAlto = Math.max(H - 2 * r_m, 0);
   
-  const longitudUno_m = (2 * nucleoAncho) + (2 * nucleoAlto) + ajuste_curvatura_m;
+  // ✅ FÓRMULA CORRECTA ESTRIBO RECTANGULAR: (Ancho - 2×Recub) + 2×Profundidad
+  const longitudUno_m = nucleoAncho + (2 * H) + ajuste_curvatura_m;
 
   const longitudTotal_m = longitudUno_m * cantidad;
   const peso_kg = longitudTotal_m * pesoVarilla_kgm;
