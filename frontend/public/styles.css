@@ -471,7 +471,7 @@ th{ letter-spacing: .02em; font-size: .8rem; color: var(--muted); }
   padding: 1rem 0.75rem;
   font-weight: 600;
   font-size: 0.85rem;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.03em;
   color: var(--text);
   border: none;

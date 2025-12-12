@@ -2018,8 +2018,8 @@ function mostrarConfigGrupos(gruposMuertos) {
             <th style="padding: 0.75rem; text-align: center; min-width: 100px; background: rgba(13,110,253,0.2);">Largo Actualizado L<sub>a</sub> (m)</th>
             <th style="padding: 0.75rem; text-align: center; min-width: 100px; background: rgba(220,53,69,0.2);">Volumen Nuevo V<sub>N</sub> (m³)</th>
             <th style="padding: 0.75rem; text-align: center; min-width: 100px; background: rgba(220,53,69,0.2);">Peso Nuevo P<sub>N</sub> (kg)</th>
-            <th style="padding: 0.75rem; text-align: center; min-width: 120px;">Sep. Long. (cm)</th>
-            <th style="padding: 0.75rem; text-align: center; min-width: 120px;">Sep. Trans. (cm)</th>
+            <th style="padding: 0.75rem; text-align: center; min-width: 120px;">Sep. Long. (m)</th>
+            <th style="padding: 0.75rem; text-align: center; min-width: 120px;">Sep. Trans. (m)</th>
           </tr>
         </thead>
         <tbody>`;
@@ -2030,17 +2030,20 @@ function mostrarConfigGrupos(gruposMuertos) {
       const grupo = gruposMuertos[clave];
       const numeroMuerto = grupo.muerto || parseInt(clave.replace('M', ''));
       const distanciaX = grupo.xInserto || grupo.x_inserto || grupo.x || 0;
-      const xBraces = grupo.x_braces || 2;
       const angulo = Math.round(grupo.ang || grupo.angulo || 0);
       const eje = grupo.eje || 0;
       // Usar la clave del grupo muerto directamente para config y para el input
       const valorActual = window.configGruposMuertos[clave]?.profundo || 2.0;
       const sepLong = window.configGruposMuertos[clave]?.separacionLongitudinal || 25;
       const sepTrans = window.configGruposMuertos[clave]?.separacionTransversal || 25;
+      const sepLongM = (sepLong / 100).toFixed(2);
+      const sepTransM = (sepTrans / 100).toFixed(2);
       
-      // Calcular largo total y ancho del macizo
+      // Calcular largo total, FBy y x_braces reales desde los muros
       let largoTotal = 0;
       let sumaFBy = 0;
+      let xBracesArray = [];
+      let xBracesTotal = 0;
 
       console.group(`[DEBUG SUMA] Grupo ${clave}`);
 
@@ -2055,6 +2058,13 @@ function mostrarConfigGrupos(gruposMuertos) {
             
             
             largoTotal += anchoRaw;
+
+            // ✅ Obtener x_braces FINAL desde la tabla (valor editado por usuario)
+            const pid = muroObj.pid || muroObj.id_muro;
+            const xBracesInput = document.querySelector(`[data-field="x_braces"][data-pid="${pid}"]`);
+            const muroXBraces = xBracesInput ? (parseInt(xBracesInput.value) || 2) : (parseInt(muroObj.x_braces) || 2);
+            xBracesArray.push(muroXBraces);
+            xBracesTotal += muroXBraces;
 
             let fby = parseFloat(muroObj.fby) || parseFloat(muroObj.FBy) || 0;
             
@@ -2088,6 +2098,11 @@ function mostrarConfigGrupos(gruposMuertos) {
       largoTotal = Math.round((largoTotal + 0.0001) * 100) / 100;
       console.log(`🏁 Suma Final Redondeada: ${largoTotal}`);
       console.groupEnd();
+
+      // ✅ Calcular display de x_braces (total si más de un muro, individual si uno solo)
+      const xBracesDisplay = xBracesArray.length > 1 
+        ? `${xBracesTotal} (${xBracesArray.join('+')})` 
+        : xBracesTotal.toString();
 
       const volumenRequerido = sumaFBy / 2400; // Densidad del concreto
       const ANCHO_EFECTIVO_MAX = 0.80; // m - Tope definido por cliente
@@ -2184,7 +2199,7 @@ function mostrarConfigGrupos(gruposMuertos) {
         <tr style="border-bottom: 1px solid var(--border);" data-grupo="${clave}">
           <td style="padding: 0.75rem; font-weight: bold; color: var(--primary);">${clave}</td>
           <td style="padding: 0.75rem; text-align: center; font-weight: bold; color: #0066cc;">${parseFloat(distanciaX).toFixed(2)}m</td>
-          <td style="padding: 0.75rem; text-align: center;">${xBraces}</td>
+          <td style="padding: 0.75rem; text-align: center; font-weight: bold; color: #ff6b35;" title="Total braces: ${xBracesTotal}">${xBracesDisplay}</td>
           <td style="padding: 0.75rem; text-align: center;">${angulo}°</td>
           <td style="padding: 0.75rem; text-align: center; font-weight: bold; color: #28a745;">${eje}</td>
           <td style="padding: 0.75rem; text-align: center; color: #6f42c1; font-weight: bold;">${grupo.muros?.length || 0}</td>
@@ -2231,12 +2246,12 @@ function mostrarConfigGrupos(gruposMuertos) {
               class="input-sep-long-muerto" 
               data-muerto="${clave}"
               data-grupo-clave="${clave}"
-              value="${sepLong}"
-              step="1" 
-              min="10"
-              max="50"
+              value="${sepLongM}"
+              step="0.01" 
+              min="0.10"
+              max="0.50"
               style="width: 70px; padding: 0.5rem; text-align: center; border: 2px solid var(--border); border-radius: 4px; font-size: 1rem; font-weight: bold;"
-              placeholder="25"
+              placeholder="0.25"
             >
           </td>
           <td style="padding: 0.75rem; text-align: center;">
@@ -2245,12 +2260,12 @@ function mostrarConfigGrupos(gruposMuertos) {
               class="input-sep-trans-muerto" 
               data-muerto="${clave}"
               data-grupo-clave="${clave}"
-              value="${sepTrans}"
-              step="1" 
-              min="10"
-              max="50"
+              value="${sepTransM}"
+              step="0.01" 
+              min="0.10"
+              max="0.50"
               style="width: 70px; padding: 0.5rem; text-align: center; border: 2px solid var(--border); border-radius: 4px; font-size: 1rem; font-weight: bold;"
-              placeholder="25"
+              placeholder="0.25"
             >
           </td>
         </tr>`;
@@ -2264,6 +2279,8 @@ function mostrarConfigGrupos(gruposMuertos) {
       const valorActual = window.configGruposMuertos[clave]?.profundo || 2.0;
       const sepLong = window.configGruposMuertos[clave]?.separacionLongitudinal || 25;
       const sepTrans = window.configGruposMuertos[clave]?.separacionTransversal || 25;
+      const sepLongM = (sepLong / 100).toFixed(2);
+      const sepTransM = (sepTrans / 100).toFixed(2);
       
       // Calcular largo total y ancho del macizo
       let largoTotal = 0;
@@ -2410,12 +2427,12 @@ function mostrarConfigGrupos(gruposMuertos) {
               class="input-sep-long-muerto" 
               data-muerto="M${indice}"
               data-grupo-clave="${clave}"
-              value="${sepLong}"
-              step="1" 
-              min="10"
-              max="50"
+              value="${sepLongM}"
+              step="0.01" 
+              min="0.10"
+              max="0.50"
               style="width: 70px; padding: 0.5rem; text-align: center; border: 2px solid var(--border); border-radius: 4px; font-size: 1rem; font-weight: bold;"
-              placeholder="25"
+              placeholder="0.25"
             >
           </td>
           <td style="padding: 0.75rem; text-align: center;">
@@ -2424,12 +2441,12 @@ function mostrarConfigGrupos(gruposMuertos) {
               class="input-sep-trans-muerto" 
               data-muerto="M${indice}"
               data-grupo-clave="${clave}"
-              value="${sepTrans}"
-              step="1" 
-              min="10"
-              max="50"
+              value="${sepTransM}"
+              step="0.01" 
+              min="0.10"
+              max="0.50"
               style="width: 70px; padding: 0.5rem; text-align: center; border: 2px solid var(--border); border-radius: 4px; font-size: 1rem; font-weight: bold;"
-              placeholder="25"
+              placeholder="0.25"
             >
           </td>
         </tr>`;
@@ -2772,16 +2789,16 @@ function guardarProfundidadesMuertos() {
 
   let configuracionesValidas = 0;
 
-  // Mapear inputs de separaciones por clave
+  // Mapear inputs de separaciones por clave y convertir de metros a cm
   const mapSepLong = {};
   const mapSepTrans = {};
   inputsSepLong.forEach(input => {
     const clave = input.getAttribute('data-grupo-clave');
-    mapSepLong[clave] = parseFloat(input.value);
+    mapSepLong[clave] = parseFloat(input.value) * 100; // m → cm
   });
   inputsSepTrans.forEach(input => {
     const clave = input.getAttribute('data-grupo-clave');
-    mapSepTrans[clave] = parseFloat(input.value);
+    mapSepTrans[clave] = parseFloat(input.value) * 100; // m → cm
   });
 
   inputsProf.forEach((input, index) => {
@@ -2827,7 +2844,7 @@ function guardarProfundidadesMuertos() {
     input.style.borderColor = '#28a745'; // Verde para indicar guardado
     configuracionesValidas++;
 
-    console.log(`[DASHBOARD] ✓ ${muerto} (${clave}): Profundidad=${valor}m, SepLong=${sepLong}cm, SepTrans=${sepTrans}cm`);
+    console.log(`[DASHBOARD] ✓ ${muerto} (${clave}): Profundidad=${valor}m, SepLong=${(sepLong/100).toFixed(2)}m (${sepLong}cm), SepTrans=${(sepTrans/100).toFixed(2)}m (${sepTrans}cm)`);
   });
 
   console.log('[DASHBOARD] Total configuraciones guardadas:', configuracionesValidas);
@@ -3120,6 +3137,53 @@ async function reagruparMuertos() {
   // NOTA: No mostramos alert aquí para evitar confusión. El alert se mostrará desde el listener del evento.
 }
 
+// ============================================
+// FUNCIÓN: Generar Tabla Informativa de Muertos
+// ============================================
+function generarTablaInfoMuertos(gruposMuertos) {
+  const tbody = document.getElementById('tablaInfoMuertosBody');
+  if (!tbody) {
+    console.warn('[DASHBOARD] No se encontró tbody #tablaInfoMuertosBody');
+    return;
+  }
+
+  let html = '';
+
+  Object.keys(gruposMuertos).forEach((clave, index) => {
+    const grupo = gruposMuertos[clave];
+    const eje = grupo.eje || '-';
+    const distanciaX = grupo.xInserto || grupo.x_inserto || grupo.x || 0;
+    
+    // Obtener configuración
+    const sepLong = window.configGruposMuertos?.[clave]?.separacionLongitudinal || 25;
+    const sepTrans = window.configGruposMuertos?.[clave]?.separacionTransversal || 25;
+    const sepLongM = (sepLong / 100).toFixed(2);
+    const sepTransM = (sepTrans / 100).toFixed(2);
+    
+    // Obtener lista de muros
+    let murosLista = '-';
+    if (grupo.muros && Array.isArray(grupo.muros)) {
+      murosLista = grupo.muros.map(muroId => {
+        const muroObj = window.lastResultadosMuertos?.find(m => m.id_muro === muroId || m.id === muroId);
+        return muroObj?.id_muro || muroId;
+      }).join(', ');
+    }
+    
+    html += `
+      <tr>
+        <td style="font-weight: bold;">${clave}</td>
+        <td style="text-align: center; font-weight: 600;">${eje}</td>
+        <td class="text-left">${murosLista}</td>
+        <td style="text-align: center;">${sepLongM}</td>
+        <td style="text-align: center;">${sepTransM}</td>
+        <td style="text-align: center; font-weight: bold;">${parseFloat(distanciaX).toFixed(2)}</td>
+      </tr>`;
+  });
+
+  tbody.innerHTML = html;
+  console.log('[DASHBOARD] ✅ Tabla informativa de muertos generada');
+}
+
 // Función principal para ejecutar los cálculos de armado
 // Función principal para ejecutar los cálculos de armado (RECTANGULAR)
 async function ejecutarCalculosArmado() {
@@ -3266,6 +3330,12 @@ async function ejecutarCalculosArmado() {
 
     // Preparar la estructura plana para el cálculo
     const gruposPreparados = prepararGruposParaMuertos(gruposMuertos);
+
+    // =================================================================
+    // INSERTAR TABLA INFORMATIVA DE MUERTOS
+    // =================================================================
+    console.log('[DASHBOARD] Llamando generarTablaInfoMuertos con:', gruposMuertos);
+    generarTablaInfoMuertos(gruposMuertos);
 
     // =================================================================
     // PASO 2: CÁLCULO RECTANGULAR
