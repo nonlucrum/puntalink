@@ -245,7 +245,7 @@ function calcularAlambre(dimensiones, config = {}, longitudinal, transversal) {
   const longitudTotal_m = Math.floor(nudos * longVuelta_m * factorDesp);
 
   // Cálculo de peso usando fórmula directa: Densidad × Longitud × (π/4) × Diámetro²
-  const peso_kg = Math.floor(DENSIDAD_ACERO_KG_M3 * longitudTotal_m * (Math.PI / 4) * Math.pow(diametro_m, 2) * 10) / 10;
+  const peso_kg = Math.round(DENSIDAD_ACERO_KG_M3 * longitudTotal_m * (Math.PI / 4) * Math.pow(diametro_m, 2) * 10) / 10;
   
   // Valores auxiliares para el log detallado
   const radio = diametro_m / 2;
