@@ -747,6 +747,12 @@ export function updatePanelesDisplay(panelesActuales, elements, callbacks) {
       btnCalcular.style.display = '';
     }
     openSection('results-section');
+
+    // Habilitar otros desplegables del menú
+    const menuAccordions = document.getElementsByClassName("accordion-item");
+    for (const item of menuAccordions) {
+      item.classList.remove("disabled");
+    }
   } else if (tablaPaneles.innerHTML !== '') {
     tablaAccordion.style.display = '';
     tablaAccordion.classList.add('active');

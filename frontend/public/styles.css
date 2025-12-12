@@ -230,6 +230,13 @@ body{
   overflow: hidden;
 }
 
+.accordion-item.disabled .accordion-header {
+  cursor: not-allowed;
+  pointer-events: none;
+  background: var(--bg);
+  color: var(--muted);
+}
+
 .accordion-header {
   display: flex;
   align-items: center;
@@ -857,7 +864,6 @@ pre{
 }
 
 .form-row label {
-  min-width: 120px;
   font-weight: 500;
   color: var(--text);
   font-size: 0.875rem;
@@ -904,14 +910,7 @@ pre{
   overflow-x: auto;
   margin-bottom: 2rem;
   max-width: 100%;
-  /* Forzar barra de scroll arriba */
-  transform: rotateX(180deg);
   color: #000; /* Texto en negro */
-}
-
-/* Restaurar orientación del contenido */
-.table-container > * {
-  transform: rotateX(180deg);
 }
 
 /* Personalizar scrollbar */
@@ -3118,6 +3117,12 @@ pre{
 
 #btnGuardarTodosBracesTop:active {
   transform: translateY(0);
+}
+
+#btnGuardarTodosBracesTop:disabled {
+  background: var(--border);
+  pointer-events: none;
+  box-shadow: none;
 }
 
 .help-text {

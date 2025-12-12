@@ -50,6 +50,7 @@ export async function loadPreviousProjects(userId) {
 
         const projectList = document.getElementById('projectList');
         const data = await response.json();
+        localStorage.setItem('previousProjectsList', JSON.stringify(data.proyectos));
         console.log('[FRONTEND] Proyectos obtenidos:', data.proyectos);
         
         // Ordenar proyectos del más nuevo al más antiguo (reverse)

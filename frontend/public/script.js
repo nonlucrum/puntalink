@@ -958,13 +958,31 @@ document.addEventListener('DOMContentLoaded', () => {
     btnCancelarEliminacion.addEventListener('click', cancelarEliminacion);
   }
 
+  const nombreProyectoInput = document.getElementById('nombreProyecto');
+
+  function validarNombreProyecto () {
+    const previousProjectsList = JSON.parse(localStorage.getItem('previousProjectsList'));
+    for (const proyecto of previousProjectsList) {
+      if (proyecto.nombre === nombreProyectoInput.value.trim()) {
+        nombreProyectoInput.setCustomValidity('Ya existe un proyecto con este nombre. Por favor elige otro.');
+        break;
+      } else {
+        nombreProyectoInput.setCustomValidity('');
+      }
+    }
+  }
+  if (nombreProyectoInput) {
+    nombreProyectoInput.addEventListener('input', validarNombreProyecto);
+  }
+
   if (btnProjectSubmit) {
     console.log('[FRONTEND] Configurando listener para envío de formulario de proyecto');
     const form = document.getElementById('formNuevoProyecto');
 
     if (form) {
       btnProjectSubmit.addEventListener('click', async (e) => {
-        if (!form.reportValidity()) {
+        nombreProyectoInput.reportValidity();
+        if (!form.reportValidity() || nombreProyectoInput.validity.customError) {
           console.log('[FRONTEND] Formulario inválido');
           return;
         }
@@ -1755,6 +1773,7 @@ async function calcularBracesTiempoReal(input) {
       setTimeout(() => { row.style.backgroundColor = ''; }, 300);
       
       console.log(`[BRACES-RT] Actualizado PID ${pid}:`, calc);
+      document.getElementById('btnGuardarTodosBracesTop').disabled = false;
     } else {
       console.error(`[BRACES-RT] Respuesta inválida:`, data);
     }
@@ -2012,6 +2031,7 @@ async function guardarTodosBraces() {
       }, 800); // Dar tiempo para que se procesen los cambios en BD
     }
   }
+  document.getElementById('btnGuardarTodosBracesTop').disabled = true;
 }
 
 /**
@@ -3608,6 +3628,7 @@ async function aplicarCambiosMasivos() {
         errores.push(`Error en muro M${String(numMuro).padStart(2, '0')}: ${error.message}`);
       }
     }
+    eliminarRangoMasiva(rango.numero);
   }
   
   // Mostrar resultados
@@ -3675,6 +3696,7 @@ function obtenerRangosMasivaValidos() {
     }
     
     rangos.push({
+      numero,
       desde,
       hasta,
       tipoBrace: tipoBrace || null,
@@ -3702,13 +3724,19 @@ function agregarNuevoRango() {
   nuevoRango.setAttribute('data-rango', contadorRangos);
   
   nuevoRango.innerHTML = `
-    <div class="form-row">
-      <label>Desde Muro:</label>
-      <input type="number" class="rango-desde" min="1" value="" placeholder="Ej: 41">
-      <label>Hasta Muro:</label>
-      <input type="number" class="rango-hasta" min="1" value="" placeholder="Ej: 80">
-      <label>Eje:</label>
-      <input type="text" class="rango-eje" value="" placeholder="Ej: B" maxlength="10">
+    <div class="form-row" style="gap:1em;">
+      <div style="display:flex;align-items: center;gap: 0.5em;;">
+        <label>Eje:</label>
+        <input type="text" class="rango-eje" value="" placeholder="Ej: B" maxlength="10">
+      </div>
+      <div style="display:flex;align-items: center;gap: 0.5em;;">
+        <label>Desde Muro:</label>
+        <input type="number" class="rango-desde" min="1" value="" placeholder="Ej: 41">
+      </div>
+      <div style="display:flex;align-items: center;gap: 0.5em;;">
+        <label>Hasta Muro:</label>
+        <input type="number" class="rango-hasta" min="1" value="" placeholder="Ej: 80">
+      </div>
       <button type="button" class="btn-small btn--danger" onclick="eliminarRango(${contadorRangos})">Eliminar</button>
     </div>
   `;
@@ -3764,7 +3792,7 @@ function actualizarVistaPrevia() {
   const vistaPrevia = document.getElementById('vistaPrevia');
   const contenido = document.getElementById('vistaPreviaContenido');
   
-  if (rangos.length === 0) {
+  if (rangos.length === 0 && vistaPrevia != null) {
     vistaPrevia.style.display = 'none';
     return;
   }
@@ -3789,7 +3817,7 @@ function obtenerRangosValidos() {
   
   rangoItems.forEach((item, index) => {
     const desdeInput = item.querySelector('.rango-desde');
-    const hastaInput = item.querySelector('.rango-hasta');
+    const hastaInput = item.querySelector('.rango-hasta').value ? item.querySelector('.rango-hasta') : desdeInput;
     const ejeInput = item.querySelector('.rango-eje');
     
     console.log(`[EJES] Rango ${index + 1}:`, {
@@ -4167,7 +4195,7 @@ async function aplicarEjesPorRango() {
     if (btnGuardar) {
       btnGuardar.style.display = 'inline-block';
     }
-    
+    document.getElementById('btnGuardarTodosBracesTop').disabled = false;
     // Si hay una tabla visible, NO ocultar los paneles para permitir guardar
     // const ejesPanel = document.getElementById('ejesRangoPanel');
     // const bracesPanel = document.getElementById('bracesConfigPanel');
