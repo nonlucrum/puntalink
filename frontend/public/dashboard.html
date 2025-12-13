@@ -793,23 +793,50 @@
 
     <div class="table-container mt-3">
       <div class="d-flex justify-content-between align-items-center mb-2">
-        
         <button id="btnCargarMurosCil" class="btn btn-outline-secondary btn-sm">🔄 Cargar Muros</button>
       </div>
       
-      <div style="max-height: 300px; overflow-y: auto;">
+      <div style="margin: 15px 0; padding: 10px; background: #f8f9fa; border-radius: 8px;">
+        <label style="font-weight: 600; margin-bottom: 8px; display: block;">📏 Selecciona los diámetros a calcular:</label>
+        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="checkbox" class="diametro-checkbox" value="610" style="margin-right: 5px;">
+            <span>Ø 610 mm (2')</span>
+          </label>
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="checkbox" class="diametro-checkbox" value="762" checked style="margin-right: 5px;">
+            <span>Ø 762 mm (2.5')</span>
+          </label>
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="checkbox" class="diametro-checkbox" value="914" checked style="margin-right: 5px;">
+            <span>Ø 914 mm (3')</span>
+          </label>
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="checkbox" class="diametro-checkbox" value="1067" style="margin-right: 5px;">
+            <span>Ø 1067 mm (3.5')</span>
+          </label>
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="checkbox" class="diametro-checkbox" value="1524" style="margin-right: 5px;">
+            <span>Ø 1524 mm (5')</span>
+          </label>
+        </div>
+      </div>
+      
+      <div id="containerTablasCilindrico" style="max-height: 500px; overflow-y: auto;">
         <table class="results-table" id="tablaInputsCilindrico">
           <thead>
             <tr>
               <th>Muro</th>
-              <th>Fuerza Viento (kg)</th>
-              <th>Diámetro (mm)</th>
-              <th>Profundidad (mm)</th>
-              <th>Muertos (#)</th>
+              <th>X (mm)</th>
+              <th>Cant. Muertos</th>
+              <th>Altura (mm)</th>
+              <th>Concreto (ton)</th>
+              <th>Acero Varillas (kg)</th>
+              <th>Acero anillos (kg)</th>
             </tr>
           </thead>
           <tbody>
-            <tr><td colspan="5" style="text-align:center; color:#888;">Presiona "Cargar Muros" para iniciar...</td></tr>
+            <tr><td colspan="7" style="text-align:center; color:#888;">Presiona "Cargar Muros" y luego "Calcular" para ver los resultados...</td></tr>
           </tbody>
         </table>
       </div>
@@ -822,12 +849,34 @@
     </div>
 
     <div class="table-container mt-3">
-      
       <div id="resultadosCilindricoContainer">
-        <table id="tablaResultadosCilindrico" class="results-table">
+        <!-- Aquí se generarán las tablas por diámetro -->
+      </div>
+    </div>
+
+    <!-- TABLA RESUMEN -->
+    <div id="resumenCilindricoContainer" style="margin-top: 30px; display: none;">
+      <h4 style="background: #27ae60; color: white; padding: 12px; margin: 0; border-radius: 8px 8px 0 0; text-align: center;">
+        📊 Resumen Muerto Cilíndrico Aislado - Totales Materiales
+      </h4>
+      <div style="background: #f8f9fa; padding: 10px; border: 2px solid #27ae60; border-top: none; border-radius: 0 0 8px 8px;">
+        <p style="margin: 5px 0; font-size: 0.9em; color: #666;">
+          <strong>Nota:</strong> Muestra solo opciones elegidas | Alambre = 0.35m | N° muertos por muro
+        </p>
+        <table class="results-table" id="tablaResumenCilindrico" style="margin-top: 10px;">
           <thead>
-            </thead>
-          <tbody></tbody>
+            <tr>
+              <th></th>
+              <!-- Columnas de opciones se generarán dinámicamente -->
+            </tr>
+            <tr>
+              <th></th>
+              <!-- Diámetros se generarán dinámicamente -->
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Filas de materiales se generarán dinámicamente -->
+          </tbody>
         </table>
       </div>
     </div>

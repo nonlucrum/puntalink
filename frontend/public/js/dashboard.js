@@ -44,10 +44,8 @@ function prepararDatosCilindricos() {
   return resultado;
 }
 console.log('[DEPURACIÓN] dashboard.js cargado correctamente');
-// ===== MÓDULO CONSOLIDADO DE BOTONES =====
-// import * as Muertos from './muertos.js'; // ELIMINADO - Cálculos cilíndricos ahora son funcionalidades independientes
 
-
+// ===== IMPORTS =====
 import {
   prepararGruposParaMuertos,
   calcularMacizosRectangulares,
@@ -65,7 +63,6 @@ import {
   generarTablaResultadosTriangulares
 } from './muertoTriangular.js';
 
-
 import {mostrarResultadosViento} from '../script.js';
 // === EVENT HANDLERS PARA CÁLCULOS CILÍNDRICO Y TRIANGULAR ===
 document.addEventListener('DOMContentLoaded', () => {
@@ -77,24 +74,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   // ==========================================
-  // 🕳️ LÓGICA DE MUERTOS CILÍNDRICOS (NUEVA)
-  // ==========================================
-  // ==========================================
-  // 🕳️ LÓGICA DE MUERTOS CILÍNDRICOS (CORREGIDA)
+  // 🕳️ LÓGICA DE MUERTOS CILÍNDRICOS
   // ==========================================
 
-  // Definimos la variable AFUERA para que sea accesible por los botones y los eventos de cambio
   const tbodyCilindrico = document.querySelector('#tablaInputsCilindrico tbody');
 
-  // 1. Botón para CARGAR los muros en la Tabla de Diseño
+  // 1. Botón para CARGAR los muros en la Tabla de Diseño (MURO POR MURO)
   const btnCargarCil = document.getElementById('btnCargarMurosCil');
   
   if (btnCargarCil) {
     btnCargarCil.addEventListener('click', () => {
       
-      // Validación: Verificar que existan grupos calculados
-      if (!window.gruposMuertosGlobal || Object.keys(window.gruposMuertosGlobal).length === 0) {
-        alert("⚠️ No hay grupos generados. Primero calcula el Viento/Braces.");
+      // Validación: Verificar que existan resultados de viento
+      if (!window.lastResultadosMuertos || window.lastResultadosMuertos.length === 0) {
+        alert("⚠️ No hay muros calculados. Primero calcula el Viento.");
         return;
       }
 
@@ -104,142 +97,218 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
       }
 
-      tbodyCilindrico.innerHTML = ''; // Limpiar tabla usando la variable correcta
-
-      // Iterar sobre los grupos globales
-      Object.values(window.gruposMuertosGlobal).forEach((grupo, index) => {
-        // Calcular fuerza total referencial del grupo
-        let fuerzaRef = 0;
-        let numBraces = 0;
-        if (grupo.muros) {
-          grupo.muros.forEach(m => {
-              const f = parseFloat(m.FBy || m.fby || 0);
-              const b = parseInt(m.num_braces || m.CANT_Brace || 1); 
-              fuerzaRef += f;
-              numBraces += b;
-          });
-        }
-
-        // --- CÁLCULO AUTOMÁTICO DE PROFUNDIDAD ---
-        // Usamos 914mm (36") como default para sugerir la profundidad inicial
-        const diametroDefault = 914; 
-        // Asegúrate de que obtenerProfundidadRecomendada esté importada arriba
-        const profundidadSugerida = typeof obtenerProfundidadRecomendada === 'function' 
-            ? obtenerProfundidadRecomendada(fuerzaRef, numBraces, diametroDefault)
-            : 1829; // Fallback por seguridad
-        // -----------------------------------------
-
-        const tr = document.createElement('tr');
-        tr.dataset.fuerza = fuerzaRef;
-        tr.dataset.braces = numBraces;
-        tr.dataset.id = grupo.clave || `G${index + 1}`; 
-
-        tr.innerHTML = `
-          <td class="fw-bold text-center align-middle">${grupo.clave || `G${index + 1}`}</td>
-          <td class="text-center align-middle text-secondary">
-            <small>F: ${fuerzaRef.toFixed(0)} kg<br>#: ${numBraces}</small>
-          </td>
-          <td>
-            <select class="form-select form-select-sm input-dia trigger-recalc">
-                <option value="610">610 mm (24")</option>
-                <option value="762">762 mm (30")</option>
-                <option value="914" selected>914 mm (36")</option>
-                <option value="1067">1067 mm (42")</option>
-                <option value="1219">1219 mm (48")</option>
-            </select>
-          </td>
-          <td>
-            <input type="number" class="form-control form-control-sm input-prof" 
-                  value="${profundidadSugerida}" step="10">
-          </td>
-          <td>
-            <input type="number" class="form-control form-control-sm input-qty" 
-                  value="${numBraces > 0 ? numBraces : 1}">
-          </td>
-        `;
-        tbodyCilindrico.appendChild(tr); // Usamos la variable correcta
-      });
+      const numMuros = window.lastResultadosMuertos.length;
+      tbodyCilindrico.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#666; padding: 20px;">
+        ✅ ${numMuros} muro${numMuros !== 1 ? 's' : ''} cargado${numMuros !== 1 ? 's' : ''}.<br>
+        <small>Selecciona los diámetros arriba y presiona "Calcular Materiales Cilíndricos".</small>
+      </td></tr>`;
       
-      alert("✅ Muros cargados. Ajusta Diámetro y Profundidad según ingeniería.");
+      console.log(`[CILINDRICO] ✅ ${numMuros} muros cargados`);
     });
   }
 
-  // Listener para Recálculo Dinámico (Cambio de Diámetro)
+  // Listener simplificado - ya no necesario porque no hay inputs dinámicos
   if (tbodyCilindrico) {
       tbodyCilindrico.addEventListener('change', (e) => {
-        if (e.target && e.target.classList.contains('trigger-recalc')) {
-            const select = e.target;
-            const row = select.closest('tr');
-            
-            const fuerza = parseFloat(row.dataset.fuerza || 0);
-            const braces = parseFloat(row.dataset.braces || 1);
-            const nuevoDiametro = parseFloat(select.value);
+          if (e.target && e.target.classList.contains('trigger-recalc-cil')) {
+              const select = e.target;
+              const row = select.closest('tr');
+              const inputProf = row.querySelector('.input-prof');
+              
+              // Recuperar datos almacenados
+              const fuerzaTotal = parseFloat(row.dataset.fuerza || 0);
+              const braces = parseFloat(row.dataset.braces || 1);
+              const cargaPorMuerto = fuerzaTotal / braces;
+              const nuevoDiametro = parseFloat(select.value);
 
-            if (typeof obtenerProfundidadRecomendada === 'function') {
-                const nuevaProfundidad = obtenerProfundidadRecomendada(fuerza, braces, nuevoDiametro);
-                const inputProf = row.querySelector('.input-prof');
-                if (inputProf) {
-                    inputProf.value = nuevaProfundidad;
-                    inputProf.style.backgroundColor = '#e8f0fe'; 
-                    setTimeout(() => inputProf.style.backgroundColor = '', 500);
-                }
-            }
-        }
+              // Buscar profundidad en tabla para el nuevo diámetro
+              const nuevaProfundidad = obtenerProfundidadRecomendada(cargaPorMuerto, nuevoDiametro);
+
+              // Actualizar UI
+              inputProf.value = nuevaProfundidad;
+              
+              // Efecto visual (flash verde) para indicar recálculo
+              inputProf.style.transition = "background-color 0.3s";
+              inputProf.style.backgroundColor = "#d1e7dd";
+              setTimeout(() => inputProf.style.backgroundColor = "", 500);
+          }
       });
   }
 
-  // 2. Botón para CALCULAR Materiales Cilíndricos
-  const btnCalcCil = document.getElementById('btnCalcularCilindrico');
-  if (btnCalcCil) {
-    btnCalcCil.addEventListener('click', () => {
-      // Validar si la tabla existe
-      if (!tbodyCilindrico) return;
+  // Botón "Calcular Resultados"
+  const btnCalcularResultados = document.getElementById('btnCalcularCilindrico');
 
-      const modoAnillos = document.getElementById('cil_modo_anillos')?.value || 'fijo';
-      const datoAnillos = parseFloat(document.getElementById('cil_dato_anillos')?.value) || 3;
+  if (btnCalcularResultados) {
+      btnCalcularResultados.addEventListener('click', () => {
+          
+          if (!window.lastResultadosMuertos || window.lastResultadosMuertos.length === 0) {
+              alert("⚠️ No hay muros cargados. Primero presiona 'Cargar Muros'.");
+              return;
+          }
 
-      const configUI = {
-        densidadConcreto: parseFloat(document.getElementById('cil_densidad_concreto')?.value) || 2400,
-        desperdicioConcreto: parseFloat(document.getElementById('cil_desperdicio')?.value) || 1.05,
-        tipoVarillaVert: document.getElementById('cil_tipo_vert')?.value || '#4',
-        cantVarillasVert: parseInt(document.getElementById('cil_cant_vert')?.value) || 4,
-        tipoVarillaAnillo: document.getElementById('cil_tipo_anillo')?.value || '#3',
-        usarSeparacion: (modoAnillos === 'separacion'),
-        cantAnillos: (modoAnillos === 'fijo') ? datoAnillos : 0,
-        separacionAnillosMm: (modoAnillos === 'separacion') ? datoAnillos : 0
-      };
+          // Obtener diámetros seleccionados
+          const diametrosSeleccionados = Array.from(document.querySelectorAll('.diametro-checkbox:checked'))
+            .map(cb => parseInt(cb.value));
 
-      const filas = tbodyCilindrico.querySelectorAll('tr');
-      const listaMuros = [];
+          if (diametrosSeleccionados.length === 0) {
+              alert("⚠️ Selecciona al menos un diámetro para calcular.");
+              return;
+          }
 
-      filas.forEach(row => {
-        if (!row.dataset.id) return; 
-        const diametro = parseFloat(row.querySelector('.input-dia').value);
-        const profundidad = parseFloat(row.querySelector('.input-prof').value);
-        const cantidad = parseInt(row.querySelector('.input-qty').value);
+          // Obtener configuración
+          const densidad = parseFloat(document.getElementById('cil_densidad_concreto')?.value || 2400);
+          const desperdicio = parseFloat(document.getElementById('cil_desperdicio')?.value || 1.05);
+          const cantVert = parseInt(document.getElementById('cil_cant_vert')?.value || 4);
+          const tipoVert = document.getElementById('cil_tipo_vert')?.value || '#4';
+          const tipoAnillo = document.getElementById('cil_tipo_anillo')?.value || '#3';
+          const modoAnillos = document.getElementById('cil_modo_anillos')?.value || 'fijo';
+          const datoAnillos = parseFloat(document.getElementById('cil_dato_anillos')?.value || 3);
 
-        listaMuros.push({
-          id: row.dataset.id,
-          diametro_mm: diametro,
-          profundidad_mm: profundidad,
-          cantidad_muertos: cantidad
-        });
+          const containerTablas = document.getElementById('containerTablasCilindrico');
+          if (!containerTablas) {
+              console.error('❌ No se encontró #containerTablasCilindrico');
+              return;
+          }
+          containerTablas.innerHTML = '';
+
+          // Objeto para acumular totales por diámetro
+          const totalesPorDiametro = {};
+
+          // Crear una tabla por cada diámetro seleccionado
+          diametrosSeleccionados.forEach(diametro => {
+              // Inicializar acumuladores para este diámetro
+              totalesPorDiametro[diametro] = {
+                  concreto: 0,
+                  varillas: 0,
+                  anillos: 0,
+                  alambre: 0
+              };
+
+              // Crear contenedor para esta tabla
+              const divTabla = document.createElement('div');
+              divTabla.style.marginBottom = '30px';
+              
+              // Título con el diámetro
+              const titulo = document.createElement('h4');
+              titulo.style.cssText = 'background: #2c3e50; color: white; padding: 10px; margin: 0; border-radius: 8px 8px 0 0;';
+              titulo.innerHTML = `🕳️ Ø ${diametro} mm`;
+              divTabla.appendChild(titulo);
+              
+              // Crear tabla
+              const tabla = document.createElement('table');
+              tabla.className = 'results-table';
+              tabla.style.marginTop = '0';
+              
+              // Header
+              tabla.innerHTML = `
+                  <thead>
+                      <tr>
+                          <th>Muro</th>
+                          <th>X (mm)</th>
+                          <th>Cantidad M.</th>
+                          <th>Altura (mm)</th>
+                          <th>Concreto (ton)</th>
+                          <th>Acero Varillas (kg)</th>
+                          <th>Acero anillos (kg)</th>
+                      </tr>
+                  </thead>
+                  <tbody></tbody>
+              `;
+              
+              const tbody = tabla.querySelector('tbody');
+              
+              // Para cada muro, calcular con este diámetro
+              window.lastResultadosMuertos.forEach((muro, index) => {
+                  const fbTotal = parseFloat(muro.fb || muro.FB || 0);
+                  const numBraces = parseInt(muro.total_braces || 1);
+                  const cargaPorMuerto = fbTotal / numBraces;
+                  const muroId = muro.id_muro || muro.pid || `M${index+1}`;
+
+                  // Calcular profundidad recomendada
+                  const profundidad = obtenerProfundidadRecomendada(cargaPorMuerto, diametro);
+
+                  // Calcular materiales para este muerto específico
+                  const resultado = calcularMacizosCilindricos([{
+                      id: muroId,
+                      fuerza_total: fbTotal,
+                      cantidad_muertos: numBraces,
+                      diametro_mm: diametro,
+                      profundidad_mm: profundidad
+                  }])[0];
+
+                  // Acumular totales
+                  totalesPorDiametro[diametro].concreto += resultado.total_muro.peso_concreto_ton;
+                  totalesPorDiametro[diametro].varillas += resultado.unitario.acero_long_kg;
+                  totalesPorDiametro[diametro].anillos += resultado.unitario.acero_trans_kg;
+                  totalesPorDiametro[diametro].alambre += resultado.unitario.alambre_kg || 0;
+
+                  // Crear fila con los datos calculados
+                  const tr = document.createElement('tr');
+                  tr.innerHTML = `
+                      <td class="text-center align-middle fw-bold">${muroId}</td>
+                      <td class="text-center align-middle">${diametro}</td>
+                      <td class="text-center align-middle">${numBraces}</td>
+                      <td class="text-center align-middle">${profundidad}</td>
+                      <td class="text-center align-middle">${resultado.total_muro.peso_concreto_ton.toFixed(3)}</td>
+                      <td class="text-center align-middle">${resultado.unitario.acero_long_kg.toFixed(2)}</td>
+                      <td class="text-center align-middle">${resultado.unitario.acero_trans_kg.toFixed(2)}</td>
+                  `;
+                  tbody.appendChild(tr);
+              });
+              
+              divTabla.appendChild(tabla);
+              containerTablas.appendChild(divTabla);
+          });
+
+          // Generar tabla resumen (transpuesta: opciones arriba, materiales a la izquierda)
+          const resumenContainer = document.getElementById('resumenCilindricoContainer');
+          const tablaResumen = document.getElementById('tablaResumenCilindrico');
+          
+          if (resumenContainer && tablaResumen) {
+              const thead = tablaResumen.querySelector('thead');
+              const tbody = tablaResumen.querySelector('tbody');
+              
+              // Limpiar tabla
+              thead.innerHTML = '';
+              tbody.innerHTML = '';
+              
+              // Fila 1: "Opción" + números
+              const trOpcion = document.createElement('tr');
+              trOpcion.innerHTML = '<th></th>'; // Celda vacía superior izquierda
+              diametrosSeleccionados.forEach((diametro, idx) => {
+                  trOpcion.innerHTML += `<th class="text-center" style="background: #34495e; color: white;">${idx + 1}</th>`;
+              });
+              thead.appendChild(trOpcion);
+              
+              // Fila 2: "Diámetro (mm)" + valores
+              const trDiametro = document.createElement('tr');
+              trDiametro.innerHTML = '<th style="background: #34495e; color: white;">Diámetro (mm)</th>';
+              diametrosSeleccionados.forEach(diametro => {
+                  trDiametro.innerHTML += `<th class="text-center" style="background: #34495e; color: white;">${diametro}</th>`;
+              });
+              thead.appendChild(trDiametro);
+              
+              // Filas de materiales
+              const materiales = [
+                  { label: 'Total Concreto (ton)', key: 'concreto', decimales: 3 },
+                  { label: 'Total Acero (#4) (kg)', key: 'varillas', decimales: 2 },
+                  { label: 'Total Acero (#3) (kg)', key: 'anillos', decimales: 2 },
+                  { label: 'Total alambre (kg)', key: 'alambre', decimales: 2 }
+              ];
+              
+              materiales.forEach(material => {
+                  const tr = document.createElement('tr');
+                  tr.innerHTML = `<td class="fw-bold" style="background: #ecf0f1;">${material.label}</td>`;
+                  diametrosSeleccionados.forEach(diametro => {
+                      const valor = totalesPorDiametro[diametro][material.key];
+                      tr.innerHTML += `<td class="text-center align-middle">${valor.toFixed(material.decimales)}</td>`;
+                  });
+                  tbody.appendChild(tr);
+              });
+              
+              resumenContainer.style.display = 'block';
+          }
       });
-
-      if (listaMuros.length === 0) {
-        alert("⚠️ La tabla de diseño está vacía. Presiona 'Cargar Muros' primero.");
-        return;
-      }
-
-      const resultados = calcularMacizosCilindricos(listaMuros, configUI);
-
-      const container = document.getElementById('resultadosCilindricoContainer');
-      if(container) {
-          container.innerHTML = generarTablaResultadosCilindricos(resultados);
-      }
-
-      window.ultimosResultadosCilindricos = resultados;
-    });
   }
 
   // ==========================================

@@ -1,321 +1,245 @@
 /**
- * CÁLCULOS DE ARMADO CILÍNDRICO (MUERTO AISLADO / DEADMAN)
- * Basado en metodología Magnorth:
- * - Docs: MELI12-EJE01 (Tablas de diseño)
- * - Docs: CalculoMateriales_MuertoCilindrico_Anotado (Fórmulas manuscritas)
+ * CÁLCULO DE MUERTO CILÍNDRICO - ESTRUCTURA DE 6 PASOS
+ * Referencia: "Esquema de cálculos.pdf" y "volnuevo.pdf"
  */
 
 // ================== CONSTANTES ==================
-// Pesos específicos de varillas (kg/m)
-const PESO_ESPECIFICO_KG_M = {
-  '#3': 0.560, '#4': 0.994, '#5': 1.552, '#6': 2.235, '#8': 3.973,
-  '3': 0.560, '4': 0.994, '5': 1.552, '6': 2.235, '8': 3.973
-};
+const DENSIDAD_CONCRETO = 2400; // kg/m³ [cite: 216]
+const DENSIDAD_ACERO = 7850;    // kg/m³ [cite: 375]
+const PESO_VAR_4 = 0.994;       // kg/m (Verticales)
+const PESO_VAR_3 = 0.560;       // kg/m (Estribos)
+const PRESION_SUELO = 7323.6;   // 1500 psf [cite: 30]
 
-// Densidades de materiales (kg/m³)
-const DENSIDAD_ACERO_KG_M3 = 7850; // [cite: 375]
-const DENSIDAD_CONCRETO_KG_M3 = 2400; // [cite: 216]
+// ================== PASO 1: DEFINIR GEOMETRÍA (H y D) ==================
+// [cite: 408] Definir dimensiones: Largo, Alto (h), Ancho (D)
+function paso1_Geometria(fuerzaTotal, numMuertos, diametroMm, inputManualMm) {
+    let profundidadMm = inputManualMm;
 
-// Helper para obtener peso lineal de la varilla
-function obtenerPesoEspecifico(tipoVarilla) {
-  let key = String(tipoVarilla).split(' ')[0].trim().replace('#', '').replace('No.', '');
-  return PESO_ESPECIFICO_KG_M[key] ?? 0.994; // Default a #4
-}
-
-// ================== 1. CÁLCULO DE CONCRETO ==================
-// Fórmula: Volumen = (π/4) * D² * H [cite: 259]
-function calcularConcreto(dimensiones, config) {
-  const D_m = dimensiones.diametro_mm / 1000; 
-  const H_m = dimensiones.profundidad_mm / 1000;
-  
-  const area_basal_m2 = (Math.PI / 4) * Math.pow(D_m, 2);
-  const volumen_geom_m3 = area_basal_m2 * H_m;
-  
-  // Peso estructural (sin desperdicio) para validación de uplift
-  const peso_concreto_kg = volumen_geom_m3 * DENSIDAD_CONCRETO_KG_M3;
-  
-  // Volumen de compra (incluye factor de desperdicio)
-  const volumen_compra_m3 = volumen_geom_m3 * config.factorDesperdicioConcreto;
-
-  return { 
-    D_m, 
-    H_m, 
-    volumen_geom_m3, 
-    volumen_compra_m3, 
-    peso_concreto_kg 
-  };
-}
-
-// ================== 2. CÁLCULO DE ACERO VERTICAL ==================
-// Fórmula: Acv = Altura * #Varillas [cite: 275]
-function calcularAceroVertical(concreto, config) {
-  const pesoMetro = obtenerPesoEspecifico(config.tipoVarillaVert); // Default #4 [cite: 280]
-  const numVarillas = config.cantVarillasVert || 4; // Default 4 [cite: 284]
-  
-  // Longitud total = Altura del muerto * Número de varillas
-  const longitud_total_m = concreto.H_m * numVarillas;
-  const peso_unitario_kg = longitud_total_m * pesoMetro;
-
-  return {
-    descripcion: `${numVarillas} Varillas ${config.tipoVarillaVert}`,
-    longitud_total_m,
-    peso_unitario_kg // Peso para 1 muerto
-  };
-}
-
-// ================== 3. CÁLCULO DE ANILLOS (ESTRIBOS) ==================
-// Fórmula: Aca = #Anillos * Perímetro * PesoLineal [cite: 288]
-function calcularAceroAnillos(concreto, config) {
-  const pesoMetro = obtenerPesoEspecifico(config.tipoVarillaAnillo); // Default #3 [cite: 295]
-  
-  // Determinar cantidad de anillos
-  // PDF: "Separados 250 mm" [cite: 145] O "3 estribos por cada muerto" [cite: 173]
-  let numAnillos;
-  if (config.usarSeparacion && config.separacionAnillosMm > 0) {
-      numAnillos = Math.ceil((concreto.H_m * 1000) / config.separacionAnillosMm) + 1;
-  } else {
-      numAnillos = config.cantAnillos || 3;
-  }
-
-  // Geometría del anillo (con recubrimiento)
-  const recubrimiento_m = (config.recubrimientoMm || 75) / 1000;
-  const diametro_anillo_m = concreto.D_m - (2 * recubrimiento_m);
-  
-  if (diametro_anillo_m <= 0) return { peso_unitario_kg: 0 };
-
-  // Longitud 1 anillo = Perímetro + Traslape
-  const traslape_m = config.longitudTraslape_m || 0.40;
-  const longitud_uno_m = (Math.PI * diametro_anillo_m) + traslape_m;
-  
-  const longitud_total_m = longitud_uno_m * numAnillos;
-  const peso_unitario_kg = longitud_total_m * pesoMetro;
-
-  return {
-    descripcion: `${numAnillos} Anillos ${config.tipoVarillaAnillo}`,
-    num_anillos: numAnillos,
-    longitud_total_m,
-    peso_unitario_kg
-  };
-}
-
-// ================== 4. CÁLCULO DE ALAMBRE (AMARRES) ==================
-// Fórmula: m = ρ * V = 7850 * (π/4 * ϕ² * L) 
-function calcularAlambre(aceroVert, aceroAnillos, config) {
-  const numVarillas = config.cantVarillasVert || 4;
-  const numAnillos = aceroAnillos.num_anillos || 0;
-  
-  // Número de intersecciones (nudos)
-  const num_nudos = numVarillas * numAnillos;
-  
-  // Longitud total de alambre (Default 0.35m por amarre [cite: 360])
-  const longitud_por_amarre = config.longitudAmarre_m || 0.35; 
-  const longitud_total_m = num_nudos * longitud_por_amarre;
-  
-  // Cálculo de peso usando densidad volumétrica del acero
-  // Diametro Alambre default 1.22mm [cite: 366]
-  const diametro_alambre_m = (config.diametroAlambreMm || 1.22) / 1000; 
-  const radio_m = diametro_alambre_m / 2;
-  
-  const volumen_alambre_m3 = Math.PI * Math.pow(radio_m, 2) * longitud_total_m;
-  const peso_unitario_kg = volumen_alambre_m3 * DENSIDAD_ACERO_KG_M3;
-
-  return {
-    num_nudos,
-    longitud_total_m,
-    peso_unitario_kg // Peso para 1 muerto
-  };
-}
-
-// ================== 5. FUNCIÓN PRINCIPAL (COORDINADOR) ==================
-export function calcularMacizosCilindricos(listaMuros, configUI = {}) {
-  const resultados = [];
-
-  listaMuros.forEach(muro => {
-    // 1. Configuración fusionada
-    const config = {
-      factorDesperdicioConcreto: 1.05,
-      tipoVarillaVert: '#4',
-      tipoVarillaAnillo: '#3',
-      cantVarillasVert: 4,
-      cantAnillos: 3, 
-      usarSeparacion: false,
-      separacionAnillosMm: 250,
-      recubrimientoMm: 75,
-      longitudAmarre_m: 0.35,
-      diametroAlambreMm: 1.22,
-      ...configUI,
-      ...muro.configOverride 
-    };
-
-    // 2. Extracción de inputs manuales
-    const dimensiones = {
-      diametro_mm: parseFloat(muro.diametro_mm || 0),
-      profundidad_mm: parseFloat(muro.profundidad_mm || 0)
-    };
-    const cantidad_muertos = parseInt(muro.cantidad_muertos || 0);
-
-    if (dimensiones.diametro_mm <= 0 || dimensiones.profundidad_mm <= 0) {
-        return; // Saltar inválidos
+    // Si no hay input manual, calculamos H necesaria (Cálculo de presión)
+    if (!profundidadMm || profundidadMm <= 0) {
+        const factorSeguridad = 1.5; 
+        const cargaDiseño = (fuerzaTotal / numMuertos) * factorSeguridad;
+        const diametroM = diametroMm / 1000;
+        
+        // h = Carga / (D * Presión)
+        const h_req_m = cargaDiseño / (diametroM * PRESION_SUELO);
+        
+        // Ajuste a pasos constructivos (snap a 6" o 150mm)
+        profundidadMm = Math.ceil((h_req_m * 1000) / 152.4) * 152.4;
+        
+        // Restricción mínima: 2 pies (610mm) 
+        if (profundidadMm < 610) profundidadMm = 610;
     }
 
-    // 3. Ejecución de Cálculos
-    const conc = calcularConcreto(dimensiones, config);
-    const aceroV = calcularAceroVertical(conc, config);
-    const aceroA = calcularAceroAnillos(conc, config);
-    const alambre = calcularAlambre(aceroV, aceroA, config);
+    return { D_mm: diametroMm, H_mm: Math.round(profundidadMm) };
+}
 
-    // 4. Totales por Muro
-    const totales = {
-      volumen_concreto_compra: conc.volumen_compra_m3 * cantidad_muertos,
-      peso_acero_vert: aceroV.peso_unitario_kg * cantidad_muertos,
-      peso_acero_anillo: aceroA.peso_unitario_kg * cantidad_muertos,
-      peso_alambre: alambre.peso_unitario_kg * cantidad_muertos
+// ================== PASO 2: CÁLCULO DE CONCRETO (VOLUMEN) ==================
+// [cite: 406] Calcular el Volumen del muerto. V = Área * h
+function paso2_Concreto(geo) {
+    const r_m = (geo.D_mm / 1000) / 2;
+    const h_m = geo.H_mm / 1000;
+
+    // V = π * r² * h 
+    const volumen_m3 = Math.PI * Math.pow(r_m, 2) * h_m;
+    
+    // Peso = Volumen * Densidad [cite: 217]
+    const peso_kg = volumen_m3 * DENSIDAD_CONCRETO;
+
+    return { volumen_m3, peso_kg, h_m, r_m }; // Pasamos h_m y r_m para siguientes pasos
+}
+
+// ================== PASO 3: ACERO LONGITUDINAL (VERTICAL) ==================
+// [cite: 436] Cantidad de varillas y peso
+function paso3_AceroLongitudinal(datosPaso2) {
+    // Regla Cilíndrico: "4 Barras verticales #4" 
+    const cantidad = 4;
+    const recubrimientoSupInf = 0.10; // 5cm arriba + 5cm abajo (aprox)
+    
+    // Longitud varilla ≈ Altura muerto [cite: 457]
+    const longitud_m = Math.max(0, datosPaso2.h_m - recubrimientoSupInf);
+    
+    const peso_total_kg = (cantidad * longitud_m) * PESO_VAR_4;
+
+    return { cantidad, longitud_m, peso_total_kg, desc: "4 varillas #4" };
+}
+
+// ================== PASO 4: ACERO TRANSVERSAL (ESTRIBOS) ==================
+// [cite: 506] Estribos, espaciado y cantidad
+function paso4_AceroTransversal(geo, datosPaso2) {
+    // Regla: Separación 250 mm 
+    const espaciado_m = 0.25;
+    
+    // Cantidad = (h / espaciado) + 1 [cite: 508]
+    const cantidad = Math.ceil(datosPaso2.h_m / espaciado_m) + 1;
+    
+    // Longitud Estribo = Perímetro (π * D) + Ganchos [cite: 518]
+    const recubrimiento_m = 0.05; // 5cm
+    const diametro_estribo = (geo.D_mm / 1000) - (2 * recubrimiento_m);
+    const longitud_unit_m = (Math.PI * diametro_estribo) + 0.20; // +20cm traslape
+
+    const peso_total_kg = (cantidad * longitud_unit_m) * PESO_VAR_3;
+
+    return { cantidad, longitud_unit_m, peso_total_kg, desc: "#3 @ 250mm" };
+}
+
+// ================== PASO 5: ALAMBRE DE AMARRE ==================
+// [cite: 534] Cálculo de nodos y alambre
+function paso5_Alambre(longitudinal, transversal) {
+    // Nodos = #Varillas_Vert * #Anillos [cite: 539]
+    const num_nodos = longitudinal.cantidad * transversal.cantidad;
+    
+    // Longitud por nudo = 0.35m (promedio) [cite: 541]
+    const longitud_total_alambre = num_nodos * 0.35;
+    
+    // Peso: Volumen * Densidad Acero. (Diametro alambre aprox 1.22mm) [cite: 547]
+    const radio_alambre = 0.00122 / 2;
+    const vol_alambre = Math.PI * Math.pow(radio_alambre, 2) * longitud_total_alambre;
+    
+    const peso_kg = vol_alambre * DENSIDAD_ACERO;
+
+    return { num_nodos, peso_kg };
+}
+
+// ================== PASO 6: REPORTE FINAL ==================
+// [cite: 586] Generar reporte (Output estructurado)
+function paso6_GenerarReporte(idMuro, inputs, p2, p3, p4, p5) {
+    const cant = inputs.cantidad;
+
+    return {
+        id_muro: idMuro,
+        input: inputs, // { diametro, profundidad, cantidad }
+        unitario: {
+            volumen_m3: parseFloat(p2.volumen_m3.toFixed(3)),
+            peso_concreto_kg: Math.round(p2.peso_kg),
+            acero_long_kg: parseFloat(p3.peso_total_kg.toFixed(2)),
+            acero_trans_kg: parseFloat(p4.peso_total_kg.toFixed(2)),
+            alambre_kg: parseFloat(p5.peso_kg.toFixed(2))
+        },
+        total_muro: {
+            volumen_total: parseFloat((p2.volumen_m3 * cant).toFixed(2)),
+            peso_concreto_ton: parseFloat(((p2.peso_kg * cant) / 1000).toFixed(2)),
+            peso_acero_total: parseFloat(((p3.peso_total_kg + p4.peso_total_kg + p5.peso_kg) * cant).toFixed(1))
+        }
     };
+}
 
-    resultados.push({
-      id_muro: muro.id,
-      input: {
-        diametro: dimensiones.diametro_mm,
-        profundidad: dimensiones.profundidad_mm,
-        cantidad: cantidad_muertos
-      },
-      unitario: {
-        volumen_m3: conc.volumen_geom_m3,
-        peso_concreto_kg: conc.peso_concreto_kg,
-        acero_vert_kg: aceroV.peso_unitario_kg,
-        acero_anillo_kg: aceroA.peso_unitario_kg,
-        alambre_kg: alambre.peso_unitario_kg
-      },
-      total_muro: totales
+// ================== FUNCIÓN PRINCIPAL (ORQUESTADOR) ==================
+export function calcularMacizosCilindricos(listaMuros) {
+    return listaMuros.map(muro => {
+        const fuerza = parseFloat(muro.fuerza_total || 0);
+        const numMuertos = parseInt(muro.cantidad_muertos || 1);
+        const diametro = parseFloat(muro.diametro_mm || 914);
+        const profManual = parseFloat(muro.profundidad_mm || 0);
+
+        // --- EJECUCIÓN SECUENCIAL DE LOS 6 PASOS ---
+        
+        // 1. Geometría
+        const geo = paso1_Geometria(fuerza, numMuertos, diametro, profManual);
+        
+        // 2. Concreto
+        const conc = paso2_Concreto(geo);
+        
+        // 3. Acero Longitudinal
+        const long = paso3_AceroLongitudinal(conc);
+        
+        // 4. Acero Transversal
+        const trans = paso4_AceroTransversal(geo, conc);
+        
+        // 5. Alambre
+        const alam = paso5_Alambre(long, trans);
+        
+        // 6. Reporte
+        return paso6_GenerarReporte(
+            muro.id || "Muro", 
+            { diametro: geo.D_mm, profundidad: geo.H_mm, cantidad: numMuertos },
+            conc, long, trans, alam
+        );
     });
-  });
-
-  return resultados;
 }
 
-/**
- * Calcula la profundidad necesaria basándose en la Presión Pasiva del Suelo.
- * Fuente: PDF Página 3, Nota 30 "La presión mínima permitida... debe ser de 1500 psf".
- *
- * @param {number} fuerzaTotalKg Fuerza total (FBy) que debe resistir el grupo de puntales.
- * @param {number} numMuertos Cantidad de puntales (braces) asignados al muro.
- * @param {number} diametroMm Diámetro del muerto seleccionado en mm (ej. 914).
- * @returns {number} Profundidad recomendada en mm (ajustada a estándares constructivos).
- */
-export function obtenerProfundidadRecomendada(fuerzaTotalKg, numMuertos, diametroMm) {
-    // Validación básica
-    if (!fuerzaTotalKg || fuerzaTotalKg <= 0) return 0;
-    if (!numMuertos || numMuertos <= 0) numMuertos = 1;
-    if (!diametroMm || diametroMm <= 0) diametroMm = 914; // Default 36"
+// Tabla de capacidades (kg) - Basada en la tabla estándar
+const TABLA_CAPACIDADES = {
+    610: { 762: 667, 914: 962, 1067: 1311, 1219: 1710, 1524: 2671 },   // 2-0
+    762: { 762: 835, 914: 1202, 1067: 1637, 1219: 2136, 1524: 3338 },  // 2-6
+    914: { 762: 1002, 914: 1442, 1067: 1964, 1219: 2563, 1524: 4006 }, // 3-0
+    1067: { 762: 1170, 914: 1683, 1067: 2291, 1219: 2994, 1524: 4674 }, // 3-6
+    1219: { 762: 1338, 914: 1923, 1067: 2617, 1219: 3418, 1524: null }, // 4-0
+    1372: { 762: 1501, 914: 2164, 1067: 2944, 1219: 3846, 1524: null }, // 4-6
+    1524: { 762: 1669, 914: 2404, 1067: 3307, 1219: 4273, 1524: null }, // 5-0
+    1676: { 762: 1837, 914: 2644, 1067: 3597, 1219: null, 1524: null }, // 5-6
+    1829: { 762: 2005, 914: 2885, 1067: 3924, 1219: null, 1524: null }, // 6-0
+    1981: { 762: 2173, 914: 3125, 1067: 4252, 1219: null, 1524: null }, // 6-6
+    2134: { 762: 2336, 914: 3366, 1067: null, 1219: null, 1524: null }, // 7-0
+    2286: { 762: 2504, 914: 3606, 1067: null, 1219: null, 1524: null }, // 7-6
+    2438: { 762: 2672, 914: 3846, 1067: null, 1219: null, 1524: null }, // 8-0
+    2591: { 762: 2839, 914: 4087, 1067: null, 1219: null, 1524: null }, // 8-6
+    2743: { 762: 3007, 914: null, 1067: null, 1219: null, 1524: null }  // 9-0
+};
 
-    // 1. Constantes de Ingeniería (Según PDF Nota 30)
-    const PRESION_SUELO_PSF = 1500; 
-    // Conversión: 1500 lb/ft² ≈ 7323.6 kg/m²
-    const PRESION_SUELO_KG_M2 = 7323.6; 
+// Helper para buscar profundidad por carga y diámetro
+export function obtenerProfundidadRecomendada(cargaKg, diametroMm) {
+    const profundidades = Object.keys(TABLA_CAPACIDADES).map(Number).sort((a, b) => a - b);
     
-    // Factor de Seguridad (FS)
-    // Se deduce un FS de 1.5 al comparar la carga del muro P283 (7.7 ton) 
-    // con la profundidad seleccionada en la Tabla 1 del PDF (1.82m vs 1.21m).
-    const FACTOR_SEGURIDAD = 1.5; 
-
-    // 2. Calcular Carga de Diseño por Muerto
-    const fuerzaIndividual = fuerzaTotalKg / numMuertos;
-    const capacidadRequerida = fuerzaIndividual * FACTOR_SEGURIDAD;
-
-    // 3. Calcular Altura Necesaria
-    // Fórmula: Capacidad = (Diámetro_m * Altura_m) * Presión_Suelo
-    const diametroM = diametroMm / 1000;
-    const alturaNecesariaM = capacidadRequerida / (diametroM * PRESION_SUELO_KG_M2);
+    for (const profundidad of profundidades) {
+        const capacidad = TABLA_CAPACIDADES[profundidad][diametroMm];
+        if (capacidad !== null && capacidad >= cargaKg) {
+            return profundidad;
+        }
+    }
     
-    let alturaCalculadaMm = alturaNecesariaM * 1000;
-
-    // 4. "Snap" (Ajuste) a medidas estándar de construcción
-    // El Excel y PDF usan incrementos de 6 pulgadas (aprox 150mm)
-    // Lista basada en las profundidades disponibles en el archivo MC.csv
-    const profundidadesEstandar = [
-        610, 762, 914, 1067, 1219, 1372, 1524, 
-        1676, 1829, 1981, 2134, 2286, 2438, 2591, 2743
-    ];
-
-    // Buscar la primera medida estándar que sea mayor o igual a lo calculado
-    const profundidadFinal = profundidadesEstandar.find(p => p >= alturaCalculadaMm);
-
-    // Si la fuerza es muy grande y supera la tabla (más de 2.7m), devolvemos el máximo
-    return profundidadFinal || 2743;
+    // Si no encuentra, devolver la máxima disponible para ese diámetro
+    return profundidades[profundidades.length - 1];
 }
 
-
-
-// ================== 6. GENERADOR HTML (OUTPUT) ==================
+// Generador de Tabla HTML (Sin cambios en lógica visual)
 export function generarTablaResultadosCilindricos(resultados) {
-  // Estilo base para mensaje vacío
-  if (!resultados || !resultados.length) {
-    return '<p style="color: #a4b1cd; padding: 1rem; text-align: center;">No hay datos calculados. Verifica los inputs de la tabla de diseño.</p>';
-  }
-
-  // Inicio de la tabla con estilos inline para Dark Mode
-  let html = `
-  <table id="tablaResultadosCilindrico" class="results-table" style="width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 0.9rem; margin-top: 1rem;">
-    <thead>
-      <tr style="background-color: #1e2a45; color: #a4b1cd; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.5px;">
-        <th style="padding: 12px; text-align: center; border-bottom: 2px solid #2d3b5e;">MURO /<br>GRUPO</th>
-        <th style="padding: 12px; text-align: center; border-bottom: 2px solid #2d3b5e;">DISEÑO (D X H)</th>
-        <th style="padding: 12px; text-align: center; border-bottom: 2px solid #2d3b5e;">CANT.</th>
-        <th style="padding: 12px; text-align: center; border-bottom: 2px solid #2d3b5e;">VOL.<br>CONC.<br>(M³)</th>
-        <th style="padding: 12px; text-align: center; border-bottom: 2px solid #2d3b5e;">PESO<br>CONC.<br>(TON)</th>
-        <th style="padding: 12px; text-align: center; border-bottom: 2px solid #2d3b5e;">ACERO<br>VERT.<br>(KG)</th>
-        <th style="padding: 12px; text-align: center; border-bottom: 2px solid #2d3b5e;">ANILLOS<br>(KG)</th>
-        <th style="padding: 12px; text-align: center; border-bottom: 2px solid #2d3b5e;">ALAMBRE<br>(KG)</th>
-        <th style="padding: 12px; text-align: center; border-bottom: 2px solid #2d3b5e;">TOTAL<br>ACERO<br>(KG)</th>
-      </tr>
-    </thead>
-    <tbody style="background-color: #161f33; color: #d1d5db;">
-  `;
-
-  let totalVol = 0;
-  let totalAcero = 0;
-
-  resultados.forEach(res => {
-    const t = res.total_muro;
-    const pesoAceroFila = t.peso_acero_vert + t.peso_acero_anillo + t.peso_alambre;
-    const pesoConcretoTon = (res.unitario.peso_concreto_kg * res.input.cantidad) / 1000;
+    if (!resultados || !resultados.length) return '<p class="text-center text-muted">Sin datos.</p>';
     
-    totalVol += t.volumen_concreto_compra;
-    totalAcero += pesoAceroFila;
+    let html = `
+    <table class="table table-sm table-bordered text-center align-middle" style="font-size:0.85rem;">
+        <thead class="table-dark">
+            <tr>
+                <th>ID</th>
+                <th>Diseño (mm)</th>
+                <th>Cant.</th>
+                <th>Vol. Total (m³)</th>
+                <th>Acero Vert. (kg)</th>
+                <th>Estribos (kg)</th>
+                <th>Alambre (kg)</th> <th>Acero Total (kg)</th>
+            </tr>
+        </thead>
+        <tbody>`;
 
-    html += `
-      <tr style="border-bottom: 1px solid #2d3b5e;">
-        <td style="padding: 12px; text-align: center;">${res.id_muro}</td>
-        <td style="padding: 12px; text-align: center;">Ø${res.input.diametro} x ${res.input.profundidad}</td>
-        <td style="padding: 12px; text-align: center;">${res.input.cantidad}</td>
-        
-        <td style="padding: 12px; text-align: center; color: #5fabc4; font-weight: bold;">${t.volumen_concreto_compra.toFixed(2)}</td>
-        <td style="padding: 12px; text-align: center;">${pesoConcretoTon.toFixed(2)}</td>
-        
-        <td style="padding: 12px; text-align: center;">${t.peso_acero_vert.toFixed(1)}</td>
-        <td style="padding: 12px; text-align: center;">${t.peso_acero_anillo.toFixed(1)}</td>
-        <td style="padding: 12px; text-align: center;">${t.peso_alambre.toFixed(2)}</td>
-        
-        <td style="padding: 12px; text-align: center; font-weight: bold;">${pesoAceroFila.toFixed(1)}</td>
-      </tr>
-    `;
-  });
+    let sumVol = 0, sumAcero = 0;
 
-  html += `
-    </tbody>
-    <tfoot style="background-color: #111827; color: #a4b1cd; font-weight: bold; border-top: 2px solid #374151;">
-      <tr>
-        <td colspan="3" style="padding: 15px; text-align: right; text-transform: uppercase;">TOTALES PROYECTO:</td>
-        <td style="padding: 15px; text-align: center; color: #5fabc4;">${totalVol.toFixed(2)} m³</td>
-        <td style="padding: 15px; text-align: center;">-</td>
-        <td style="padding: 15px; text-align: center;">-</td>
-        <td style="padding: 15px; text-align: center;">-</td>
-        <td style="padding: 15px; text-align: center;">-</td>
-        <td style="padding: 15px; text-align: center;">${totalAcero.toFixed(1)} kg</td>
-      </tr>
-    </tfoot>
-  </table>
-  `;
+    resultados.forEach(r => {
+        const u = r.unitario;
+        const cant = r.input.cantidad;
+        const t = r.total_muro;
+        
+        sumVol += t.volumen_total;
+        sumAcero += t.peso_acero_total;
 
-  return html;
+        html += `
+            <tr>
+                <td class="fw-bold">${r.id_muro}</td>
+                <td>Ø${r.input.diametro} x ${r.input.profundidad}</td>
+                <td>${cant}</td>
+                <td class="text-primary fw-bold">${t.volumen_total}</td>
+                <td>${(u.acero_long_kg * cant).toFixed(1)}</td>
+                <td>${(u.acero_trans_kg * cant).toFixed(1)}</td>
+                <td class="text-muted">${(u.alambre_kg * cant).toFixed(2)}</td>
+                <td class="fw-bold">${t.peso_acero_total}</td>
+            </tr>`;
+    });
+
+    html += `</tbody><tfoot><tr class="table-secondary fw-bold">
+        <td colspan="3" class="text-end">TOTALES:</td>
+        <td class="text-primary">${sumVol.toFixed(2)}</td>
+        <td colspan="3"></td>
+        <td>${sumAcero.toFixed(1)}</td>
+    </tr></tfoot></table>`;
+    
+    return html;
 }
