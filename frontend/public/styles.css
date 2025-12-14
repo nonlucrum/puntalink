@@ -1239,6 +1239,76 @@ pre{
   font-size: 0.8rem;
 }
 
+/* Detalles de muros cilindricos expandibles */
+.cilindrico-details h4 {
+  margin: 0 0 1rem 0;
+  color: var(--text);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.cilindrico-detail {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.cilindrico-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: var(--bg);
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid var(--border);
+}
+
+.cilindrico-detail-header:hover {
+  background: var(--border);
+}
+
+.cilindrico-detail-header span:first-child {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.cilindrico-detail-header span:last-child {
+  color: var(--muted);
+  transition: transform 0.2s ease;
+}
+
+.cilindrico-detail-content {
+  max-height: 0;
+  overflow: scroll;
+  transition: max-height 0.3s ease;
+}
+
+.cilindrico-detail-content.active {
+  max-height: 600px;
+}
+
+.cilindrico-detail-content ol {
+  margin: 0;
+  padding: 1rem 1rem 1rem 2rem;
+  color: var(--text);
+}
+
+.cilindrico-detail-content li {
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.cilindrico-detail-content code {
+  background: var(--bg);
+  padding: 0.125rem 0.25rem;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+}
 
 
 

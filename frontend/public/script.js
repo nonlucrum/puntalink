@@ -1608,7 +1608,7 @@ export async function mostrarResultadosViento(data, progress = null, totalMuros 
 /**
  * Función para toggle del detalle de cálculos
  */
-function toggleCalculationDetail(header) {
+export function toggleCalculationDetail(header) {
   const content = header.nextElementSibling;
   const arrow = header.querySelector('span:last-child');
   

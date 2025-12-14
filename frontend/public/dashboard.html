@@ -819,10 +819,13 @@
             <input type="checkbox" class="diametro-checkbox" value="1524" style="margin-right: 5px;">
             <span>Ø 1524 mm (5')</span>
           </label>
+          <button id="btnCalcularCilindrico" class="btn btn--primary">
+              🧮 Calcular Materiales Cilíndricos
+          </button>
         </div>
       </div>
       
-      <div id="containerTablasCilindrico" style="max-height: 500px; overflow-y: auto;">
+      <div id="containerTablasCilindrico">
         <table class="results-table" id="tablaInputsCilindrico">
           <thead>
             <tr>
@@ -842,12 +845,6 @@
       </div>
     </div>
 
-    <div style="text-align: center; margin: 20px 0;">
-      <button id="btnCalcularCilindrico" class="btn btn--primary">
-        🧮 Calcular Materiales Cilíndricos
-      </button>
-    </div>
-
     <div class="table-container mt-3">
       <div id="resultadosCilindricoContainer">
         <!-- Aquí se generarán las tablas por diámetro -->
@@ -859,11 +856,11 @@
       <h4 style="background: #27ae60; color: white; padding: 12px; margin: 0; border-radius: 8px 8px 0 0; text-align: center;">
         📊 Resumen Muerto Cilíndrico Aislado - Totales Materiales
       </h4>
-      <div style="background: #f8f9fa; padding: 10px; border: 2px solid #27ae60; border-top: none; border-radius: 0 0 8px 8px;">
+      <div style="background: #f8f9fa; padding: 10px; border: 2px solid #27ae60; border-top: none; border-radius: 0 0 8px 8px; align-items: center; display: flex; flex-direction: column;">
         <p style="margin: 5px 0; font-size: 0.9em; color: #666;">
           <strong>Nota:</strong> Muestra solo opciones elegidas | Alambre = 0.35m | N° muertos por muro
         </p>
-        <table class="results-table" id="tablaResumenCilindrico" style="margin-top: 10px;">
+        <table class="results-table" id="tablaResumenCilindrico" style="margin-top: 10px; width: auto;">
           <thead>
             <tr>
               <th></th>

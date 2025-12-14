@@ -4,6 +4,8 @@
  * Agrupa por eje, suma fuerzas y lee los parámetros de la UI.
  * Devuelve un arreglo de grupos listos para calcular.
  */
+import { toggleCalculationDetail } from '../script.js';
+
 function prepararDatosCilindricos() {
   // Obtener los grupos de muertos globales
   const grupos = window.gruposMuertosGlobal || {};
@@ -186,13 +188,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
               // Crear contenedor para esta tabla
               const divTabla = document.createElement('div');
+              divTabla.className = 'cilindrico-detail';
               divTabla.style.marginBottom = '30px';
               
+              window.toggleCalculationDetail = toggleCalculationDetail;
+              
               // Título con el diámetro
-              const titulo = document.createElement('h4');
+              const titulo = document.createElement('div');
+              titulo.className = 'cilindrico-detail-header';
+              titulo.setAttribute('onclick', 'toggleCalculationDetail(this)');
               titulo.style.cssText = 'background: #2c3e50; color: white; padding: 10px; margin: 0; border-radius: 8px 8px 0 0;';
               titulo.innerHTML = `🕳️ Ø ${diametro} mm`;
               divTabla.appendChild(titulo);
+
+              const toggle = document.createElement('span');
+              toggle.innerHTML = '▼';
+              titulo.appendChild(toggle);
+
+              const tablaContent = document.createElement('div');
+              tablaContent.className = 'cilindrico-detail-content';
+              divTabla.appendChild(tablaContent);
               
               // Crear tabla
               const tabla = document.createElement('table');
@@ -256,7 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   tbody.appendChild(tr);
               });
               
-              divTabla.appendChild(tabla);
+              tablaContent.appendChild(tabla);
               containerTablas.appendChild(divTabla);
           });
 
@@ -301,7 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   tr.innerHTML = `<td class="fw-bold" style="background: #ecf0f1;">${material.label}</td>`;
                   diametrosSeleccionados.forEach(diametro => {
                       const valor = totalesPorDiametro[diametro][material.key];
-                      tr.innerHTML += `<td class="text-center align-middle">${valor.toFixed(material.decimales)}</td>`;
+                      tr.innerHTML += `<td class="text-center align-middle" style="padding:0.85rem 2rem;">${valor.toFixed(material.decimales)}</td>`;
                   });
                   tbody.appendChild(tr);
               });
