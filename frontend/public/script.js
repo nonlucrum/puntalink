@@ -4496,10 +4496,12 @@ window.enableAccordionAfterGrouping = function() {
   // Helper para crear elementos
   const el = (tag, attrs = {}, children = []) => {
     const n = document.createElement(tag);
+    console.log('[DOCK] Creando elemento:', tag, attrs);
     Object.entries(attrs).forEach(([k, v]) => {
       if (k === 'class') n.className = v;
       else if (k === 'dataset') Object.entries(v).forEach(([dk, dv]) => n.dataset[dk] = dv);
       else if (k === 'aria') Object.entries(v).forEach(([ak, av]) => n.setAttribute(`aria-${ak}`, av));
+      else if (k === 'id') Object.entries(v).forEach(([dk, dv]) => n.id = dv);
       else if (k.startsWith('on') && typeof v === 'function') n.addEventListener(k.slice(2), v);
       else n.setAttribute(k, v);
     });
@@ -4510,16 +4512,18 @@ window.enableAccordionAfterGrouping = function() {
   // Define tus acciones aquí (solo imágenes; tooltip con texto)
 // ===== Dock: items superiores (solo imágenes) =====
 const itemsTop = [
-  { action: 'home',              label: 'Home',               icon: 'img/backgrounds/10.png' },
-  { action: 'import-txt',        label: 'Importar TXT',       icon: 'img/backgrounds/11.png' },
-  { action: 'calculos-libro',    label: 'Cálculos libro',     icon: 'img/backgrounds/7.png'  },
-  { action: 'resultados-calculo',label: 'Resultados cálculo', icon: 'img/backgrounds/9.png'  },
-  { action: 'armado-deadman',    label: 'Armado Deadman',     icon: 'img/backgrounds/8.png'  },
+  { action: 'home',              label: 'Home',               icon: 'img/backgrounds/10.png', code: 'dock-home' },
+  { action: 'import-txt',        label: 'Importar TXT',       icon: 'img/backgrounds/11.png', code: 'dock-import-txt' },
+  { action: 'calculos-libro',    label: 'Cálculos libro',     icon: 'img/backgrounds/7.png', code: 'dock-calculos-libro' },
+  { action: 'resultados-calculo',label: 'Resultados cálculo', icon: 'img/backgrounds/9.png', code: 'dock-resultados-calculo' },
+  { action: 'armado-deadman-rect',    label: 'Armado Rectangular',     icon: 'img/backgrounds/8.png', code: 'dock-rect' },
+  { action: 'armado-deadman-cil',    label: 'Armado Cilíndrico',     icon: 'img/backgrounds/8.png', code: 'dock-cil' },
+  { action: 'armado-deadman-tri',    label: 'Armado Triangular',     icon: 'img/backgrounds/8.png', code: 'dock-tri' },
 ];
 
 
 const itemsBottom = [
-  { action: 'help', label: 'Ayuda', icon: 'img/backgrounds/12.png' },
+  { action: 'help', label: 'Ayuda', icon: 'img/backgrounds/12.png', code: 'dock-help' },
 ];
 
 // Offset para scroll (altura del header fijo)
@@ -4567,8 +4571,20 @@ const clickHandlers = {
   },
 
   // 6) ARMADO DEADMAN -> Sección 5
-  'armado-deadman': () => {
+  'armado-deadman-rect': () => {
     var element = document.getElementById('section-armado-deadman');
+    var elementPosition = element.getBoundingClientRect().top;
+    var offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+    window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+  },
+  'armado-deadman-cil': () => {
+    var element = document.getElementById('section-armado-cilindrico');
+    var elementPosition = element.getBoundingClientRect().top;
+    var offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+    window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+  },
+  'armado-deadman-tri': () => {
+    var element = document.getElementById('section-armado-triangular');
     var elementPosition = element.getBoundingClientRect().top;
     var offsetPosition = elementPosition + window.pageYOffset - headerOffset;
     window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
@@ -4593,8 +4609,8 @@ const clickHandlers = {
   },
 };
 
-  const makeButton = ({ action, label, icon }) => el('button',
-    { class: 'dock-item', type: 'button', 'aria-label': label, dataset: { action } },
+  const makeButton = ({ action, label, icon, code }) => el('button',
+    { class: 'dock-item', 'id': { code }, type: 'button', 'aria-label': label, dataset: { action } },
     [
       el('img', { src: icon, alt: '' }),
       el('span', { class: 'dock-tooltip' }, document.createTextNode(label))
@@ -4609,6 +4625,14 @@ itemsTop.forEach(it => dock.appendChild(makeButton(it)));
 itemsBottom.forEach(it => dock.appendChild(makeButton(it)));
 
   document.body.appendChild(dock);
+
+    // Mostrar/ocultar botones según tipo de muerto
+  const projectConfig = localStorage.getItem('projectConfig');
+  const tipo_muerto = JSON.parse(projectConfig).tipo_muerto;
+
+  document.getElementById('dock-rect').style.display = tipo_muerto === 'Corrido' ? '' : 'none';
+  document.getElementById('dock-cil').style.display = tipo_muerto === 'Cilindrico' ? '' : 'none';
+  document.getElementById('dock-tri').style.display = tipo_muerto === 'Triangular' ? '' : 'none';
 
   // Delegación de eventos
   dock.addEventListener('click', (ev) => {

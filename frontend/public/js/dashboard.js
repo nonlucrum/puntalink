@@ -584,6 +584,11 @@ export async function loadProjectInfo() {
         document.getElementById('section-armado-cilindrico').style.display = tipoMuerto === 'Cilindrico' ? '' : 'none';
         document.getElementById('section-armado-triangular').style.display = tipoMuerto === 'Triangular' ? '' : 'none';
 
+        // Mostrar boton de dock según tipo
+        document.getElementById('dock-rect').style.display = tipoMuerto === 'Corrido' ? '' : 'none';
+        document.getElementById('dock-cil').style.display = tipoMuerto === 'Cilindrico' ? '' : 'none';
+        document.getElementById('dock-tri').style.display = tipoMuerto === 'Triangular' ? '' : 'none';
+
         // Mostrar tabla de agrupación por muertos según tipo
         document.getElementById('tablaMuertosAccordion').style.display = tipoMuerto === 'Corrido' || tipoMuerto === 'Triangular' ? '' : 'none';
 
@@ -722,6 +727,11 @@ export async function guardarCambiosProyecto() {
         document.getElementById('section-armado-deadman').style.display = tipoMuerto === 'Corrido' ? '' : 'none';
         document.getElementById('section-armado-cilindrico').style.display = tipoMuerto === 'Cilindrico' ? '' : 'none';
         document.getElementById('section-armado-triangular').style.display = tipoMuerto === 'Triangular' ? '' : 'none';
+
+        // Mostrar boton de dock según tipo
+        document.getElementById('dock-rect').style.display = tipoMuerto === 'Corrido' ? '' : 'none';
+        document.getElementById('dock-cil').style.display = tipoMuerto === 'Cilindrico' ? '' : 'none';
+        document.getElementById('dock-tri').style.display = tipoMuerto === 'Triangular' ? '' : 'none';
 
         // Mostrar tabla de agrupación por muertos según tipo
         document.getElementById('tablaMuertosAccordion').style.display = tipoMuerto === 'Corrido' || tipoMuerto === 'Triangular' ? '' : 'none';
