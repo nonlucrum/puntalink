@@ -578,6 +578,14 @@ export async function loadProjectInfo() {
         document.getElementById('proyectoUbicacion').value = project.ubicacion || '-';
         document.getElementById('proyectoVersion').value = project.version_proyecto || '-';
 
+        // Mostrar seccion de armado de muertos según tipo
+        const tipoMuerto = project.tipo_muerto || 'Corrido';
+        document.getElementById('section-armado-deadman').style.display = tipoMuerto === 'Corrido' ? '' : 'none';
+        document.getElementById('section-armado-cilindrico').style.display = tipoMuerto === 'Cilindrico' ? '' : 'none';
+        document.getElementById('section-armado-triangular').style.display = tipoMuerto === 'Triangular' ? '' : 'none';
+
+        // Mostrar tabla de agrupación por muertos según tipo
+        document.getElementById('tablaMuertosAccordion').style.display = tipoMuerto === 'Corrido' || tipoMuerto === 'Triangular' ? '' : 'none';
 
         // Sincronizar valores del proyecto con los campos de cálculo de viento
         const velViento = parseFloat(project.vel_viento) || 128;
@@ -708,6 +716,15 @@ export async function guardarCambiosProyecto() {
           presion_atmo: parseFloat(document.getElementById('proyectoPresionAtm').value),
           ubicacion: document.getElementById('proyectoUbicacion').value
       };
+
+      // Mostrar seccion de armado de muertos según tipo
+        const tipoMuerto = document.getElementById('proyectoTipoMuerto').value || 'Corrido';
+        document.getElementById('section-armado-deadman').style.display = tipoMuerto === 'Corrido' ? '' : 'none';
+        document.getElementById('section-armado-cilindrico').style.display = tipoMuerto === 'Cilindrico' ? '' : 'none';
+        document.getElementById('section-armado-triangular').style.display = tipoMuerto === 'Triangular' ? '' : 'none';
+
+        // Mostrar tabla de agrupación por muertos según tipo
+        document.getElementById('tablaMuertosAccordion').style.display = tipoMuerto === 'Corrido' || tipoMuerto === 'Triangular' ? '' : 'none';
 
       await fetch(`${API_BASE}/api/proyecto/actualizar`, {
           method: 'PUT',
