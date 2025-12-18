@@ -234,13 +234,19 @@ document.addEventListener('DOMContentLoaded', () => {
               
               // Para cada muro, calcular con este diámetro
               window.lastResultadosMuertos.forEach((muro, index) => {
-                  const fbTotal = parseFloat(muro.fb || muro.FB || 0);
+                  const muroId = muro.id_muro || muro.pid || `M${index+1}`;
+                  
+                  // Obtener FB: prioridad a fb/FB, fallback a fuerza_kN
+                  const fbTotal = parseFloat(muro.fb || muro.FB || muro.fuerza_kN || 0);
                   const numBraces = parseInt(muro.total_braces || 1);
                   const cargaPorMuerto = fbTotal / numBraces;
-                  const muroId = muro.id_muro || muro.pid || `M${index+1}`;
+
+                  // DEBUG: Ver valores de FB y carga
+                  console.log(`[CILINDRICO-DEBUG] Muro ${muroId}: FB = ${fbTotal.toFixed(2)} kN (fuerza_kN: ${muro.fuerza_kN}), Braces = ${numBraces}, Carga/muerto = ${cargaPorMuerto.toFixed(2)} kN`);
 
                   // Calcular profundidad recomendada
                   const profundidad = obtenerProfundidadRecomendada(cargaPorMuerto, diametro);
+                  console.log(`[CILINDRICO-DEBUG] Muro ${muroId}: Diámetro ${diametro} mm → Profundidad ${profundidad} mm`);
 
                   // Calcular materiales para este muerto específico
                   const resultado = calcularMacizosCilindricos([{
