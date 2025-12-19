@@ -122,7 +122,8 @@ export async function getProjectsByUser(pk_usuario: number) {
 export async function duplicateProject(
     pid: number,
     pk_usuario: number,
-    nombre: string
+    nombre: string,
+    notas_version?: string
 ) {
     const query1 = `
     SELECT count(*) FROM proyecto
@@ -131,7 +132,7 @@ export async function duplicateProject(
 
     const query2 = `
     INSERT INTO proyecto
-    SELECT nextval('proyecto_pid_seq'), pk_usuario, nombre, empresa, tipo_muerto, vel_viento, temp_promedio, presion_atmo, texto_entrada, ubicacion, $3, notas_version, created_at
+    SELECT nextval('proyecto_pid_seq'), pk_usuario, nombre, empresa, tipo_muerto, vel_viento, temp_promedio, presion_atmo, texto_entrada, ubicacion, $3, $4, created_at
     FROM proyecto
     WHERE pid = $1 AND pk_usuario = $2
     RETURNING pid;
@@ -166,7 +167,7 @@ export async function duplicateProject(
         const result1 = await pool.query(query1, [pk_usuario, nombre]); // obtener el conteo de versiones existentes
         
         const version_nueva = parseInt(result1.rows[0].count) + 1;
-        const result2 = await pool.query(query2, [pid, pk_usuario, version_nueva]);
+        const result2 = await pool.query(query2, [pid, pk_usuario, version_nueva, notas_version]); // duplicar proyecto
         
         const new_pid = parseInt(result2.rows[0].pid);
         await pool.query(query3, [pid, new_pid]); // duplicar muros
@@ -174,6 +175,21 @@ export async function duplicateProject(
         return new_pid;
     } catch (error) {
         console.error("Error duplicating project:", error);
+        throw error;
+    }
+}
+
+export async function deleteProject(pid: number, pk_usuario: number) {
+    const query = `
+    DELETE FROM proyecto
+    WHERE pid = $1 AND pk_usuario = $2;
+    `;
+    const values = [pid, pk_usuario];
+    try {
+        await pool.query(query, values);
+        return true;
+    } catch (error) {
+        console.error("Error deleting project:", error);
         throw error;
     }
 }

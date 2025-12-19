@@ -5,7 +5,8 @@ import {
     listarProyectosService,
     cargarProyectoService,
     guardarTxtService,
-    nuevaVersionService
+    nuevaVersionService,
+    eliminarProyectoService
 } from '../services/projectService';
 
 export async function crearProyecto(req: Request, res: Response) {
@@ -85,4 +86,16 @@ export async function nuevaVersion(req: Request, res: Response) {
         res.status(500).json({ ok: false, error: err.message });
     }
     console.log('[controller - projectController] nuevaVersion - Fin');
+}
+
+export async function eliminarProyecto(req: Request, res: Response) {
+    console.log('[controller - projectController] eliminarProyecto - Inicio');
+    try {
+        await eliminarProyectoService(req);
+        console.log('[controller - projectController] eliminarProyecto - Proyecto eliminado:');
+        res.json({ ok: true, message: 'Proyecto eliminado correctamente' });
+    } catch (err: any) {
+        res.status(500).json({ ok: false, error: err.message });
+    }
+    console.log('[controller - projectController] eliminarProyecto - Fin');
 }

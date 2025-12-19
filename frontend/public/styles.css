@@ -59,6 +59,7 @@
   --shadow: 0 8px 24px var(--shadow-color);
   --radius: 16px;
   --sidebar-width: 13em;
+  --mix-percent: 15%;
 }
 
 /* Forzar scrollbar siempre visible para evitar saltos de layout */
@@ -1517,17 +1518,15 @@ pre{
     background: var(--card);
     border-radius: 6px;
     border: 0px;
+    cursor: pointer;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    transition: box-shadow 0.2s ease;
+    width: 100%;
+    overflow: hidden;
 }
 
 .project-card:hover{
     box-shadow: 0 10px 12px var(--shadow-color);
-    transform: translateY(-3px);
-}
-
-.project-card:active{
-    transform: translateY(0);
 }
 
 .project-card-title{
@@ -1564,6 +1563,63 @@ pre{
 .project-card-var{
     font-size: 0.8em;
     color: var(--text);
+}
+
+.project-card-div{
+    display: flex;
+    flex-direction: row;
+}
+
+.project-card-side{
+    display: flex;
+    flex-direction: column;
+    width: 3.3em;
+    gap: 3px;
+    transition: all 0.2s ease;
+    padding: 3px 0px;
+}
+
+.project-card-side-button{
+    border: 1px;
+    border-left: solid 2px;
+    border-radius: 0 12px 12px 0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    overflow: hidden;
+    padding: 0;
+    height: 100%;
+}
+
+.project-card-side-button:hover{
+    --mix-percent: 80%;
+}
+
+.project-card-side-button path{
+    transition: all 0.2s ease;
+}
+
+.project-card-side-button:hover path{
+    stroke: white;
+}
+
+.project-card svg{
+    width: 45px;
+    height: 77px;
+    transition: all 0.2s ease;
+}
+
+.project-card polygon, rect, circle{
+    transition: all 0.2s ease;
+}
+
+.project-card:hover svg{
+    width: 90px;
+}
+
+.project-card:hover polygon,
+.project-card:hover rect,
+.project-card:hover circle {
+    transform: translateX(45px);
 }
 
 /* ====== Formulario de creación de proyecto ====== */
@@ -2110,7 +2166,6 @@ pre{
 .tab-button:hover {
     background: rgba(102, 126, 234, 0.2);
     border-color: rgba(102, 126, 234, 0.4);
-    transform: translateY(-2px);
 }
 
 .tab-button.active {
@@ -2319,7 +2374,7 @@ pre{
     display: flex;
     align-items: center;
     gap: 1rem;
-    padding: 1.25rem 1.5rem;
+    padding: 1.1rem;
     background: rgba(255, 255, 255, 0.5);
     backdrop-filter: blur(10px);
     border: 2px solid rgba(255, 255, 255, 0.3);
@@ -2331,7 +2386,6 @@ pre{
 .radio-card:hover label {
     border-color: var(--primary);
     background: rgba(102, 126, 234, 0.1);
-    transform: translateY(-2px);
 }
 
 .radio-card input:checked + label {
@@ -2339,6 +2393,150 @@ pre{
     backdrop-filter: blur(15px);
     border-color: var(--primary);
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.cilindro-bottom {
+    cx: 0px;
+    cy: 38.5px;
+    rx: 29.5px;
+    ry: 29.5px;
+    stroke: var(--primary);
+    stroke-width: 6px;
+    translate: 26px 0px;
+    scale: 60%;
+    fill: var(--primary);
+    transition: all 0.2s ease;
+}
+
+.cilindro-middle {
+    stroke: var(--primary);
+    stroke-width: 39px;
+    translate: 26px 0px;
+    clip-path: rect(50% 100% 50% 0%);
+    transition: all 0.2s ease;
+}
+
+.cilindro-top {
+    cx: 0px;
+    cy: 38.5px;
+    rx: 30px;
+    ry: 30px;
+    stroke: var(--primary);
+    stroke-width: 6px;
+    translate: 26px 0px;
+    scale: 60%;
+    fill: white;
+    transition: all 0.2s ease;
+}
+
+.radio-card input:checked + label .cilindro-bottom {
+    rx: 30px;
+    ry: 20px;
+    translate: 26px 7px;
+}
+
+.radio-card input:checked + label .cilindro-top {
+    ry: 20px;
+    translate: 26px -9px;
+}
+.radio-card input:checked + label .cilindro-middle{
+    stroke-width: 40px;
+    clip-path: rect(0% 100% 100% 0%);
+}
+
+.rectangulo-top {
+    fill: transparent;
+    stroke: var(--primary);
+    stroke-width: 6;
+    translate: 26px;
+    scale: 60%;
+    fill: white;
+    width: 60px;
+    height: 60px;
+    x: -30px;
+    y: 8.5px;
+    stroke-linejoin: miter;
+    transition: all 0.2s ease;
+}
+
+.rectangulo-bottom {
+    fill: transparent;
+    stroke: var(--primary);
+    stroke-width: 6;
+    translate: 26px;
+    scale: 60%;
+    fill: var(--primary);
+    width: 60px;
+    height: 60px;
+    x: -30px;
+    y: 8.5px;
+    fill: var(--primary);
+    stroke-linejoin: miter;
+    transition: all 0.2s ease;
+    clip-path: polygon(0px 0px, 0px 0px, 66px 0px, 66px 66px, 66px 66px, 0px 66px);
+}
+
+.radio-card input:checked + label .rectangulo-top {
+    width: 40px;
+    height: 40px;
+    y: 28.5px;
+    stroke-linejoin: bevel;
+}
+
+.radio-card input:checked + label .rectangulo-bottom {
+    clip-path: polygon(0px 21px, 21px 0px, 66px 0px, 66px 46px, 46px 66px, 0px 66px);
+}
+
+.triangulo-top {
+    fill: white;
+    stroke: var(--primary);
+    stroke-width: 6;
+    translate: 26px;
+    scale: 60% 60%;
+    transition: all 0.2s ease;
+}
+
+.triangulo-top-border {
+    fill: var(--primary);
+    stroke: var(--primary);
+    stroke-width: 6;
+    translate: 26px;
+    scale: 40% 60%;
+    transition: all 0.2s ease;
+}
+
+.triangulo-middle {
+    stroke: var(--primary);
+    stroke-width: 0;
+    translate: 26px;
+    scale: 60%;
+    transition: all 0.2s ease;
+}
+
+.triangulo-bottom {
+    fill: var(--primary);
+    stroke: var(--primary);
+    stroke-width: 6;
+    translate: 26px;
+    scale: 40% 60%;
+    transition: all 0.2s ease;
+}
+
+.radio-card input:checked + label .triangulo-top {
+    translate: 15px;
+    scale: 40% 60%;
+}
+
+.radio-card input:checked + label .triangulo-top-border {
+    translate: 14px;
+}
+
+.radio-card input:checked + label .triangulo-middle {
+    stroke-width: 40;
+}
+
+.radio-card input:checked + label .triangulo-bottom {
+    translate: 38px;
 }
 
 .radio-icon {

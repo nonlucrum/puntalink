@@ -662,6 +662,7 @@ export async function loadProjectInfo() {
                 console.log('[FRONTEND] Mostrando resultados de viento desde datos guardados...');
                 console.log(tablaCalculada);
                 await mostrarResultadosViento(tablaCalculada);
+                globalVars.resultadosTomoIII = tablaCalculada;
                 console.log('[FRONTEND] Resultados de viento mostrados desde datos guardados');
             }
         }
@@ -789,7 +790,17 @@ function endEditarProyecto() {
 export async function guardarNuevaVersionProyecto() {
 
   try {
-      const projectConfig = localStorage.getItem('projectConfig');
+      const projectConfigJson = JSON.parse(localStorage.getItem('projectConfig'));
+
+      // Pedir input para guardar notas de la versión
+      const notasVersion = prompt("Ingrese notas o descripción para la nueva versión del proyecto:", "Actualización de datos");
+      if (notasVersion === null) {
+          console.log('[FRONTEND] Usuario canceló la entrada de notas de versión. Operación abortada.');
+          return;
+      }
+      projectConfigJson.notas_version = notasVersion;
+
+      const projectConfig = JSON.stringify(projectConfigJson);
 
       await fetch(`${API_BASE}/api/proyecto/guardar-version`, {
           method: 'POST',
@@ -801,6 +812,7 @@ export async function guardarNuevaVersionProyecto() {
       .then(res => res.json())
       .then(data => {
           console.log("[FRONTEND] Full response:", data);
+          window.location.href = 'index.html';
       })
 
   } catch (error) {
@@ -815,8 +827,6 @@ const btnSaveProjectNewVersion = document.getElementById('btnSaveProjectNewVersi
 if (btnSaveProjectNewVersion) {
   btnSaveProjectNewVersion.addEventListener('click', async () => {
       await guardarNuevaVersionProyecto();
-      // volver a index.html
-      window.location.href = 'index.html';
   });
 }
 

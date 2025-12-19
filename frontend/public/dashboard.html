@@ -83,8 +83,8 @@
               <label>TIPO DE MUERTO</label>
               <select id="proyectoTipoMuerto" class="project-value-dim" disabled>
                   <option value="Cilindrico">Aislado Cilindrico</option>
-                  <option value="Triangular">Corrido Triangular</option>
                   <option value="Corrido">Corrido Rectangular</option>
+                  <option value="Triangular">Corrido Triangular</option>
               </select>
             </div>
             
@@ -1110,5 +1110,12 @@
     }
   });
   </script>
+  <script>
+  window.addEventListener("pageshow", function (event) {
+    if (event.persisted) {
+      window.location.reload();
+    }
+  });
+</script>
 </body>
 </html>

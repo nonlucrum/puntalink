@@ -259,7 +259,11 @@
                 <div class="radio-card">
                   <input type="radio" id="cilindro" name="tipoMuerto" value="Cilindrico" checked />
                   <label for="cilindro">
-                    <div class="radio-icon">⭕</div>
+                    <svg style="width: 53px;height: 45px;">
+                        <ellipse class="cilindro-bottom"></ellipse>
+                        <line class="cilindro-middle" y1="13" y2="30" x1="0" x2="0" style=""></line>
+                        <ellipse class="cilindro-top"></ellipse>
+                    </svg>
                     <div class="radio-text">
                       <span class="radio-title">Aislado Cilíndrico</span>
                       <span class="radio-desc">Fundación circular individual</span>
@@ -267,22 +271,30 @@
                   </label>
                 </div>
                 <div class="radio-card">
-                  <input type="radio" id="triangulo" name="tipoMuerto" value="Triangular" />
-                  <label for="triangulo">
-                    <div class="radio-icon">🔺</div>
+                  <input type="radio" id="corrido" name="tipoMuerto" value="Corrido" />
+                  <label for="corrido">
+                    <svg style="width: 53px;height: 45px;">
+                        <rect class="rectangulo-bottom"></rect>
+                        <rect class="rectangulo-top"></rect>
+                    </svg>
                     <div class="radio-text">
-                      <span class="radio-title">Corrido Triangular</span>
-                      <span class="radio-desc">Fundación continua triangular</span>
+                      <span class="radio-title">Corrido Rectangular</span>
+                      <span class="radio-desc">Fundación continua rectangular</span>
                     </div>
                   </label>
                 </div>
                 <div class="radio-card">
-                  <input type="radio" id="corrido" name="tipoMuerto" value="Corrido" />
-                  <label for="corrido">
-                    <div class="radio-icon">▭</div>
+                  <input type="radio" id="triangulo" name="tipoMuerto" value="Triangular" />
+                  <label for="triangulo">
+                    <svg style="width: 53px;height: 45px;">
+                        <polygon class="triangulo-bottom" points="-30,12 30,12 0,64"></polygon>
+                        <line class="triangulo-middle" x1="0" x2="0" y1="12" y2="70"></line>
+                        <polygon class="triangulo-top-border" points="-30,12 30,12 0,64"></polygon>
+                        <polygon class="triangulo-top" points="-30,12 30,12 0,64"></polygon>
+                    </svg>
                     <div class="radio-text">
-                      <span class="radio-title">Corrido Rectangular</span>
-                      <span class="radio-desc">Fundación continua rectangular</span>
+                      <span class="radio-title">Corrido Triangular</span>
+                      <span class="radio-desc">Fundación continua triangular</span>
                     </div>
                   </label>
                 </div>
@@ -421,5 +433,12 @@
       <script type="module" src="script.js"></script>
     </section>
   </main>
+  <script>
+  window.addEventListener("pageshow", function (event) {
+    if (event.persisted) {
+      window.location.reload();
+    }
+  });
+</script>
 </body>
 </html>

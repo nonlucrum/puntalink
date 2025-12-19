@@ -28,6 +28,11 @@ if (process.env.NODE_ENV === 'production') {
 // ===== Logger simple =====
 app.use((req: Request, _res: Response, next: NextFunction) => {
   console.log(`[${req.method}] ${req.url}`);
+  _res.set({
+    'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+    'Pragma': 'no-cache',
+    'Expires': '0'
+  });
   next();
 });
 

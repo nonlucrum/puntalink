@@ -6,7 +6,8 @@ import {
     listarProyectos,
     cargarProyecto,
     guardarTXT,
-    nuevaVersion
+    nuevaVersion,
+    eliminarProyecto
 } from '../controllers/projectController';
 
 const upload = multer({
@@ -37,6 +38,7 @@ router.put("/actualizar", actualizarProyecto);
 router.get("/listar", listarProyectos);
 router.get("/cargar", cargarProyecto);
 router.post("/guardar-version", nuevaVersion);
+router.delete("/eliminar", eliminarProyecto);
 router.post(['/guardar-txt'], upload.single('file'), (req, res) => {
   guardarTXT(req, res);
 });

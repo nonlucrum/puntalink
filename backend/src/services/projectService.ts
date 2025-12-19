@@ -4,7 +4,8 @@ import {
     getProjectsByUser,
     getProjectById,
     saveTXT,
-    duplicateProject
+    duplicateProject,
+    deleteProject
 } from '../models/Project';
 
 export async function crearProyectoService(projectData: any) {
@@ -106,11 +107,13 @@ export async function nuevaVersionService(projectData: any) {
     const pid = projectData.body.pid;
     const pk_usuario = projectData.body.pk_usuario;
     const nombre = projectData.body.nombre;
+    const notas_version = projectData.body.notas_version;
     try {
         const nuevoProyecto = await duplicateProject(
             pid,
             pk_usuario,
-            nombre
+            nombre,
+            notas_version
         );
         console.log('[service - projectService] nuevaVersion - Nueva versión creada exitosamente');
         return nuevoProyecto;
@@ -119,4 +122,20 @@ export async function nuevaVersionService(projectData: any) {
         throw err;
     }
     console.log('[service - projectService] nuevaVersion - Fin');
+}
+
+export async function eliminarProyectoService(userData: any) {
+    console.log('[service - projectService] eliminarProyecto - Inicio');
+    try {
+        const resultado = await deleteProject(
+            userData.headers['x-project-id'],
+            userData.headers['x-user-id']
+        );
+        console.log('[service - projectService] eliminarProyecto - Proyecto eliminado exitosamente');
+        return resultado;
+    } catch (err) {
+        console.error('[service - projectService] eliminarProyecto - Error al eliminar el proyecto:', err);
+        throw err;
+    }
+    console.log('[service - projectService] eliminarProyecto - Fin');
 }
