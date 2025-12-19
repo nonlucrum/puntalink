@@ -119,6 +119,31 @@ window.guardarMuroBraces = async function(pid) {
     if (data.success) {
       console.log('[BRACES] Muro actualizado:', data.muro);
       
+      // NUEVO: Recalcular braces para guardar x_inserto, y_inserto en BD
+      const angulo = valores.angulo_brace || data.muro.angulo_brace || 55;
+      const xBraces = valores.x_braces || data.muro.x_braces || 2;
+      const tipoBrace = valores.tipo_brace_seleccionado || data.muro.tipo_brace_seleccionado;
+      const npt = valores.npt || data.muro.npt || 0;
+      
+      console.log('[BRACES] Recalculando braces para guardar x_inserto/y_inserto...');
+      const calcResponse = await fetch(`${API_BASE}/api/calculos/muros/${pid}/calcular-braces`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          angulo_brace: angulo,
+          x_braces: xBraces,
+          tipo_brace_seleccionado: tipoBrace,
+          npt: npt
+        })
+      });
+      
+      if (calcResponse.ok) {
+        const calcData = await calcResponse.json();
+        console.log('[BRACES] ✅ x_inserto/y_inserto guardados:', calcData.calculo?.x_inserto, calcData.calculo?.y_inserto);
+      } else {
+        console.warn('[BRACES] ⚠️ No se pudo recalcular braces (puede faltar cálculo de viento)');
+      }
+      
       // Mostrar feedback visual
       row.style.backgroundColor = '#d4edda';
       setTimeout(() => {
@@ -146,17 +171,29 @@ export async function guardarTodosBraces() {
   let exitosos = 0;
   let errores = 0;
 
+  let resultadosMuros = [];
   for (const row of rows) {
     const pid = row.dataset.pid;
     try {
       await window.guardarMuroBraces(parseInt(pid));
+      // Guardar valores relevantes en memoria global
+      const fby = parseFloat(row.querySelector(`.valor-fby[data-pid="${pid}"]`).textContent) || 0;
+      const overall_width = parseFloat(row.querySelector('[data-field="overall_width"]').value) || 0;
+      const overall_height = parseFloat(row.querySelector('[data-field="overall_height"]').value) || 0;
+      resultadosMuros.push({
+        id_muro: pid,
+        FBy: fby,
+        overall_width,
+        overall_height,
+        // Agrega aquí otros valores relevantes que se usen en cálculos de viento/muerto
+      });
       exitosos++;
     } catch (error) {
       console.error(`[BRACES] Error en muro ${pid}:`, error);
       errores++;
     }
   }
-
+  window.lastResultadosMuertos = resultadosMuros;
   alert(`Guardado completado:\n✓ ${exitosos} muros actualizados\n${errores > 0 ? `✗ ${errores} errores` : ''}`);
 }
 
@@ -226,31 +263,43 @@ function agregarListenersCalculoTiempoReal() {
 
       if (data.success && data.calculo) {
         const calc = data.calculo;
-        
         // Actualizar valores calculados en la UI
         row.querySelector(`.valor-fbx[data-pid="${pid}"]`).textContent = calc.fbx.toFixed(2);
         row.querySelector(`.valor-fby[data-pid="${pid}"]`).textContent = calc.fby.toFixed(2);
         row.querySelector(`.valor-fb[data-pid="${pid}"]`).textContent = calc.fb.toFixed(2);
-        
         // Actualizar coordenadas de inserto (X e Y)
         if (calc.x_inserto !== undefined && calc.x_inserto !== null) {
           row.querySelector(`.valor-x-inserto[data-pid="${pid}"]`).textContent = calc.x_inserto.toFixed(3);
         } else {
           row.querySelector(`.valor-x-inserto[data-pid="${pid}"]`).textContent = '-';
         }
-        
         if (calc.y_inserto !== undefined && calc.y_inserto !== null) {
           row.querySelector(`.valor-y-inserto[data-pid="${pid}"]`).textContent = calc.y_inserto.toFixed(3);
         } else {
           row.querySelector(`.valor-y-inserto[data-pid="${pid}"]`).textContent = '-';
         }
-        
         row.querySelector(`.cant-b14[data-pid="${pid}"]`).textContent = calc.cant_b14;
         row.querySelector(`.cant-b12[data-pid="${pid}"]`).textContent = calc.cant_b12;
         row.querySelector(`.cant-b04[data-pid="${pid}"]`).textContent = calc.cant_b04;
         row.querySelector(`.cant-b15[data-pid="${pid}"]`).textContent = calc.cant_b15;
-
-        console.log(`[BRACES] Muro ${pid} calculado:`, calc);
+        // Guardar valores relevantes en memoria global cada vez que se recalcula
+        if (!window.lastResultadosMuertos) window.lastResultadosMuertos = [];
+        const overall_width = parseFloat(row.querySelector('[data-field="overall_width"]').value) || 0;
+        const overall_height = parseFloat(row.querySelector('[data-field="overall_height"]').value) || 0;
+        const idx = window.lastResultadosMuertos.findIndex(m => m.id_muro == pid);
+        const nuevo = {
+          id_muro: pid,
+          FBy: calc.fby,
+          overall_width,
+          overall_height,
+          // Agrega aquí otros valores relevantes que se usen en cálculos de viento/muerto
+        };
+        if (idx >= 0) {
+          window.lastResultadosMuertos[idx] = nuevo;
+        } else {
+          window.lastResultadosMuertos.push(nuevo);
+        }
+        console.log(`[BRACES] Muro ${pid} calculado y guardado en memoria:`, nuevo);
       } else {
         console.error(`[BRACES] Respuesta inválida del servidor para muro ${pid}:`, data);
       }

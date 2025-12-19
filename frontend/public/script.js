@@ -1,3 +1,26 @@
+// ===== SUBMENÚS DINÁMICOS PARA TODAS LAS SECCIONES PRINCIPALES =====
+document.addEventListener("DOMContentLoaded", () => {
+  const sections = [
+    { menu: "menu-paneles", section: "results-section", submenu: "submenu-paneles" },
+    { menu: "menu-viento", section: "wind-section", submenu: "submenu-viento" },
+    { menu: "menu-resultados", section: "calculations-section", submenu: "submenu-resultados" },
+    { menu: "menu-armado", section: "armado-section", submenu: "submenu-armado" },
+    { menu: "menu-proyecto", section: "info-proyecto", submenu: "submenu-proyecto" }
+  ];
+  sections.forEach(({ menu, section, submenu }) => {
+    const header = document.getElementById(menu);
+    const submenuEl = document.getElementById(submenu);
+    if (header && submenuEl) {
+      header.addEventListener("click", () => {
+        setTimeout(() => {
+          const sectionEl = document.getElementById(section);
+          const isVisible = sectionEl && sectionEl.style.display !== "none";
+          submenuEl.style.display = isVisible ? "block" : "none";
+        }, 200);
+      });
+    }
+  });
+});
 // ===== IMPORTACIÓN DE MÓDULOS =====
 import { 
   handleFileValidation,
@@ -136,18 +159,219 @@ const { confirmar, mostrarNotificacion, BarraProgreso, ejecutarConLoading, debou
   document.addEventListener('DOMContentLoaded', () => {
     start();
 
-    // Toggle opcional si existe el botón
+    // Sistema de menú de fondo personalizado
     const btn = document.getElementById('toggleBackG');
     const cont = document.getElementById('bg-slideshow');
-    if (btn && cont) {
-      btn.addEventListener('click', () => {
+    const backgroundMenu = document.getElementById('backgroundMenu');
+    const bgToggleVisibility = document.getElementById('bgToggleVisibility');
+    const bgUploadCustom = document.getElementById('bgUploadCustom');
+    const bgResetDefault = document.getElementById('bgResetDefault');
+    const customBackgroundInput = document.getElementById('customBackgroundInput');
+    
+    // Toggle menú desplegable
+    if (btn && backgroundMenu) {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        backgroundMenu.classList.toggle('active');
+      });
+      
+      // Cerrar menú al hacer click fuera
+      document.addEventListener('click', (e) => {
+        if (!btn.contains(e.target) && !backgroundMenu.contains(e.target)) {
+          backgroundMenu.classList.remove('active');
+        }
+      });
+    }
+    
+    // Opción 1: Mostrar/Ocultar fondo
+    if (bgToggleVisibility && cont) {
+      bgToggleVisibility.addEventListener('click', () => {
         const hidden = cont.style.display === 'none';
         cont.style.display = hidden ? 'block' : 'none';
         btn.setAttribute('aria-pressed', String(hidden));
+        backgroundMenu.classList.remove('active');
       });
+    }
+    
+    // Opción 2: Cargar imagen personalizada
+    if (bgUploadCustom && customBackgroundInput && cont) {
+      bgUploadCustom.addEventListener('click', () => {
+        customBackgroundInput.click();
+        backgroundMenu.classList.remove('active');
+      });
+      
+      customBackgroundInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        // Validar que sea una imagen (incluyendo jpg, jpeg, png, webp, gif, etc)
+        const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'image/bmp', 'image/svg+xml'];
+        const isValidImage = file.type.startsWith('image/') || validTypes.includes(file.type);
+        
+        if (isValidImage) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            // Guardar imagen en localStorage
+            localStorage.setItem('customBackground', event.target.result);
+            // Aplicar imagen
+            cont.style.backgroundImage = `url(${event.target.result})`;
+            cont.style.backgroundSize = 'cover';
+            cont.style.backgroundPosition = 'center';
+            cont.style.display = 'block';
+            // Limpiar capas del slideshow
+            cont.innerHTML = '';
+            console.log('[Background] Imagen personalizada cargada:', file.name, file.type);
+          };
+          reader.onerror = (error) => {
+            console.error('[Background] Error al cargar imagen:', error);
+            alert('Error al cargar la imagen. Por favor, intenta con otro archivo.');
+          };
+          reader.readAsDataURL(file);
+        } else {
+          console.error('[Background] Tipo de archivo no válido:', file.type);
+          alert('Por favor selecciona un archivo de imagen válido (JPG, PNG, WebP, GIF, etc.)');
+        }
+        // Limpiar input para permitir seleccionar el mismo archivo de nuevo
+        e.target.value = '';
+      });
+    }
+    
+    // Opción 3: Restaurar fondo original
+    if (bgResetDefault && cont) {
+      bgResetDefault.addEventListener('click', () => {
+        localStorage.removeItem('customBackground');
+        cont.style.backgroundImage = '';
+        cont.style.display = 'block';
+        // Reiniciar slideshow
+        location.reload();
+        backgroundMenu.classList.remove('active');
+      });
+    }
+    
+    // Cargar imagen personalizada guardada al inicio
+    const savedBackground = localStorage.getItem('customBackground');
+    if (savedBackground && cont) {
+      cont.style.backgroundImage = `url(${savedBackground})`;
+      cont.style.backgroundSize = 'cover';
+      cont.style.backgroundPosition = 'center';
+      cont.innerHTML = '';
     }
   });
 })();
+
+/* =========================
+   Grúa de Construcción Interactiva
+   ========================= */
+(function initCrane() {
+  const STATE = { ON: false };
+  
+  document.addEventListener('DOMContentLoaded', () => {
+    const craneActivate = document.getElementById('craneActivate');
+    const loginForm = document.getElementById('loginForm');
+    const craneHook = document.getElementById('craneHook');
+    const crane = document.querySelector('.crane');
+    const lights = document.querySelectorAll('.crane__light');
+    const mainButton = document.querySelector('.control-button--main');
+    const craneButton = document.querySelector('.crane-button');
+    
+    if (!craneActivate || !loginForm) return;
+    
+    craneActivate.addEventListener('click', () => {
+      STATE.ON = !STATE.ON;
+      
+      // Actualizar variable CSS
+      document.documentElement.style.setProperty('--on', STATE.ON ? 1 : 0);
+      
+      // Cambiar color aleatorio cuando se activa
+      if (STATE.ON) {
+        const hue = Math.floor(Math.random() * 60) + 30; // Amarillo/Naranja para construcción
+        document.documentElement.style.setProperty('--shade-hue', hue);
+        document.documentElement.style.setProperty('--glow-color', `hsl(${hue}, 85%, 55%)`);
+        document.documentElement.style.setProperty('--glow-color-dark', `hsl(${hue}, 70%, 40%)`);
+      }
+      
+      // Activar luces
+      lights.forEach(light => {
+        if (STATE.ON) {
+          light.classList.add('active');
+        } else {
+          light.classList.remove('active');
+        }
+      });
+      
+      // Animar gancho
+      if (craneHook) {
+        if (STATE.ON) {
+          craneHook.classList.add('active');
+        } else {
+          craneHook.classList.remove('active');
+        }
+      }
+      
+      // Botón principal
+      if (mainButton) {
+        if (STATE.ON) {
+          mainButton.classList.add('active');
+        } else {
+          mainButton.classList.remove('active');
+        }
+      }
+      
+      // Cambiar texto del botón
+      if (craneButton) {
+        if (STATE.ON) {
+          craneButton.classList.add('active');
+          craneButton.querySelector('.button-text').textContent = 'GRÚA ACTIVA';
+        } else {
+          craneButton.classList.remove('active');
+          craneButton.querySelector('.button-text').textContent = 'ACTIVAR GRÚA';
+        }
+      }
+      
+      // Mostrar/ocultar formulario con delay
+      setTimeout(() => {
+        if (STATE.ON) {
+          loginForm.classList.add('active');
+        } else {
+          loginForm.classList.remove('active');
+        }
+      }, 200);
+      
+      // Efecto de vibración en la grúa
+      if (crane && STATE.ON) {
+        crane.style.animation = 'crane-shake 0.5s ease';
+        setTimeout(() => {
+          crane.style.animation = '';
+        }, 500);
+      }
+    });
+    
+    // Hover en la grúa
+    if (crane) {
+      crane.addEventListener('mouseenter', () => {
+        if (!STATE.ON) {
+          crane.style.transform = 'scale(1.02)';
+        }
+      });
+      
+      crane.addEventListener('mouseleave', () => {
+        crane.style.transform = 'scale(1)';
+      });
+    }
+  });
+  
+  // Agregar keyframes para animación de vibración
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes crane-shake {
+      0%, 100% { transform: translateX(0) rotate(0deg); }
+      25% { transform: translateX(-2px) rotate(-0.5deg); }
+      75% { transform: translateX(2px) rotate(0.5deg); }
+    }
+  `;
+  document.head.appendChild(style);
+})();
+
 
 // --- API BASE ---
 const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
@@ -234,7 +458,9 @@ async function refreshMeUI() {
     const res = await fetch(`${API_BASE}/api/auth/me`, { credentials: 'include' });
     const { ok, user } = await res.json();
 
-    const signinDiv = document.querySelector('.g_id_signin');
+    const loginScreen = document.getElementById('loginScreen');
+    const mainContent = document.getElementById('mainContent');
+    const projectContent = document.getElementById('projectContent');
     const ui = $userInfo();
     const email = $userEmail();
     const pic = $userPic();
@@ -242,21 +468,38 @@ async function refreshMeUI() {
     if (ok && user) {
       AuthState.user = user;
       localStorage.setItem('user', JSON.stringify(user));
-      if (signinDiv) signinDiv.style.display = 'none';
+      
+      // Ocultar pantalla de login y mostrar contenido principal
+      if (loginScreen) loginScreen.style.display = 'none';
+      if (mainContent) mainContent.style.display = 'block';
+      if (projectContent) projectContent.style.display = 'block';
+      
+      // Mostrar info de usuario
       if (ui) ui.style.display = 'flex';
       if (email) email.textContent = user.email || '';
       if (pic) {
         if (user.picture) { pic.src = user.picture; pic.style.display = ''; }
         else { pic.style.display = 'none'; }
       }
+      
+      // Cargar proyectos si estamos en index
       if (window.location.pathname === "/") {
         await loadPreviousProjects(user.uid);
-        }
+      }
     } else {
       AuthState.user = null;
       localStorage.removeItem('user');
-      if (signinDiv) signinDiv.style.display = '';
+      
+      // Mostrar pantalla de login y ocultar contenido principal
+      if (loginScreen) loginScreen.style.display = 'flex';
+      if (mainContent) mainContent.style.display = 'none';
+      if (projectContent) projectContent.style.display = 'none';
       if (ui) ui.style.display = 'none';
+      
+      // Resetear estado de la lámpara
+      const loginForm = document.getElementById('loginForm');
+      if (loginForm) loginForm.classList.remove('active');
+      document.documentElement.style.setProperty('--on', 0);
     }
   } catch (e) {
     console.error('Error consultando /me', e);
@@ -272,6 +515,10 @@ async function doLogout() {
     AuthState.user = null;
     localStorage.removeItem('user');
     await refreshMeUI();
+    // Recargar la página para limpiar el estado
+    if (window.location.pathname === "/") {
+      window.location.reload();
+    }
   }
 }
 
@@ -303,7 +550,9 @@ document.addEventListener('DOMContentLoaded', () => {
       tipo_muerto: 'Corrido',
       vel_viento: 120,
       temp_promedio: 25,
-      presion_atmo: 760
+      presion_atmo: 760,
+      ubicacionProyecto: 'Ubicación de prueba',
+      version: 1
     };
     localStorage.setItem('projectConfig', JSON.stringify(defaultProject));
     console.log('[INIT] Proyecto por defecto configurado:', defaultProject);
@@ -312,6 +561,37 @@ document.addEventListener('DOMContentLoaded', () => {
   if (window.location.pathname === "/dashboard") {
    
     loadProjectInfo();
+    
+    // Mostrar info de usuario en el dashboard
+    const user = AuthState.user || JSON.parse(localStorage.getItem('user') || 'null');
+    const userInfoDashboard = document.getElementById('userInfoDashboard');
+    const userPicDashboard = document.getElementById('userPicDashboard');
+    const userEmailDashboard = document.getElementById('userEmailDashboard');
+    const btnLogoutDashboard = document.getElementById('btnLogoutDashboard');
+    
+    if (user && user.email) {
+      if (userInfoDashboard) userInfoDashboard.style.display = 'flex';
+      if (userEmailDashboard) userEmailDashboard.textContent = user.email;
+      if (userPicDashboard && user.picture) {
+        userPicDashboard.src = user.picture;
+        userPicDashboard.style.display = '';
+      }
+    }
+    
+    // Manejar logout en dashboard
+    if (btnLogoutDashboard) {
+      btnLogoutDashboard.addEventListener('click', async () => {
+        try {
+          await fetch(`${API_BASE}/api/auth/logout`, { method: 'POST', credentials: 'include' });
+        } catch (e) {
+          console.warn('Logout con warning:', e);
+        } finally {
+          AuthState.user = null;
+          localStorage.removeItem('user');
+          window.location.href = '/';
+        }
+      });
+    }
   }
   if (window.location.pathname === "/") {
     // Cargar proyectos anteriores en index solo si hay sesión
@@ -565,52 +845,69 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnCalcularMuertos) {
     btnCalcularMuertos.addEventListener('click', async () => {
       if (!requireAuthOrWarn()) return;
-      
       try {
         console.log('[SCRIPT] Iniciando cálculo de macizos de anclaje...');
         
-        // Obtener gruposMuertos que ya están agrupados por braces
-        const gruposMuertos = window.gruposMuertosGlobal;
+        // PASO 1: Recargar valores guardados de braces desde la BD
+        console.log('[MUERTOS] 🔄 Recargando valores de braces guardados desde la BD...');
+        try {
+          await recargarBracesDesdeDB();
+          console.log('[MUERTOS] ✅ Valores de braces recargados exitosamente');
+        } catch (error) {
+          console.error('[MUERTOS] ⚠️ Error recargando braces:', error);
+          if (window.showNotification) {
+            window.showNotification('warning', 'Advertencia', 'No se pudieron recargar los valores guardados. Se usarán los valores actuales de la tabla.');
+          }
+        }
         
+        // PASO 2: Obtener gruposMuertos que ya están agrupados por braces
+        const gruposMuertos = window.gruposMuertosGlobal;
         if (!gruposMuertos || Object.keys(gruposMuertos).length === 0) {
           alert('No hay grupos de muertos. Por favor, primero calcula los paneles/braces.');
           return;
         }
-        
         console.log('[SCRIPT] gruposMuertos obtenido:', gruposMuertos);
-        
         // Importar funciones para calcular macizos
         const { prepararGruposParaMuertos, calcularMacizosRectangulares, generarTablaResultadosMacizos } = await import('./js/muertoRectangular.js');
-        
         // Paso 1: Preparar grupos (sumar dimensiones dentro de cada grupo)
-        const gruposPreparados = prepararGruposParaMuertos(gruposMuertos);
+        let gruposPreparados = prepararGruposParaMuertos(gruposMuertos);
+        // Sumar la profundidad manual al alto_total aquí
+        gruposPreparados = gruposPreparados.map(grupo => {
+          let profundidadManual = 0;
+          // Normalizar clave para buscar en window.configGruposMuertos
+          let claveGrupo = grupo.clave || grupo.numero_grupo || '';
+          claveGrupo = String(claveGrupo).replace(/^M0*/, 'M').trim();
+          // Buscar profundidad en window.configGruposMuertos usando la clave normalizada
+          if (window.configGruposMuertos && window.configGruposMuertos[claveGrupo] && window.configGruposMuertos[claveGrupo].profundo) {
+            profundidadManual = parseFloat(window.configGruposMuertos[claveGrupo].profundo) || 0;
+          } else if (grupo.configGrupo && typeof grupo.configGrupo === 'object' && grupo.configGrupo.profundo) {
+            profundidadManual = parseFloat(grupo.configGrupo.profundo) || 0;
+          }
+          return {
+            ...grupo,
+            alto_total: profundidadManual // Solo la profundidad manual
+          };
+        });
         console.log('[SCRIPT] Grupos preparados:', gruposPreparados);
-        
         // Paso 2: Calcular macizos rectangulares
         const resultadosMacizos = calcularMacizosRectangulares(gruposPreparados);
         console.log('[SCRIPT] Macizos calculados:', resultadosMacizos);
-        
         // Paso 3: Generar tabla HTML
         const tablaHTML = generarTablaResultadosMacizos(resultadosMacizos);
-        
         // Paso 4: Mostrar resultados
         const contenedorResultados = document.getElementById('tablaArmado') || document.createElement('div');
         if (!document.getElementById('tablaArmado')) {
           contenedorResultados.id = 'tablaArmado';
           document.body.appendChild(contenedorResultados);
         }
-        
         contenedorResultados.innerHTML = `
           <h3>Resultados: Macizos de Anclaje Rectangulares</h3>
           ${tablaHTML}
         `;
-        
         // Guardar globalmente para referencia
         window.gruposParaMuertosGlobal = gruposPreparados;
         window.resultadosMacizosGlobal = resultadosMacizos;
-        
         alert(`✅ Se calcularon ${resultadosMacizos.length} macizos de anclaje rectangulares.\nResultados mostrados en tabla.`);
-        
       } catch (error) {
         console.error('[SCRIPT] Error en cálculo de macizos:', error);
         alert(`Error: ${error.message}`);
@@ -661,13 +958,31 @@ document.addEventListener('DOMContentLoaded', () => {
     btnCancelarEliminacion.addEventListener('click', cancelarEliminacion);
   }
 
+  const nombreProyectoInput = document.getElementById('nombreProyecto');
+
+  function validarNombreProyecto () {
+    const previousProjectsList = JSON.parse(localStorage.getItem('previousProjectsList'));
+    for (const proyecto of previousProjectsList) {
+      if (proyecto.nombre === nombreProyectoInput.value.trim()) {
+        nombreProyectoInput.setCustomValidity('Ya existe un proyecto con este nombre. Por favor elige otro.');
+        break;
+      } else {
+        nombreProyectoInput.setCustomValidity('');
+      }
+    }
+  }
+  if (nombreProyectoInput) {
+    nombreProyectoInput.addEventListener('input', validarNombreProyecto);
+  }
+
   if (btnProjectSubmit) {
     console.log('[FRONTEND] Configurando listener para envío de formulario de proyecto');
     const form = document.getElementById('formNuevoProyecto');
 
     if (form) {
       btnProjectSubmit.addEventListener('click', async (e) => {
-        if (!form.reportValidity()) {
+        nombreProyectoInput.reportValidity();
+        if (!form.reportValidity() || nombreProyectoInput.validity.customError) {
           console.log('[FRONTEND] Formulario inválido');
           return;
         }
@@ -682,7 +997,8 @@ document.addEventListener('DOMContentLoaded', () => {
           tipoMuerto: formData.get('tipoMuerto'),
           velViento: formData.get('velViento'),
           tempPromedio: formData.get('tempPromedio'),
-          presionAtm: formData.get('presionAtm')
+          presionAtm: formData.get('presionAtm'),
+          ubicacionProyecto: formData.get('ubicacionProyecto')
         };
 
         globalVars.projectData = projectData;
@@ -697,9 +1013,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnLoadOldProject) {
     btnLoadOldProject.addEventListener('click', () => {
       if (!requireAuthOrWarn()) return;
-      btnCreateNewProject.className = "togglebtn--ghost";
-      btnLoadOldProject.className = "togglebtn";
-      toggleBackG.style.transform = "translate(100%)"
+      btnCreateNewProject.classList.remove('active');
+      btnLoadOldProject.classList.add('active');
       formNuevoProyecto.style.display = 'none';
       projectList.style.display = '';
     });
@@ -707,9 +1022,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (btnCreateNewProject) {
     btnCreateNewProject.addEventListener('click', () => {
-      btnCreateNewProject.className = "togglebtn";
-      btnLoadOldProject.className = "togglebtn--ghost";
-      toggleBackG.style.transform = "translate(0%)"
+      btnCreateNewProject.classList.add('active');
+      btnLoadOldProject.classList.remove('active');
       formNuevoProyecto.style.display = '';
       projectList.style.display = 'none';
     });
@@ -746,7 +1060,17 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   if (btnAplicarGlobales) {
-    btnAplicarGlobales.addEventListener('click', aplicarValoresGlobales);
+    btnAplicarGlobales.addEventListener('click', () => {
+      aplicarValoresGlobales();
+      if (window.showNotification) {
+        window.showNotification(
+          'success',
+          '✅ Valores Aplicados',
+          'Ángulo, NPT y Factor W2 actualizados en todos los muros.',
+          3000
+        );
+      }
+    });
   }
 
   // ===== CONFIGURAR EVENTOS PARA EJES POR RANGOS =====
@@ -759,7 +1083,21 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (btnAplicarEjesRango) {
-    btnAplicarEjesRango.addEventListener('click', aplicarEjesPorRango);
+    btnAplicarEjesRango.addEventListener('click', () => {
+      const rangosContainer = document.getElementById('rangosContainer');
+      const cantidadRangos = rangosContainer?.children.length || 0;
+      
+      aplicarEjesPorRango();
+      
+      if (window.showNotification && cantidadRangos > 0) {
+        window.showNotification(
+          'success',
+          '✅ Ejes Aplicados',
+          `Asignación de ejes por rangos completada (${cantidadRangos} rangos procesados).`,
+          4000
+        );
+      }
+    });
   }
 
   // ===== INICIALIZACIÓN =====
@@ -774,6 +1112,9 @@ document.addEventListener('DOMContentLoaded', () => {
  * Implementa las fórmulas del Excel y diagramas según Tomo III
  */
 async function calcularCargasViento() {
+  // Mostrar progreso
+  const progress = window.showProgress ? window.showProgress('🌬️ Calculando cargas de viento...') : null;
+  
   try {
     console.log('[WIND] Iniciando cálculo de cargas de viento...');
     
@@ -787,6 +1128,7 @@ async function calcularCargasViento() {
     const panelesData = window.globalVars?.panelesActuales || [];
     if (!panelesData || panelesData.length === 0) {
       console.error('[WIND] No hay muros importados');
+      if (progress) progress.close();
       if (mostrarNotificacion) {
         mostrarNotificacion(
           'Primero debes importar datos desde TXT. Ve a "Importar Datos desde TXT", selecciona tu archivo y haz clic en "Subir y procesar TXT".',
@@ -831,6 +1173,7 @@ async function calcularCargasViento() {
 
     if (camposInvalidos.length > 0) {
       console.error('[WIND] ❌ Campos inválidos encontrados:', camposInvalidos);
+      if (progress) progress.close();
       if (mostrarNotificacion) {
         const mensaje = `Complete correctamente: ${camposInvalidos.join(', ')}. Todos los valores deben ser números válidos.`;
         mostrarNotificacion(mensaje, 'warning', 6000);
@@ -865,7 +1208,7 @@ async function calcularCargasViento() {
     console.log('[WIND] Respuesta de la API:', data);
 
     if (data.success && data.resultados) {
-      mostrarResultadosViento(data);
+      mostrarResultadosViento(data, progress, panelesData.length);
       globalVars.resultadosTomoIII = data.resultados;
     } else {
       throw new Error(data.error || 'Error desconocido en el cálculo');
@@ -873,7 +1216,11 @@ async function calcularCargasViento() {
 
   } catch (error) {
     console.error('[WIND] Error en cálculo de viento:', error);
-    if (mostrarNotificacion) {
+    if (progress) progress.close();
+    
+    if (window.showNotification) {
+      window.showNotification('error', '❌ Error', `Error calculando cargas de viento: ${error.message}`, 6000);
+    } else if (mostrarNotificacion) {
       mostrarNotificacion(formatearError ? formatearError(error) : error.message, 'error');
     } else {
       alert(`Error al calcular cargas de viento: ${error.message}`);
@@ -885,7 +1232,7 @@ async function calcularCargasViento() {
  * Función para mostrar resultados de viento en la interfaz
  * Implementa la visualización según los resultados del Excel
  */
-export async function mostrarResultadosViento(data) {
+export async function mostrarResultadosViento(data, progress = null, totalMuros = 0) {
   console.log('[WIND] Mostrando resultados de viento');
   console.log('[WIND] Datos recibidos para mostrar:', data);
   
@@ -899,9 +1246,9 @@ export async function mostrarResultadosViento(data) {
     console.error('[WIND] Formato de data inválido:', data);
     return;
   }
-  
+
   console.log(`[WIND] Procesando ${resultados.length} resultados`);
-  
+
   const resultadosViento = document.getElementById('resultadosViento');
   const tablaResultados = document.getElementById('tablaResultadosViento');
   const detalleCalculos = document.getElementById('detalleCalculosViento');
@@ -909,11 +1256,11 @@ export async function mostrarResultadosViento(data) {
   // Mostrar la sección de resultados
   resultadosViento.style.display = 'block';
 
-  // Mostrar panel de asignación de ejes si no existe
-  mostrarPanelAsignacionEjes();
-  
   // Mostrar panel de edición masiva de parámetros si no existe
   mostrarPanelEdicionMasiva();
+
+  // Mostrar panel de asignación de ejes si no existe
+  mostrarPanelAsignacionEjes();
 
   // Obtener valores globales para braces
   const anguloGlobal = parseFloat(document.getElementById('angulo_global')?.value) || 55;
@@ -923,14 +1270,14 @@ export async function mostrarResultadosViento(data) {
   // Crear tabla de resultados unificada
   let htmlTabla = `
     <table class="wind-results-table unified-table">
-      <thead>
+      <thead style="position: sticky; top: 0; background: #ffffff; z-index: 2;">
         <tr>
-          <th rowspan="2">Muro</th>
-          <th colspan="4" style="background: #e3f2fd;">Datos del Muro</th>
-          <th colspan="4" style="background: #fff3e0;">Cálculos de Viento</th>
-          <th colspan="5" style="background: #f3e5f5;">Parámetros Braces (Editables)</th>
-          <th colspan="3" style="background: #e8f5e9;">Geometría Inserto</th>
-          <th colspan="4" style="background: #fce4ec;">Fuerzas y Cantidad</th>
+          <th rowspan="2" style="border-left: 1px solid #0c0d0e;">Muro</th>
+          <th colspan="4" style="background: #e3f2fd;border-bottom: 0px;">DATOS DEL MURO</th>
+          <th colspan="4" style="background: #fff3e0;border-bottom: 0px;">CÁLCULOS DE VIENTO</th>
+          <th colspan="5" style="background: #f3e5f5;border-bottom: 0px;">PARÁMETROS BRACES (EDITABLES)</th>
+          <th colspan="3" style="background: #e8f5e9;border-bottom: 0px;">GEOMETRÍA INSERTO</th>
+          <th colspan="5" style="background: #fce4ec;border-bottom: 0px;">FUERZAS Y CANTIDAD</th>
         </tr>
         <tr>
           <!-- Datos del Muro -->
@@ -958,7 +1305,8 @@ export async function mostrarResultadosViento(data) {
           <th style="background: #fce4ec;">FBx (kN)</th>
           <th style="background: #fce4ec;">FBy (kN)</th>
           <th style="background: #fce4ec;">FB (kN)</th>
-          <th style="background: #fce4ec;">Cantidad</th>
+          <th style="background: #fce4ec;">Cant. Calc.</th>
+          <th style="background: #fce4ec;">Cant. Final</th>
         </tr>
       </thead>
       <tbody id="tablaUnificadaBody">
@@ -968,11 +1316,20 @@ export async function mostrarResultadosViento(data) {
     const pid = resultado.pid || 0;
     const idMuro = resultado.id_muro;
     
-    // Valores iniciales para braces (usar globales si no existen en resultado)
-    const anguloInicial = resultado.angulo_brace || anguloGlobal;
-    const nptInicial = resultado.npt || nptGlobal;
+    // Valores iniciales para braces (usar valores calculados del muro, o globales como fallback)
+    const anguloInicial = resultado.angulo_brace || resultado.grados_inclinacion_brace || anguloGlobal;
+    const nptInicial = resultado.npt || resultado.NFT || nptGlobal;
     const factorW2Inicial = resultado.factor_w2 || factorW2Global;
     const tipoInicial = resultado.tipo_brace_seleccionado || 'B12';
+    
+    console.log(`[BRACES-INIT] Muro ${idMuro} (PID ${pid}):`, {
+      altura: resultado.altura_z_m,
+      angulo_usado: anguloInicial,
+      angulo_calculado: resultado.grados_inclinacion_brace,
+      npt_usado: nptInicial,
+      nft_calculado: resultado.NFT,
+      tipo_brace: tipoInicial
+    });
     
     // Longitudes por tipo
     const longitudes = { B4: 4.6, B12: 9.75, B14: 12.75, B15: 15.8 };
@@ -980,7 +1337,7 @@ export async function mostrarResultadosViento(data) {
     
     htmlTabla += `
       <tr data-pid="${pid}" data-alto="${resultado.altura_z_m}" data-presion="${resultado.presion_kPa}" data-fuerza="${resultado.fuerza_kN}">
-        <td><strong>${idMuro}</strong></td>
+        <td style="border-left: 1px solid #dee2e6;"><strong>${idMuro}</strong></td>
         
         <!-- Datos del Muro -->
         <td>${resultado.area_m2}</td>
@@ -1029,7 +1386,11 @@ export async function mostrarResultadosViento(data) {
         <td class="valor-calculado valor-fbx" data-pid="${pid}">-</td>
         <td class="valor-calculado valor-fby" data-pid="${pid}">-</td>
         <td class="valor-calculado valor-fb" data-pid="${pid}">-</td>
-        <td class="valor-calculado valor-cantidad" data-pid="${pid}">-</td>
+        <td class="valor-calculado valor-cantidad-calc" data-pid="${pid}" style="background: #fff3cd; font-style: italic;">-</td>
+        <td>
+          <input type="number" class="input-editable" data-pid="${pid}" data-field="x_braces" 
+                 value="2" min="1" max="20" step="1" style="width: 60px; font-weight: bold; text-align: center;">
+        </td>
       </tr>
     `;
   });
@@ -1040,7 +1401,8 @@ export async function mostrarResultadosViento(data) {
   `;
 
   // Insertar botón de guardado antes de la tabla
-  const htmlConBotones = `
+  const panelGuardarBraces = document.getElementById('panelGuardarBraces');
+  const htmlBotones = `
     <!-- Botón de guardado posicionado arriba de la tabla -->
     <div class="table-controls" style="margin-bottom: 1rem; padding: 0.75rem; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; display: flex; gap: 1rem; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
       <button id="btnGuardarTodosBracesTop" class="btn btn--primary" title="Guardar todos los cambios realizados en la tabla" style="font-weight: bold;">
@@ -1050,10 +1412,9 @@ export async function mostrarResultadosViento(data) {
         💡 Recuerda guardar después de editar los valores en la tabla para que se reflejen en la reagrupación
       </span>
     </div>
-    ${htmlTabla}
   `;
-
-  tablaResultados.innerHTML = htmlConBotones;
+  panelGuardarBraces.innerHTML = htmlBotones;
+  tablaResultados.innerHTML = htmlTabla;
   
   console.log('[BRACES] Tabla HTML insertada con botón de guardado arriba');
   
@@ -1094,6 +1455,15 @@ export async function mostrarResultadosViento(data) {
       console.log(`[BRACES] Calculando inicial para PID ${pid}`);
       await calcularBracesTiempoReal(inputAngulo);
     }
+  }
+  
+  // Guardar automáticamente todos los cálculos de braces en la BD
+  console.log('[BRACES] Guardando valores calculados en la base de datos...');
+  try {
+    await guardarTodosBraces();
+    console.log('[BRACES] ✅ Valores guardados exitosamente');
+  } catch (error) {
+    console.error('[BRACES] ❌ Error al guardar valores:', error);
   }
 
   // Crear detalle de cálculos
@@ -1222,12 +1592,23 @@ export async function mostrarResultadosViento(data) {
 
   btnInforme.style.display = '';
   btnInforme.disabled = false;
+
+  // Cerrar progreso y mostrar éxito AL FINAL, después de renderizar todo
+  if (progress) progress.close();
+  if (window.showNotification && totalMuros > 0) {
+    window.showNotification(
+      'success',
+      '✅ Cálculo Completado',
+      `Cargas de viento calculadas para ${totalMuros} muros exitosamente.`,
+      4000
+    );
+  }
 }
 
 /**
  * Función para toggle del detalle de cálculos
  */
-function toggleCalculationDetail(header) {
+export function toggleCalculationDetail(header) {
   const content = header.nextElementSibling;
   const arrow = header.querySelector('span:last-child');
   
@@ -1273,6 +1654,14 @@ function agregarListenersCalculoTiempoReal() {
     input.addEventListener('change', async function() {
       console.log(`[BRACES] Change event disparado: ${this.dataset.field}`);
       await calcularBracesTiempoReal(this);
+    });
+  });
+  
+  // Agregar listeners para marcar edición manual de x_braces
+  const xBracesInputs = document.querySelectorAll('[data-field="x_braces"]');
+  xBracesInputs.forEach(input => {
+    input.addEventListener('input', function() {
+      this.dataset.manualEdit = 'true';
     });
   });
   
@@ -1341,6 +1730,10 @@ async function calcularBracesTiempoReal(input) {
     if (data.success && data.calculo) {
       const calc = data.calculo;
       
+      // Guardar valores en dataset de la fila para uso posterior
+      row.dataset.xInserto = calc.x_inserto || '0';
+      row.dataset.yInserto = calc.y_inserto || '0';
+      
       // Actualizar valores calculados en la UI
       row.querySelector(`.valor-x[data-pid="${pid}"]`).textContent = 
         calc.x_inserto !== undefined ? calc.x_inserto.toFixed(3) : '-';
@@ -1357,14 +1750,30 @@ async function calcularBracesTiempoReal(input) {
       row.querySelector(`.valor-fb[data-pid="${pid}"]`).textContent = 
         calc.fb !== undefined ? calc.fb.toFixed(2) : '-';
       
-      row.querySelector(`.valor-cantidad[data-pid="${pid}"]`).textContent = 
-        calc.cant_braces !== undefined ? calc.cant_braces : '-';
+      // Actualizar cantidad calculada (sin redondear)
+      const cantCalcCell = row.querySelector(`.valor-cantidad-calc[data-pid="${pid}"]`);
+      if (cantCalcCell && calc.fb !== undefined) {
+        // Obtener el tipo de brace de la fila para usar la capacidad correcta
+        const tipoBraceSelect = row.querySelector('[data-field="tipo_brace"]');
+        const tipoBrace = tipoBraceSelect ? tipoBraceSelect.value : 'B12';
+        const capacidad = { B12: 4100, B4: 2950, B14: 2360, B15: 1723 }[tipoBrace] || 4100;
+        const cantExacta = calc.fb / capacidad;
+        cantCalcCell.textContent = cantExacta.toFixed(2);
+        cantCalcCell.title = `Cálculo: ${calc.fb.toFixed(2)} kN / ${capacidad} kN (${tipoBrace}) = ${cantExacta.toFixed(4)}`;
+      }
+      
+      // Actualizar el input de cantidad final si no ha sido editado manualmente
+      const cantFinalInput = row.querySelector(`[data-field="x_braces"][data-pid="${pid}"]`);
+      if (cantFinalInput && !cantFinalInput.dataset.manualEdit && calc.cant_braces !== undefined) {
+        cantFinalInput.value = calc.cant_braces;
+      }
       
       // Feedback visual
       row.style.backgroundColor = '#e8f5e9';
       setTimeout(() => { row.style.backgroundColor = ''; }, 300);
       
       console.log(`[BRACES-RT] Actualizado PID ${pid}:`, calc);
+      document.getElementById('btnGuardarTodosBracesTop').disabled = false;
     } else {
       console.error(`[BRACES-RT] Respuesta inválida:`, data);
     }
@@ -1460,19 +1869,21 @@ async function guardarTodosBraces() {
         const anguloInput = row.querySelector('[data-field="angulo"]');
         const nptInput = row.querySelector('[data-field="npt"]');
         const ejeInput = row.querySelector('[data-field="eje"]');
+        const xBracesInput = row.querySelector('[data-field="x_braces"]');
         
         console.log(`[DEBUG] PID ${pid} - Inputs encontrados:`, {
           tipoBrace: !!tipoBraceInput,
           angulo: !!anguloInput, 
           npt: !!nptInput,
-          eje: !!ejeInput
+          eje: !!ejeInput,
+          xBraces: !!xBracesInput
         });
         
         tipoBrace = tipoBraceInput?.value || '';
         angulo = parseFloat(anguloInput?.value) || 0;
         npt = parseFloat(nptInput?.value) || 0;
         eje = ejeInput?.value || '';
-        xBraces = 2; // Valor por defecto para tabla antigua
+        xBraces = xBracesInput ? (parseInt(xBracesInput.value) || 2) : 2;
       } else {
         // Selectores para nueva tabla de braces
         tipoBrace = row.querySelector('[data-field="tipo_brace_seleccionado"]')?.value || '';
@@ -1554,6 +1965,8 @@ async function guardarTodosBraces() {
         if (calcResponse.ok) {
           const calcResultado = await calcResponse.json();
           console.log(`[BRACES] ✓ PID ${pid} guardado y calculado. Resultado:`, calcResultado);
+          console.log(`[BRACES] ✓ PID ${pid} - x_inserto: ${calcResultado.calculo?.x_inserto}, y_inserto: ${calcResultado.calculo?.y_inserto}`);
+          console.log(`[BRACES] ✓ PID ${pid} - muro.x_inserto: ${calcResultado.muro?.x_inserto}, muro.y_inserto: ${calcResultado.muro?.y_inserto}`);
           exitosos++;
         } else {
           errores++;
@@ -1618,10 +2031,103 @@ async function guardarTodosBraces() {
       }, 800); // Dar tiempo para que se procesen los cambios en BD
     }
   }
+  document.getElementById('btnGuardarTodosBracesTop').disabled = true;
+}
+
+/**
+ * Recarga los valores de braces guardados desde la base de datos
+ * y actualiza window.lastResultadosMuertos con los valores correctos
+ */
+async function recargarBracesDesdeDB() {
+  console.log('[BRACES-RELOAD] 🔄 Recargando valores guardados desde BD...');
+  
+  if (!window.lastResultadosMuertos || window.lastResultadosMuertos.length === 0) {
+    console.warn('[BRACES-RELOAD] No hay resultados previos en window.lastResultadosMuertos');
+    return;
+  }
+  
+  try {
+    // Obtener PIDs de los muros actuales
+    const pids = window.lastResultadosMuertos.map(m => m.pid).filter(p => p);
+    
+    if (pids.length === 0) {
+      console.warn('[BRACES-RELOAD] No hay PIDs válidos para recargar');
+      return;
+    }
+    
+    console.log(`[BRACES-RELOAD] Recargando ${pids.length} muros desde BD...`);
+    
+    // Crear un mapa para actualizar rápidamente
+    const murosActualizados = new Map();
+    
+    // Recargar cada muro desde la BD
+    for (const pid of pids) {
+      try {
+        const response = await fetch(`${API_BASE}/api/calculos/muros/${pid}`);
+        
+        if (response.ok) {
+          const muroData = await response.json();
+          
+          if (muroData.success && muroData.muro) {
+            murosActualizados.set(pid, muroData.muro);
+            console.log(`[BRACES-RELOAD] ✓ PID ${pid} recargado:`, {
+              angulo: muroData.muro.angulo_brace,
+              npt: muroData.muro.npt,
+              tipo: muroData.muro.tipo_brace_seleccionado,
+              x_braces: muroData.muro.x_braces,
+              eje: muroData.muro.eje,
+              fbx: muroData.muro.fbx,
+              fby: muroData.muro.fby,
+              fb: muroData.muro.fb
+            });
+          }
+        } else {
+          console.warn(`[BRACES-RELOAD] Error recargando PID ${pid}: ${response.status}`);
+        }
+      } catch (error) {
+        console.error(`[BRACES-RELOAD] Error obteniendo PID ${pid}:`, error);
+      }
+    }
+    
+    // Actualizar window.lastResultadosMuertos con los valores de la BD
+    window.lastResultadosMuertos = window.lastResultadosMuertos.map(muro => {
+      const muroActualizado = murosActualizados.get(muro.pid);
+      
+      if (muroActualizado) {
+        // Combinar datos originales con valores actualizados de BD
+        return {
+          ...muro,
+          angulo_brace: muroActualizado.angulo_brace,
+          npt: muroActualizado.npt,
+          tipo_brace_seleccionado: muroActualizado.tipo_brace_seleccionado,
+          x_braces: muroActualizado.x_braces,
+          eje: muroActualizado.eje,
+          fbx: muroActualizado.fbx,
+          fby: muroActualizado.fby,
+          fb: muroActualizado.fb,
+          x_inserto: muroActualizado.x_inserto,
+          y_inserto: muroActualizado.y_inserto,
+          FBx: muroActualizado.fbx, // Alias
+          FBy: muroActualizado.fby, // Alias
+          FB: muroActualizado.fb    // Alias
+        };
+      }
+      
+      return muro;
+    });
+    
+    console.log('[BRACES-RELOAD] ✅ window.lastResultadosMuertos actualizado con valores de BD');
+    console.log('[BRACES-RELOAD] Muestra del primer muro actualizado:', window.lastResultadosMuertos[0]);
+    
+  } catch (error) {
+    console.error('[BRACES-RELOAD] Error recargando desde BD:', error);
+    throw error;
+  }
 }
 
 // Exponer funciones globalmente
 window.guardarTodosBraces = guardarTodosBraces;
+window.recargarBracesDesdeDB = recargarBracesDesdeDB;
 
 /**
  * Aplicar valores globales a todos los muros
@@ -1920,7 +2426,7 @@ function renderTablaMuertos(resultados) {
         <thead>
           <tr>
             <th>Muerto #</th>
-            <th>X (braces)</th>
+            <th>Distancia X (m)</th>
             <th>Ángulo (°)</th>
             <th>Eje</th>
             <th>Tipo Construcción</th>
@@ -1933,16 +2439,27 @@ function renderTablaMuertos(resultados) {
   `;
 
   Object.values(grupos).forEach(g => {
+    // Calcular la suma de overall_width por muerto
+    let sumaLargo = 0;
+    if (Array.isArray(window.lastResultadosMuertos)) {
+      sumaLargo = window.lastResultadosMuertos
+        .filter(r => g.muros.includes(r.id_muro || r.id))
+        .reduce((acc, r) => acc + (parseFloat(r.overall_width) || 0), 0);
+    }
     html += `
       <tr>
         <td style="font-weight: bold; color: #007bff;">M${g.muerto}</td>
-        <td style="text-align: center; font-weight: bold;">${g.x || 'No def.'}</td>
+        <td style="text-align: center; font-weight: bold;">${parseFloat(g.x || 0).toFixed(2)} m</td>
         <td style="text-align: center; font-weight: bold;">${g.ang}°</td>
         <td style="font-weight: bold; color: #28a745; background: #f8fff9; text-align: center;">${g.eje || 'Sin asignar'}</td>
         <td style="text-align: center; color: #6f42c1; font-weight: bold;">${g.tipoConst || 'No def.'}</td>
         <td style="text-align: center; font-weight: bold;">${g.cantidadMuros}</td>
         <td style="text-align: center; color: #e83e8c; font-weight: bold;">${g.totalBraces}</td>
         <td style="font-family: monospace; font-size: 0.85em;">${g.muros.join(', ')}</td>
+      </tr>
+      <tr>
+        <td colspan="7" style="background:#f0f0f0;"></td>
+        <td colspan="1" style="background:#f0f0f0; color:#333; font-size:0.95em;">Largo total muros (Overall width): <strong>${sumaLargo.toFixed(2)} m</strong></td>
       </tr>
     `;
   });
@@ -2042,7 +2559,8 @@ function buildGruposMuertosSequential(resultados, maxMuertos = 39) {
   let currentKey = null;
 
   const makeKey = (r) => {
-    const x = (r.x_braces ?? r.total_braces ?? r.x_braces_manual ?? r.cant_braces ?? '').toString().trim();
+    // Usar x_inserto (distancia X) en lugar de x_braces (cantidad)
+    const xInserto = r.x_inserto ? parseFloat(r.x_inserto).toFixed(2) : '0.00';
     const angRaw = r.angulo_brace ?? r.angulo ?? r.grados_inclinacion_brace ?? r.alpha ?? '';
     const angNum = angRaw === '' || angRaw === null || angRaw === undefined ? '' : Number(angRaw);
     const ang = Number.isFinite(angNum) ? String(Math.round(angNum)) : String(angRaw || '');
@@ -2050,8 +2568,8 @@ function buildGruposMuertosSequential(resultados, maxMuertos = 39) {
     const eje = (r.eje || r.axis || r.axis_name || r.eje_muro || r.axisLabel || '').toString().trim();
     const tipoConst = (r.tipo_construccion || r.tipo_construction || r.tipo_construccion_muro || '').toString().trim();
     
-    // INCLUIR EJE de nuevo en la agrupación - comparar: X, ángulo, tipo brace, eje, tipo construcción
-    return { key: `${x}|${ang}|${tipo}|${eje}|${tipoConst}`, x, ang, tipo, eje, tipoConst };
+    // Agrupar por: distancia X, tipo brace, ángulo, eje
+    return { key: `${xInserto}|${tipo}|${ang}|${eje}`, xInserto, ang, tipo, eje, tipoConst };
   };
 
   for (const r of resultados) {
@@ -2059,7 +2577,7 @@ function buildGruposMuertosSequential(resultados, maxMuertos = 39) {
     if (currentKey === null) {
       currentKey = kobj.key;
       const label = `M${muertoIndex}`;
-      grupos[label] = { muerto: muertoIndex, key: currentKey, x: kobj.x, ang: kobj.ang, tipo: kobj.tipo, eje: kobj.eje, tipoConst: kobj.tipoConst, muros: [], cantidadMuros: 0, totalBraces: 0 };
+      grupos[label] = { muerto: muertoIndex, key: currentKey, xInserto: kobj.xInserto, ang: kobj.ang, tipo: kobj.tipo, eje: kobj.eje, tipoConst: kobj.tipoConst, muros: [], cantidadMuros: 0, totalBraces: 0 };
     }
 
     // Si la clave cambia y aún no llegamos al máximo, incrementamos muertoIndex
@@ -2073,7 +2591,7 @@ function buildGruposMuertosSequential(resultados, maxMuertos = 39) {
       currentKey = kobj.key;
       const label = `M${muertoIndex}`;
       if (!grupos[label]) {
-        grupos[label] = { muerto: muertoIndex, key: currentKey, x: kobj.x, ang: kobj.ang, tipo: kobj.tipo, eje: kobj.eje, tipoConst: kobj.tipoConst, muros: [], cantidadMuros: 0, totalBraces: 0 };
+        grupos[label] = { muerto: muertoIndex, key: currentKey, xInserto: kobj.xInserto, ang: kobj.ang, tipo: kobj.tipo, eje: kobj.eje, tipoConst: kobj.tipoConst, muros: [], cantidadMuros: 0, totalBraces: 0 };
       }
     }
 
@@ -2097,7 +2615,8 @@ function buildGruposMuertosPorSimilitud(resultados, maxMuertos = 39) {
   if (!Array.isArray(resultados) || resultados.length === 0) return {};
 
   const makeKey = (r) => {
-    const x = (r.x_braces ?? r.total_braces ?? r.x_braces_manual ?? r.cant_braces ?? '').toString().trim();
+    // Usar x_inserto (distancia X) en lugar de x_braces (cantidad)
+    const xInserto = r.x_inserto ? parseFloat(r.x_inserto).toFixed(2) : '0.00';
     const angRaw = r.angulo_brace ?? r.angulo ?? r.grados_inclinacion_brace ?? r.alpha ?? '';
     const angNum = angRaw === '' || angRaw === null || angRaw === undefined ? '' : Number(angRaw);
     const ang = Number.isFinite(angNum) ? String(Math.round(angNum)) : String(angRaw || '');
@@ -2105,8 +2624,8 @@ function buildGruposMuertosPorSimilitud(resultados, maxMuertos = 39) {
     const eje = (r.eje || r.axis || r.axis_name || r.eje_muro || r.axisLabel || '').toString().trim();
     const tipoConst = (r.tipo_construccion || r.tipo_construction || r.tipo_construccion_muro || '').toString().trim();
     
-    // INCLUIR EJE de nuevo en la agrupación - comparar: X, ángulo, tipo brace, eje, tipo construcción
-    return { key: `${x}|${ang}|${tipo}|${eje}|${tipoConst}`, x, ang, tipo, eje, tipoConst };
+    // Agrupar por: distancia X, tipo brace, ángulo, eje
+    return { key: `${xInserto}|${tipo}|${ang}|${eje}`, xInserto, ang, tipo, eje, tipoConst };
   };
 
   // Paso 1: Agrupar por clave única (características idénticas)
@@ -2115,7 +2634,7 @@ function buildGruposMuertosPorSimilitud(resultados, maxMuertos = 39) {
     
     if (!gruposPorClave[kobj.key]) {
       gruposPorClave[kobj.key] = {
-        x: kobj.x,
+        xInserto: kobj.xInserto,
         ang: kobj.ang, 
         tipo: kobj.tipo,
         eje: kobj.eje,
@@ -2482,7 +3001,7 @@ function reagruparMuertosConValoresActuales() {
     // Obtener cantidad de braces según la tabla
     let cantidadBraces;
     if (isTablaUnificada) {
-      const cantidadCell = row.querySelector('.valor-cantidad');
+      const cantidadCell = row.querySelector('.valor-cantidad-calc');
       cantidadBraces = cantidadCell ? parseInt(cantidadCell.textContent) || 2 : 2;
     } else {
       // En la nueva tabla, usar x_braces input o buscar en las celdas de cantidad
@@ -2496,8 +3015,14 @@ function reagruparMuertosConValoresActuales() {
       }
     }
     
-    // Construir objeto similar a los resultados originales
+    // Buscar el muro original en lastResultadosMuertos para preservar campos calculados
+    const muroOriginal = window.lastResultadosMuertos?.find(m => 
+      m.pid === pid || m.id_muro === (muroCell ? muroCell.textContent.trim() : null)
+    );
+    
+    // Construir objeto preservando campos calculados del original
     const resultado = {
+      // Campos básicos
       id_muro: muroCell ? muroCell.textContent.trim() : `Muro_${index + 1}`,
       pid: pid,
       altura_z_m: alturaCell ? parseFloat(alturaCell.textContent) || 0 : 0,
@@ -2511,9 +3036,28 @@ function reagruparMuertosConValoresActuales() {
       x_braces: cantidadBraces,
       total_braces: cantidadBraces,
       
+      // Leer x_inserto desde la tabla o dataset
+      x_inserto: row.dataset.xInserto || row.dataset.x_inserto || '0.00',
+      y_inserto: row.dataset.yInserto || row.dataset.y_inserto || '0.00',
+      
       // Obtener eje directamente del input actualizado
       eje: ejeInput ? ejeInput.value.trim() : (row.dataset.eje || `Eje_${index + 1}`),
-      tipo_construccion: row.dataset.tipoConst || 'TILT-UP'
+      tipo_construccion: row.dataset.tipoConst || 'TILT-UP',
+      
+      // ✅ PRESERVAR CAMPOS CALCULADOS del muro original
+      fb: muroOriginal?.fb || 0,
+      fbx: muroOriginal?.fbx || 0,
+      fby: muroOriginal?.fby || 0,
+      cant_b14: muroOriginal?.cant_b14 || 0,
+      cant_b12: muroOriginal?.cant_b12 || 0,
+      cant_b04: muroOriginal?.cant_b04 || 0,
+      cant_b15: muroOriginal?.cant_b15 || 0,
+      grosor: muroOriginal?.grosor || 0.17,
+      area: muroOriginal?.area || 0,
+      peso: muroOriginal?.peso || 0,
+      volumen: muroOriginal?.volumen || 0,
+      overall_width: muroOriginal?.overall_width || 0,
+      overall_height: muroOriginal?.overall_height || 0
     };
     
     console.log(`[MUERTOS] Fila ${index + 1} - EJE: "${resultado.eje}" (PID: ${pid})`);
@@ -2553,7 +3097,8 @@ function reagruparMuertosConValoresActuales() {
           <tr>
             <th style="background: var(--primary); color: white;">#</th>
             <th style="background: var(--primary); color: white;">Muerto</th>
-            <th style="background: var(--primary); color: white;">X (braces)</th>
+            <th style="background: var(--primary); color: white;">Distancia X (m)</th>
+            <th style="background: var(--primary); color: white;">Tipo Brace</th>
             <th style="background: var(--primary); color: white;">Ángulo</th>
             <th style="background: var(--primary); color: white;">Eje</th>
             <th style="background: var(--primary); color: white;">Tipo Construcción</th>
@@ -2574,7 +3119,8 @@ function reagruparMuertosConValoresActuales() {
       <tr class="${rowClass}">
         <td>${index + 1}</td>
         <td><strong>M${g.muerto}</strong></td>
-        <td style="text-align: center; font-weight: bold;">${g.x || 'No def.'}</td>
+        <td style="text-align: center; font-weight: bold; color: #0066cc;">${g.xInserto || '0.00'}m</td>
+        <td style="text-align: center; font-weight: bold; color: #6f42c1;">${g.tipo || 'B12'}</td>
         <td><strong>${g.ang}°</strong></td>
         <td style="font-weight: bold; color: #28a745; background: #f8fff9; text-align: center;">${g.eje || 'Sin asignar'}</td>
         <td style="text-align: center; color: #6f42c1; font-weight: bold;">${g.tipoConst || 'No def.'}</td>
@@ -2589,6 +3135,9 @@ function reagruparMuertosConValoresActuales() {
 
   // Actualizar también el debug output
   window.lastGruposMuertos = gruposNuevos;
+  
+  // ✅ ACTUALIZAR window.lastResultadosMuertos con los resultados que ahora incluyen campos calculados
+  window.lastResultadosMuertos = resultadosActualizados;
   
   // ✅ EXPONER GLOBALMENTE para que ejecutarCalculosArmado() pueda usarlos
   window.gruposMuertosGlobal = gruposNuevos;
@@ -2729,8 +3278,7 @@ function mostrarPanelEdicionMasiva() {
   }
 
   // Crear el panel si no existe
-  const resultadosViento = document.getElementById('resultadosViento');
-  const tablaResultados = document.getElementById('tablaResultadosViento');
+  const tablaEdicionMasiva = document.getElementById('tablaEdicionMasiva');
   
   const panelHTML = `
     <div id="edicionMasivaPanel" class="panel" style="margin-bottom: 1rem; background: linear-gradient(135deg, #fff8e1 0%, #fff3c4 100%); border: 1px solid #ffcc02; border-radius: 0.5rem; padding: 1.5rem;">
@@ -2798,13 +3346,9 @@ function mostrarPanelEdicionMasiva() {
     </div>
   `;
 
-  // Insertar antes de la tabla de resultados
-  if (tablaResultados && tablaResultados.parentNode) {
-    tablaResultados.insertAdjacentHTML('beforebegin', panelHTML);
-    
+    tablaEdicionMasiva.innerHTML = panelHTML;
     // Agregar event listeners
     configurarEventosEdicionMasiva();
-  }
 }
 
 /**
@@ -2891,6 +3435,8 @@ function eliminarRangoMasiva(numero) {
     rango.remove();
   }
 }
+// Agregar a window para acceso global
+window.eliminarRangoMasiva = eliminarRangoMasiva;
 
 /**
  * Auto-generar rangos basado en la cantidad de muros
@@ -3082,6 +3628,7 @@ async function aplicarCambiosMasivos() {
         errores.push(`Error en muro M${String(numMuro).padStart(2, '0')}: ${error.message}`);
       }
     }
+    eliminarRangoMasiva(rango.numero);
   }
   
   // Mostrar resultados
@@ -3149,6 +3696,7 @@ function obtenerRangosMasivaValidos() {
     }
     
     rangos.push({
+      numero,
       desde,
       hasta,
       tipoBrace: tipoBrace || null,
@@ -3176,13 +3724,19 @@ function agregarNuevoRango() {
   nuevoRango.setAttribute('data-rango', contadorRangos);
   
   nuevoRango.innerHTML = `
-    <div class="form-row">
-      <label>Desde Muro:</label>
-      <input type="number" class="rango-desde" min="1" value="" placeholder="Ej: 41">
-      <label>Hasta Muro:</label>
-      <input type="number" class="rango-hasta" min="1" value="" placeholder="Ej: 80">
-      <label>Eje:</label>
-      <input type="text" class="rango-eje" value="" placeholder="Ej: B" maxlength="10">
+    <div class="form-row" style="gap:1em;">
+      <div style="display:flex;align-items: center;gap: 0.5em;;">
+        <label>Eje:</label>
+        <input type="text" class="rango-eje" value="" placeholder="Ej: B" maxlength="10">
+      </div>
+      <div style="display:flex;align-items: center;gap: 0.5em;;">
+        <label>Desde Muro:</label>
+        <input type="number" class="rango-desde" min="1" value="" placeholder="Ej: 41">
+      </div>
+      <div style="display:flex;align-items: center;gap: 0.5em;;">
+        <label>Hasta Muro:</label>
+        <input type="number" class="rango-hasta" min="1" value="" placeholder="Ej: 80">
+      </div>
       <button type="button" class="btn-small btn--danger" onclick="eliminarRango(${contadorRangos})">Eliminar</button>
     </div>
   `;
@@ -3201,6 +3755,8 @@ function eliminarRango(rangoId) {
     actualizarVistaPrevia();
   }
 }
+
+window.eliminarRango = eliminarRango;
 
 /**
  * Inicializar configuración de rangos (limpiar y mostrar información)
@@ -3236,7 +3792,7 @@ function actualizarVistaPrevia() {
   const vistaPrevia = document.getElementById('vistaPrevia');
   const contenido = document.getElementById('vistaPreviaContenido');
   
-  if (rangos.length === 0) {
+  if (rangos.length === 0 && vistaPrevia != null) {
     vistaPrevia.style.display = 'none';
     return;
   }
@@ -3261,7 +3817,7 @@ function obtenerRangosValidos() {
   
   rangoItems.forEach((item, index) => {
     const desdeInput = item.querySelector('.rango-desde');
-    const hastaInput = item.querySelector('.rango-hasta');
+    const hastaInput = item.querySelector('.rango-hasta').value ? item.querySelector('.rango-hasta') : desdeInput;
     const ejeInput = item.querySelector('.rango-eje');
     
     console.log(`[EJES] Rango ${index + 1}:`, {
@@ -3639,7 +4195,7 @@ async function aplicarEjesPorRango() {
     if (btnGuardar) {
       btnGuardar.style.display = 'inline-block';
     }
-    
+    document.getElementById('btnGuardarTodosBracesTop').disabled = false;
     // Si hay una tabla visible, NO ocultar los paneles para permitir guardar
     // const ejesPanel = document.getElementById('ejesRangoPanel');
     // const bracesPanel = document.getElementById('bracesConfigPanel');
@@ -3932,3 +4488,158 @@ window.enableAccordionAfterGrouping = function() {
     console.log('[FRONTEND] Primera sección habilitada automáticamente');
   }
 };
+
+// ==== Dock lateral tipo mac: SOLO dashboard, no altera nada más ====
+(function initDockOnlyOnDashboard() {
+  if (window.location.pathname !== '/dashboard') return;
+
+  // Helper para crear elementos
+  const el = (tag, attrs = {}, children = []) => {
+    const n = document.createElement(tag);
+    console.log('[DOCK] Creando elemento:', tag, attrs);
+    Object.entries(attrs).forEach(([k, v]) => {
+      if (k === 'class') n.className = v;
+      else if (k === 'dataset') Object.entries(v).forEach(([dk, dv]) => n.dataset[dk] = dv);
+      else if (k === 'aria') Object.entries(v).forEach(([ak, av]) => n.setAttribute(`aria-${ak}`, av));
+      else if (k === 'id') Object.entries(v).forEach(([dk, dv]) => n.id = dv);
+      else if (k.startsWith('on') && typeof v === 'function') n.addEventListener(k.slice(2), v);
+      else n.setAttribute(k, v);
+    });
+    (Array.isArray(children) ? children : [children]).forEach(c => c && n.appendChild(c));
+    return n;
+  };
+
+  // Define tus acciones aquí (solo imágenes; tooltip con texto)
+// ===== Dock: items superiores (solo imágenes) =====
+const itemsTop = [
+  { action: 'home',              label: 'Home',               icon: 'img/backgrounds/10.png', code: 'dock-home' },
+  { action: 'import-txt',        label: 'Importar TXT',       icon: 'img/backgrounds/11.png', code: 'dock-import-txt' },
+  { action: 'calculos-libro',    label: 'Cálculos libro',     icon: 'img/backgrounds/7.png', code: 'dock-calculos-libro' },
+  { action: 'resultados-calculo',label: 'Resultados cálculo', icon: 'img/backgrounds/9.png', code: 'dock-resultados-calculo' },
+  { action: 'armado-deadman-rect',    label: 'Armado Rectangular',     icon: 'img/backgrounds/8.png', code: 'dock-rect' },
+  { action: 'armado-deadman-cil',    label: 'Armado Cilíndrico',     icon: 'img/backgrounds/8.png', code: 'dock-cil' },
+  { action: 'armado-deadman-tri',    label: 'Armado Triangular',     icon: 'img/backgrounds/8.png', code: 'dock-tri' },
+];
+
+
+const itemsBottom = [
+  { action: 'help', label: 'Ayuda', icon: 'img/backgrounds/12.png', code: 'dock-help' },
+];
+
+// Offset para scroll (altura del header fijo)
+const headerOffset = 110;
+
+// Mapeo de acciones a funciones reales
+const clickHandlers = {
+  // Buscar por nombre de proyecto 
+  'open-search': () => {
+    const el = document.getElementById('nombreProyecto');
+    if (el) el.focus();
+  },
+
+  // 1) HOME
+  'home': () => {
+    if (window.location.pathname !== '/dashboard') {
+      window.location.assign('/dashboard');
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  },
+
+  // 2) IMPORTAR TXT  -> Sección 1
+  'import-txt': () => {
+    var element = document.getElementById('section-import-txt');
+    var elementPosition = element.getBoundingClientRect().top;
+    var offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+    window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+  },
+
+  // 4) CÁLCULOS LIBRO III -> Sección 3
+  'calculos-libro': () => {
+    var element = document.getElementById('section-calculos-libro');
+    var elementPosition = element.getBoundingClientRect().top;
+    var offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+    window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+  },
+
+  // 5) RESULTADOS DE CÁLCULOS -> Sección 4
+  'resultados-calculo': () => {
+    var element = document.getElementById('section-resultados-calculo');
+    var elementPosition = element.getBoundingClientRect().top;
+    var offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+    window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+  },
+
+  // 6) ARMADO DEADMAN -> Sección 5
+  'armado-deadman-rect': () => {
+    var element = document.getElementById('section-armado-deadman');
+    var elementPosition = element.getBoundingClientRect().top;
+    var offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+    window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+  },
+  'armado-deadman-cil': () => {
+    var element = document.getElementById('section-armado-cilindrico');
+    var elementPosition = element.getBoundingClientRect().top;
+    var offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+    window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+  },
+  'armado-deadman-tri': () => {
+    var element = document.getElementById('section-armado-triangular');
+    var elementPosition = element.getBoundingClientRect().top;
+    var offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+    window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+  },
+
+  // Botón CALCULAR (si lo sigues usando)
+  'calc': () => {
+    const btn = document.getElementById('btnCalcular');
+    if (btn) btn.click();
+  },
+
+  // Botón EXPORTAR PDF
+  'export-pdf': () => {
+    const btn = document.getElementById('btnInforme');
+    if (btn) btn.click();
+  },
+
+  // AYUDA (botón amarillo)
+  'help': () => {
+    // Aquí luego puedes abrir modal o página de ayuda
+    alert('Aquí irá la ayuda de PuntaLink 😊');
+  },
+};
+
+  const makeButton = ({ action, label, icon, code }) => el('button',
+    { class: 'dock-item', 'id': { code }, type: 'button', 'aria-label': label, dataset: { action } },
+    [
+      el('img', { src: icon, alt: '' }),
+      el('span', { class: 'dock-tooltip' }, document.createTextNode(label))
+    ]
+  );
+
+  const dock = el('aside', { class: 'dock-left', 'aria-label': 'Barra de acceso rápido' });
+// Top
+itemsTop.forEach(it => dock.appendChild(makeButton(it)));
+
+// Bottom (Ajustes / Ayuda)
+itemsBottom.forEach(it => dock.appendChild(makeButton(it)));
+
+  document.body.appendChild(dock);
+
+    // Mostrar/ocultar botones según tipo de muerto
+  const projectConfig = localStorage.getItem('projectConfig');
+  const tipo_muerto = JSON.parse(projectConfig).tipo_muerto;
+
+  document.getElementById('dock-rect').style.display = tipo_muerto === 'Corrido' ? '' : 'none';
+  document.getElementById('dock-cil').style.display = tipo_muerto === 'Cilindrico' ? '' : 'none';
+  document.getElementById('dock-tri').style.display = tipo_muerto === 'Triangular' ? '' : 'none';
+
+  // Delegación de eventos
+  dock.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('.dock-item');
+    if (!btn) return;
+    const action = btn.dataset.action;
+    const handler = clickHandlers[action];
+    if (typeof handler === 'function') handler();
+  });
+})();

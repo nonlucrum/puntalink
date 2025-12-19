@@ -11,7 +11,8 @@ import {
   recalcularTiposBracesMasivo,
   autoRecalcularTiposBraces,
   actualizarFactorW2,
-  actualizarBracesMasivo
+  actualizarBracesMasivo,
+  obtenerMuroPorPid
 } from '../controllers/calculosController';
 
 const router = Router();
@@ -28,6 +29,9 @@ router.get('/viento/parametros-defecto', parametrosVientoDefecto);
 router.post('/viento/calcular-muros', calculoVientoMuros);
 
 // Rutas para gestión de braces
+// Obtener un muro específico por PID
+router.get('/muros/:pid', obtenerMuroPorPid);
+
 // Actualizar campos editables de un muro (ángulo, NPT, X, tipo)
 router.put('/muros/:pid/editable', actualizarCamposEditables);
 

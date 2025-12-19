@@ -1,9 +1,13 @@
 import { Request, Response } from 'express';
-import { crearProyectoService } from '../services/projectService';
-import { actualizarProyectoService } from '../services/projectService';
-import { listarProyectosService } from '../services/projectService';
-import { cargarProyectoService } from '../services/projectService';
-import { guardarTxtService } from '../services/projectService';
+import { 
+    crearProyectoService,
+    actualizarProyectoService,
+    listarProyectosService,
+    cargarProyectoService,
+    guardarTxtService,
+    nuevaVersionService,
+    eliminarProyectoService
+} from '../services/projectService';
 
 export async function crearProyecto(req: Request, res: Response) {
   console.log('[controller - projectController] crearProyecto - Inicio');
@@ -70,4 +74,28 @@ export async function guardarTXT(req: Request, res: Response) {
         res.status(500).json({ ok: false, error: err.message });
     }
     console.log('[controller - projectController] guardarTXT - Fin');
+}
+
+export async function nuevaVersion(req: Request, res: Response) {
+    console.log('[controller - projectController] nuevaVersion - Inicio');
+    try {
+        const nuevo_proyecto = await nuevaVersionService(req);
+        console.log('[controller - projectController] nuevaVersion - Nueva versión creada:');
+        res.json({ ok: true, nuevo_proyecto});
+    } catch (err: any) {
+        res.status(500).json({ ok: false, error: err.message });
+    }
+    console.log('[controller - projectController] nuevaVersion - Fin');
+}
+
+export async function eliminarProyecto(req: Request, res: Response) {
+    console.log('[controller - projectController] eliminarProyecto - Inicio');
+    try {
+        await eliminarProyectoService(req);
+        console.log('[controller - projectController] eliminarProyecto - Proyecto eliminado:');
+        res.json({ ok: true, message: 'Proyecto eliminado correctamente' });
+    } catch (err: any) {
+        res.status(500).json({ ok: false, error: err.message });
+    }
+    console.log('[controller - projectController] eliminarProyecto - Fin');
 }

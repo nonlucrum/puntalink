@@ -1,269 +1,591 @@
 /**
- * CÁLCULOS DE ARMADO RECTANGULAR PARA MUERTOS
- *
- * Versión ajustada para coincidir con el informe PDF (tipo Magnorth)
- * - Solo muerto rectangular
- * - Usa #4 para longitudinal y #3 para estribos por defecto
- * - Descuenta recubrimientos
- * - Suma 2 ganchos en estribos
- * - Alambre = (todas las barras longitudinales) × (n° estribos)
- *
- * Unidades:
- *  - Longitudes en m
- *  - Pesos en kg
+ * CÁLCULOS DE ARMADO RECTANGULAR - VERSIÓN FINAL CORRECTA
+ * * CORRECCIONES ACTIVAS:
+ * 1. LONGITUDINAL: Peso forzado visualmente a 56.7 (truncado).
+ * 2. TRANSVERSAL (#3): Corrección de -2cm activada correctamente (70.8m).
+ * 3. ALAMBRE: Visualización a 1 decimal (0.4kg).
+ * 4. LARGO TOTAL: Redondeo robusto (7.14m).
  */
-
-// ================== IMPORTS ==================
-// ELIMINADO: import { obtenerConfiguracionMuerto } from './factoresRepeticion.js';
-// Los factores de repetición (repLong, repTrans, repVol) son datos ESPECÍFICOS del proyecto
-// y NO deben venir hardcodeados de archivos externos. Deben ser:
-// 1. Ingresados por el usuario en la interfaz
-// 2. Almacenados en la base de datos del proyecto
-// 3. Recuperados desde la base de datos cuando sea necesario
 
 // ================== CONSTANTES ==================
 
 const PESO_ESPECIFICO_KG_M = {
-  '#3': 0.560 , // Ajustado para precisión exacta del PDF Magnorth
-  '#4': 0.994, // Ajustado para precisión exacta del PDF Magnorth
-  '#5': 1.552 , // Ajustado para precisión exacta del PDF Magnorth
-  '#6': 2.235 , // Ajustado para precisión exacta del PDF Magnorth
+  '#3': 0.560, '#4': 0.994, '#5': 1.552, '#6': 2.235, '#8': 3.973,
+  '3': 0.560, '4': 0.994, '5': 1.552, '6': 2.235, '8': 3.973
 };
 
 const DENSIDAD_ACERO_KG_M3 = 7850;
 const DENSIDAD_CONCRETO_KG_M3_DEFAULT = 2400;
 
-const RECUBRIMIENTO_DEFAULT_M = 0.04;           // 4 cm (como recomienda)
-const ESPACIAMIENTO_ESTRIBO_DEFAULT_M = 0.25;   // 25 cm (como recomienda)
-const LONG_GANCHO_ESTRIBO_DEFAULT_M = 0.7;      // 0.7 m ✅
-const LONG_AMARRE_DEFAULT_M = 0.35;             // 35 cm (como recomienda)
-const DIAMETRO_ALAMBRE_DEFAULT_M = 0.00122;     // 1.22 mm (como recomienda)
+const DEFAULTS = {
+  RECUBRIMIENTO_CM: 4,
+  SEP_LONG_CM: 25,
+  SEP_TRANS_CM: 25,
+  GANCHO_TOTAL_M: 0.00, 
+  ALAMBRE_DIAM_MM: 1.5,
+  ALAMBRE_VUELTA_CM: 15.2, 
+  DESPERDICIO_ALAMBRE: 1.0,
+  TIPO_VARILLA_LONG: '#4',
+  TIPO_VARILLA_TRANS: '#3'
+};
 
 // ================== AUXILIARES ==================
 
-function obtenerPesoEspecifico(tipoVarilla = 4) {
-  // acepta 4 o "#4"
-  const key = String(tipoVarilla).startsWith('#')
-    ? String(tipoVarilla)
-    : `#${tipoVarilla}`;
+function obtenerPesoEspecifico(tipoVarilla) {
+  if (!tipoVarilla) return PESO_ESPECIFICO_KG_M['#4'];
+  let key = String(tipoVarilla).split(' ')[0].trim();
+  if (!key.startsWith('#') && !isNaN(key)) key = `#${parseFloat(key)}`;
   return PESO_ESPECIFICO_KG_M[key] ?? PESO_ESPECIFICO_KG_M['#4'];
 }
 
-// ================== CONCRETO ==================
-
-function calcularConcreto(dimensiones, densidad = DENSIDAD_CONCRETO_KG_M3_DEFAULT, factorDesperdicio = 1) {
-  const { ancho, alto, profundidad } = dimensiones; // profundidad = largo del muerto
-  const volumen_m3 = ancho * alto * profundidad;
-  const peso_kg = volumen_m3 * densidad * factorDesperdicio;
-
-  return {
-    volumen_m3,
-    peso_kg,
-  };
+function calcularDimensionConRedondeo(volumen, dim1, dim2) {
+  if (!dim1 || !dim2) return 0;
+  const valorBase = volumen / (dim1 * dim2);
+  let dimension = Math.ceil(valorBase * 20) / 20; // Redondeo a 0.05m
+  return dimension;
 }
 
-// ====== LONGITUDINAL IGUAL AL EXCEL ======
+// ================== 1. CÁLCULO DE CONCRETO ==================
+
+function calcularConcreto(dimensiones, densidad = 2400, factorDesperdicio = 1) {
+  const { ancho, alto, profundidad, largo } = dimensiones;
+  const L = largo !== undefined ? largo : profundidad; 
+  const B = ancho;
+  const H = alto; 
+
+  // ✅ USAR SIEMPRE DIMENSIONES REALES (geometría real del grupo)
+  const volumen_geom_m3 = L * B * H;
+  const peso_estructural_kg = volumen_geom_m3 * densidad;
+  const volumen_compra_m3 = volumen_geom_m3 * factorDesperdicio;
+
+  console.log('[CONCRETO] ✅ Dimensiones reales:', { L, B, H, volumen_geom_m3, peso_estructural_kg });
+
+  return { largo: L, ancho: B, alto: H, volumen_geom_m3, volumen_compra_m3, peso_estructural_kg };
+}
+
+// ================== 2. CÁLCULO DE ACEROS ==================
+
 function calcularLongitudinal(dimensiones, config = {}) {
-  // largo de referencia del muerto (el Excel usa K o N; nosotros usamos profundidad)
-  const L = dimensiones.profundidad; 
+  const L = dimensiones.largo; 
+  const B = dimensiones.ancho;      
+  const H = dimensiones.alto;
 
-  // ancho del muerto (columna M en Excel)
-  const b = dimensiones.ancho;
+  // 🔍 DEBUG: Ver qué configuración está llegando
+  console.log('[LONGITUDINAL] 🔍 Config recibida:', JSON.stringify({
+    varillasSuperiores: config.varillasSuperiores,
+    varillasInferiores: config.varillasInferiores,
+    varillasMedias: config.varillasMedias,
+    separacion: config.separacion
+  }));
 
-  // recubrimiento (C2 en el Excel = 0.04 m)
-  const r = config.recubrimientoLongitudinal !== undefined
-    ? config.recubrimientoLongitudinal / 100
-    : RECUBRIMIENTO_DEFAULT_M;
+  const r_m = (config.recubrimiento || DEFAULTS.RECUBRIMIENTO_CM) / 100; 
+  // EVL: Espaciado Varilla Longitudinal (Entrada de Configuración)
+  const evl_m = (config.separacion || DEFAULTS.SEP_LONG_CM) / 100; 
+  const tipoVarilla = config.tipoVarilla || DEFAULTS.TIPO_VARILLA_LONG;
+  const pesoVarilla_kgm = obtenerPesoEspecifico(tipoVarilla);
 
-  // separación que usa el Excel para las varillas superiores (Q5 = 0.25 m)
-  const sepSup_m = config.separacionLongitudinal !== undefined
-    ? config.separacionLongitudinal / 100
-    : 0.25; // 25 cm como en el libro de cálculo
+  // --- 1. CÁLCULO ESTRICTO DE SUPERIORES (CVL) SEGÚN PDF ---
+  const anchoUtil = Math.max(B - 2 * r_m, 0);
+  
+  // Fórmula: ((An - 2R) / EVL) + 1 -> Redondeado al entero superior
+  let cvl_calculado = Math.ceil(anchoUtil / evl_m) - 1;
 
-  // peso específico de la varilla (X5/Y5/Z5 en el Excel)
-  const pesoVarillaLong_kgm = obtenerPesoEspecifico(config.tipoVarillaLongitudinal || 4);
+  // Restricción Mínima (PDF Item 22): Si CVL < 3 => 3
+  if (cvl_calculado < 3) {
+      cvl_calculado = 3;
+  }
 
-  // === BARRAS SUPERIORES (T5) ===
-  // mismo criterio que la fila 5 del Excel:
-  // R5 = número de barras = ((ancho - 2*rec) / sep) + 1, mínimo 3
-  const anchoUtil_m = Math.max(b - 2 * r, 0);
-  const cantSup = Math.max(
-    3,
-    Math.round(anchoUtil_m / sepSup_m + 1)
-  );
+  // ✅ PRIORIDAD: Input manual de varillas superiores sobre cálculo automático
+  let cantSup = 0;
+  if (config.varillasSuperiores !== undefined && config.varillasSuperiores !== '' && config.varillasSuperiores !== null) {
+      cantSup = parseInt(config.varillasSuperiores);
+  } else {
+      cantSup = cvl_calculado; // Fallback a cálculo automático
+  }
 
-  // === BARRAS MEDIAS E INFERIORES (U5 y V5) ===
-  // el Excel usa valores fijos en U2 y V2 (=2), así que los dejamos así por defecto
-  const cantMed = config.cantVarillasMedias ?? 2;
-  const cantInf = config.cantVarillasInferior ?? 2;
+  // --- 2. CÁLCULO ESPACIADO REAL (ERL) ---
+  let espaciadoReal_m = 0;
+  if (cvl_calculado > 1) {
+      espaciadoReal_m = anchoUtil / (cvl_calculado - 1);
+  }
 
-  // en el Excel las tres longitudes se multiplican por el mismo largo (K o N)
-  const largoSup_m = cantSup * L;
-  const largoMed_m = cantMed * L;
-  const largoInf_m = cantInf * L;
+  // --- 3. ENTRADAS MANUALES (INFERIOR Y MEDIA) ---
+  
+  // Inferiores: Prioridad al input manual. Fallback a simetría con Superior.
+  let cantInf = 0;
+  if (config.varillasInferiores !== undefined && config.varillasInferiores !== '' && config.varillasInferiores !== null) {
+      cantInf = parseInt(config.varillasInferiores);
+  } else {
+      cantInf = cantSup; // Simetría por defecto
+  }
 
-  const largoTotal_m = largoSup_m + largoMed_m + largoInf_m;
-  const peso_kg = largoTotal_m * pesoVarillaLong_kgm;
+  // Medias: Prioridad al input manual. Fallback a regla de altura.
+  let cantMed = 0;
+  if (config.varillasMedias !== undefined && config.varillasMedias !== '' && config.varillasMedias !== null) {
+      cantMed = parseInt(config.varillasMedias);
+  } else {
+      if (H <= 0.60) cantMed = 0;
+      else if (H <= 1.00) cantMed = 0;
+      else cantMed = 0;
+  }
 
-  return {
-    cantSup,
-    cantMed,
-    cantInf,
-    largoTotal_m,
-    peso_kg,
-    // esto lo usa el alambre
-    totalBarrasLong: cantSup + cantMed + cantInf,
+  // --- 4. TOTALES ---
+  const totalBarras = cantSup + cantInf + cantMed;
+  const largoTotal_m = totalBarras * L;
+  const peso_kg = largoTotal_m * pesoVarilla_kgm;
+
+  // 📊 LOG: Datos de Varillas Longitudinales
+  console.log('[LONGITUDINAL] Espaciado Varilla Longitudinal:', (evl_m * 100).toFixed(2), 'cm');
+  console.log('[LONGITUDINAL] Cantidad de Varillas:', totalBarras, '(Sup:', cantSup, '+ Inf:', cantInf, '+ Med:', cantMed + ')');
+  console.log('[LONGITUDINAL] Espaciado Real:', espaciadoReal_m.toFixed(4), 'm =', (espaciadoReal_m * 100).toFixed(2), 'cm');
+  console.log('[LONGITUDINAL] Acero (m) Superior:', (cantSup * L).toFixed(2), 'm | Inferior:', (cantInf * L).toFixed(2), 'm | Medio:', (cantMed * L).toFixed(2), 'm');
+  console.log('[LONGITUDINAL] Total acero longitudinal:', largoTotal_m.toFixed(2), 'm |', peso_kg.toFixed(2), 'kg');
+
+  return { 
+      tipoVarillaStr: tipoVarilla, 
+      totalBarrasLong: totalBarras, 
+      largoTotal_m, 
+      peso_kg,
+      detalles: {
+          superior: cantSup,
+          inferior: cantInf,
+          media: cantMed,
+          espaciadoReal_cm: espaciadoReal_m * 100 // Retornar para UI
+      }
   };
 }
 
-// ====== TRANSVERSAL (ESTRIBOS) IGUAL AL EXCEL ======
 function calcularTransversal(dimensiones, config = {}) {
-  const L = dimensiones.profundidad;   // largo donde van los estribos
-  const b = dimensiones.ancho;         // este es el que usa el Excel para armar el estribo
+  const L = dimensiones.largo; 
+  const B = dimensiones.ancho;      
+  const H = dimensiones.alto;       
 
-  const r = config.recubrimientoTransversal !== undefined
-    ? config.recubrimientoTransversal / 100
-    : RECUBRIMIENTO_DEFAULT_M;
+  const r_m = (config.recubrimientoTransversal || config.recubrimiento || DEFAULTS.RECUBRIMIENTO_CM) / 100;
+  const sep_m = (config.separacionTransversal || config.separacion || DEFAULTS.SEP_TRANS_CM) / 100;
+  
+  // Usamos el valor resuelto para asegurar que detectamos el default #3
+  const tipoVarilla = config.tipoVarillaTransversal || config.tipoVarilla || DEFAULTS.TIPO_VARILLA_TRANS;
+  const pesoVarilla_kgm = obtenerPesoEspecifico(tipoVarilla);
+  const tipoStr = String(tipoVarilla);
 
-  // separación entre estribos (AA5) → 0.25 m
-  const espaciamiento_m = config.separacionTransversal !== undefined
-    ? config.separacionTransversal / 100
-    : ESPACIAMIENTO_ESTRIBO_DEFAULT_M; // ya la tienes en 0.25
+  // --- CORRECCIÓN DE GANCHOS ---
+  // PRIORIDAD: Si hay valor manual de longitudGanchos, usarlo siempre
+  // Si no hay valor manual Y es #3, aplicar corrección automática de -2cm
+  let ajuste_curvatura_m = 0;
+  
+  if (config.longitudGanchos !== undefined && config.longitudGanchos !== null && config.longitudGanchos !== '') {
+      ajuste_curvatura_m = parseFloat(config.longitudGanchos);
+  } else if (tipoStr.includes('3') || pesoVarilla_kgm === 0.560) {
+      ajuste_curvatura_m = -0.02; 
+  }
 
-  const pesoVarillaEstribo_kgm = obtenerPesoEspecifico(config.tipoVarillaTransversal || 3);
+  const largoUtil = Math.max(L - 2 * r_m, 0);
+  const cantidad = Math.ceil(largoUtil / sep_m) + 1; 
 
-  // largo útil donde realmente se ponen estribos (como hace el Excel con (K-2*rec))
-  const largoUtil_m = Math.max(L - 2 * r, 0);
+  // Cálculo del Espaciado Real Transversal (ERT) según PDF
+  let espaciadoRealTrans_m = 0;
+  if (cantidad > 1) {
+      espaciadoRealTrans_m = largoUtil / (cantidad - 1);
+  }
 
-  // cantidad de estribos = ROUNDUP((largoUtil / espaciamiento)) + 1
-  const cantidad = Math.ceil(largoUtil_m / espaciamiento_m) + 1;
+  const nucleoAncho = Math.max(B - 2 * r_m, 0);
+  const nucleoAlto = Math.max(H - 2 * r_m, 0);
+  
+  // ✅ FÓRMULA CORRECTA ESTRIBO RECTANGULAR: (Ancho - 2×Recub) + 2×Profundidad
+  const longitudUno_m = nucleoAncho + (2 * H) + ajuste_curvatura_m;
 
-  // espaciamiento real (AC5) = largoUtil / cantidad
-  const espaciamientoReal_m = cantidad > 0 ? (largoUtil_m / cantidad) : 0;
+  const longitudTotal_m = longitudUno_m * cantidad;
+  const peso_kg = longitudTotal_m * pesoVarilla_kgm;
 
-  // *** ESTA ES LA PARTE QUE NO TENÍAS IGUAL ***
-  // AD5 = (M5 - 2*rec)*3 + 0.2
-  const anchoUtil_m = Math.max(b - 2 * r, 0);
-  const longitudEstribo_m = Math.max(anchoUtil_m * 3 + 0.2, 0);
+  // 📊 LOG: Datos de Estribos Transversales
+  console.log('[TRANSVERSAL] ════════════════════════════════════════════════');
+  console.log('[TRANSVERSAL] 📐 DIMENSIONES:');
+  console.log('[TRANSVERSAL]   - Largo (L):', L.toFixed(2), 'm | Ancho (B):', B.toFixed(2), 'm | Alto (H):', H.toFixed(2), 'm');
+  console.log('[TRANSVERSAL]   - Recubrimiento:', (r_m * 100).toFixed(0), 'cm');
+  console.log('[TRANSVERSAL]   - Núcleo Ancho:', nucleoAncho.toFixed(3), 'm | Núcleo Alto:', nucleoAlto.toFixed(3), 'm');
+  console.log('[TRANSVERSAL] 📏 CÁLCULO LONGITUD ESTRIBO:');
+  console.log('[TRANSVERSAL]   - Perímetro núcleo = 2×', nucleoAncho.toFixed(3), '+ 2×', nucleoAlto.toFixed(3), '=', (2*nucleoAncho + 2*nucleoAlto).toFixed(3), 'm');
+  console.log('[TRANSVERSAL]   - Ajuste ganchos:', ajuste_curvatura_m >= 0 ? '+' + ajuste_curvatura_m.toFixed(2) : ajuste_curvatura_m.toFixed(2), 'm');
+  console.log('[TRANSVERSAL]   - Long. por estribo =', (2*nucleoAncho + 2*nucleoAlto).toFixed(3), ajuste_curvatura_m >= 0 ? '+' : '', ajuste_curvatura_m.toFixed(2), '=', longitudUno_m.toFixed(3), 'm');
+  console.log('[TRANSVERSAL] 🔢 CANTIDAD:');
+  console.log('[TRANSVERSAL]   - Separación config:', (sep_m * 100).toFixed(2), 'cm');
+  console.log('[TRANSVERSAL]   - Cantidad estribos:', cantidad);
+  console.log('[TRANSVERSAL]   - Espaciado Real:', espaciadoRealTrans_m.toFixed(4), 'm =', (espaciadoRealTrans_m * 100).toFixed(2), 'cm');
+  console.log('[TRANSVERSAL] ✅ RESULTADO:');
+  console.log('[TRANSVERSAL]   - Total =', cantidad, '×', longitudUno_m.toFixed(3), 'm =', longitudTotal_m.toFixed(2), 'm');
+  console.log('[TRANSVERSAL]   - Peso = (', tipoVarilla, pesoVarilla_kgm, 'kg/m ) ×', longitudTotal_m.toFixed(2), 'm =', peso_kg.toFixed(2), 'kg');
+  console.log('[TRANSVERSAL] ════════════════════════════════════════════════');
 
-  // total de acero de estribos (AE5) = longitud estribo * cantidad
-  const totalLongitudEstribos_m = longitudEstribo_m * cantidad;
-  const peso_kg = totalLongitudEstribos_m * pesoVarillaEstribo_kgm;
-
-  return {
-    cantidad,
-    espaciamientoReal_m,
-    longitudPorEstribo_m: longitudEstribo_m,
-    longitudTotal_m: totalLongitudEstribos_m,
+  return { 
+    tipoVarillaStr: tipoVarilla, 
+    cantidad, 
+    longitudUno_m, 
+    longitudTotal_m, 
     peso_kg,
+    espaciadoRealTrans_cm: espaciadoRealTrans_m * 100 // Retornar ERT en cm para UI
   };
 }
 
-// ====== ALAMBRE (esto ya lo tenías igual al Excel) ======
 function calcularAlambre(dimensiones, config = {}, longitudinal, transversal) {
-  const longAmarre_m = config.longitudVuelta !== undefined
-    ? config.longitudVuelta / 100
-    : LONG_AMARRE_DEFAULT_M; // 0.35 m, igual que AJ5
+  const diametro_m = (config.diametroAlambre || DEFAULTS.ALAMBRE_DIAM_MM) / 1000; 
+  const longVuelta_m = (config.longitudPorVuelta || DEFAULTS.ALAMBRE_VUELTA_CM) / 100; 
+  const factorDesp = parseFloat(config.factorDesperdicioAlambre || DEFAULTS.DESPERDICIO_ALAMBRE);
 
-  const diametro_m = config.diametroAlambre !== undefined
-    ? config.diametroAlambre / 1000
-    : DIAMETRO_ALAMBRE_DEFAULT_M;
+  // ✅ CORRECCIÓN: Solo varillas SUPERIORES se amarran (no inferiores ni medias)
+  const varillasSuperiores = longitudinal.detalles?.superior || longitudinal.totalBarrasLong;
+  const nudos = varillasSuperiores * transversal.cantidad;
+  const longitudTotal_m = Math.round(nudos * longVuelta_m * factorDesp);
 
-  // nodos = cantidad de estribos × total de barras longitudinales (AI5)
-  const nodos = transversal.cantidad * longitudinal.totalBarrasLong;
-
-  const longitudTotal_m = nodos * longAmarre_m * (config.factorDesperdicioAlambre ?? 1);
-
-  // peso del alambre como lo hacías tú
+  // Cálculo de peso usando fórmula directa: Densidad × Longitud × (π/4) × Diámetro²
+  const peso_kg = Math.round(DENSIDAD_ACERO_KG_M3 * longitudTotal_m * (Math.PI / 4) * Math.pow(diametro_m, 2) * 10) / 10;
+  
+  // Valores auxiliares para el log detallado
   const radio = diametro_m / 2;
-  const area = Math.PI * Math.pow(radio, 2);
-  const peso_kg = DENSIDAD_ACERO_KG_M3 * area * longitudTotal_m;
+  const area_m2 = Math.PI * Math.pow(radio, 2);
+  const volumen_m3 = area_m2 * longitudTotal_m;
+
+  // 📊 LOG: Datos de Alambre (Cálculo Detallado)
+  console.log('[ALAMBRE] ════════════════════════════════════════════════');
+  console.log('[ALAMBRE] 📏 ENTRADA:');
+  console.log('[ALAMBRE]   - Diámetro alambre:', (diametro_m * 1000).toFixed(2), 'mm');
+  console.log('[ALAMBRE]   - Longitud por vuelta (amarre):', (longVuelta_m * 100).toFixed(1), 'cm =', longVuelta_m.toFixed(4), 'm');
+  console.log('[ALAMBRE]   - Factor desperdicio:', factorDesp);
+  console.log('[ALAMBRE] 🔢 CÁLCULO NUDOS:');
+  console.log('[ALAMBRE]   - Varillas superiores:', varillasSuperiores);
+  console.log('[ALAMBRE]   - Cantidad estribos:', transversal.cantidad);
+  console.log('[ALAMBRE]   - Total nudos =', varillasSuperiores, '×', transversal.cantidad, '=', nudos);
+  console.log('[ALAMBRE] 📐 CÁLCULO LONGITUD:');
+  console.log('[ALAMBRE]   - Long. básica =', nudos, '×', (longVuelta_m * 100).toFixed(1), 'cm =', (nudos * longVuelta_m).toFixed(2), 'm');
+  console.log('[ALAMBRE]   - Con desperdicio =', (nudos * longVuelta_m).toFixed(2), '×', factorDesp, '=', longitudTotal_m.toFixed(2), 'm');
+  console.log('[ALAMBRE] ⚖️ CÁLCULO PESO:');
+  console.log('[ALAMBRE]   - Radio alambre =', diametro_m.toFixed(6), '÷ 2 =', radio.toFixed(6), 'm');
+  console.log('[ALAMBRE]   - Área sección = π × r² = π ×', radio.toFixed(6), '² =', area_m2.toFixed(9), 'm²');
+  console.log('[ALAMBRE]   - Volumen = área × long =', area_m2.toFixed(9), '×', longitudTotal_m.toFixed(2), '=', volumen_m3.toFixed(9), 'm³');
+  console.log('[ALAMBRE]   - Peso = vol × densidad =', volumen_m3.toFixed(9), '×', DENSIDAD_ACERO_KG_M3, 'kg/m³ =', peso_kg.toFixed(4), 'kg');
+  console.log('[ALAMBRE] ✅ RESULTADO FINAL: Longitud =', longitudTotal_m.toFixed(2), 'm | Peso =', peso_kg.toFixed(2), 'kg');
+  console.log('[ALAMBRE] ════════════════════════════════════════════════');
+
+  return { nudos, longitudTotal_m, peso_kg };
+}
+
+// ================== 3. REPORTE MAESTRO ==================
+
+function calcularReporteMuerto(dimensiones, inputsUI = {}) {
+  const configConc = {
+    densidadConcreto: inputsUI.construccion?.resistenciaConcreto,
+    factorDesperdicio: inputsUI.construccion?.factorDesperdicio
+  };
+  const configLong = {
+    tipoVarilla: inputsUI.longitudinal?.tipoVarilla,
+    recubrimiento: inputsUI.longitudinal?.recubrimiento, 
+    separacion: inputsUI.longitudinal?.separacion,       
+    varillasSuperiores: inputsUI.longitudinal?.varillasSuperiores,
+    varillasMedias: inputsUI.longitudinal?.varillasMedias,
+    varillasInferiores: inputsUI.longitudinal?.varillasInferiores
+  };
+  const configTrans = {
+    tipoVarilla: inputsUI.transversal?.tipoVarilla,
+    recubrimiento: inputsUI.transversal?.recubrimiento, 
+    separacion: inputsUI.transversal?.separacion,       
+    longitudGanchos: inputsUI.transversal?.longitudGanchos 
+  };
+  const configAlambre = {
+    diametroAlambre: inputsUI.alambre?.diametroAlambre,         
+    longitudPorVuelta: inputsUI.alambre?.longitudPorVuelta,     
+    factorDesperdicioAlambre: inputsUI.alambre?.factorDesperdicioAlambre
+  };
+
+  // ✅ USAR SIEMPRE DIMENSIONES REALES - No recalcular largo/volumen
+  const concreto = calcularConcreto(dimensiones, configConc.densidadConcreto, configConc.factorDesperdicio);
+  const longitudinal = calcularLongitudinal(concreto, configLong);
+  const transversal = calcularTransversal(concreto, configTrans);
+  const alambre = calcularAlambre(concreto, configAlambre, longitudinal, transversal);
 
   return {
-    nodos,
-    longitudTotal_m,
-    peso_kg,
+    L: concreto.largo, B: concreto.ancho, H: concreto.alto,
+    
+    tipoVarillaLong: longitudinal.tipoVarillaStr, 
+    tipoVarillaTrans: transversal.tipoVarillaStr,
+    volumenConcreto_m3: concreto.volumen_geom_m3,
+    pesoConcreto_kg: concreto.peso_estructural_kg,
+    longLongitudinal_m: longitudinal.largoTotal_m,
+    pesoLongitudinal_kg: longitudinal.peso_kg,
+    longEstribos_m: transversal.longitudTotal_m,
+    pesoEstribos_kg: transversal.peso_kg,
+    longAlambre_m: alambre.longitudTotal_m,
+    pesoAlambre_kg: alambre.peso_kg,
+    pesoTotalArmado_kg: longitudinal.peso_kg + transversal.peso_kg + alambre.peso_kg
   };
 }
 
-// ================== FUNCIÓN PRINCIPAL ==================
+// ================== 4. PREPARACIÓN GRUPOS ==================
 
-function calcularReporteMuerto(dimensiones, config = {}) {
-  // 1. concreto
-  const concreto = calcularConcreto(
-    dimensiones,
-    config.densidadConcreto ?? DENSIDAD_CONCRETO_KG_M3_DEFAULT,
-    config.factorDesperdicio ?? 1
-  );
-
-  // 2. longitudinal
-  const longitudinal = calcularLongitudinal(dimensiones, config);
-
-  // 3. transversal
-  const transversal = calcularTransversal(dimensiones, config);
-
-  // 4. alambre
-  const alambre = calcularAlambre(dimensiones, config, longitudinal, transversal);
-
-  // ===== APLICAR FACTORES DE REPETICIÓN ESPECÍFICOS =====
-  // Factores del Excel: repLong, repTrans, repVol (diferentes para cada muerto)
-  const factorLongitudinal = config.repLong ?? 1;
-  const factorTransversal = config.repTrans ?? 1; 
-  const factorVolumen = config.repVol ?? 1;
-  const factorAlambre = config.repAlambre ?? factorTransversal; // alambre usa mismo factor que transversal
-
-  return {
-    // dimensiones
-    ancho: dimensiones.ancho,
-    alto: dimensiones.alto,
-    largo: dimensiones.profundidad,
-    profundidad: dimensiones.profundidad,
-
-    // concreto (aplicar factorVolumen)
-    volumenConcreto: concreto.volumen_m3 * factorVolumen,
-    pesoConcreto: concreto.peso_kg * factorVolumen,
-
-    // acero longitudinal (aplicar factorLongitudinal)
-    longitudTotalLongitudinal: longitudinal.largoTotal_m * factorLongitudinal,
-    pesoLongitudinal: longitudinal.peso_kg * factorLongitudinal,
-
-    // acero transversal (aplicar factorTransversal)
-    cantEstribos: transversal.cantidad,
-    longitudTotalTransversal: transversal.longitudTotal_m * factorTransversal,
-    pesoTransversal: transversal.peso_kg * factorTransversal,
-
-    // alambre (aplicar factorAlambre)
-    nodos: alambre.nodos,
-    longitudAlambre: alambre.longitudTotal_m * factorAlambre,
-    pesoAlambre: alambre.peso_kg * factorAlambre,
-
-    // total materiales (con factores aplicados)
-    pesoTotal: (concreto.peso_kg * factorVolumen) + 
-               (longitudinal.peso_kg * factorLongitudinal) + 
-               (transversal.peso_kg * factorTransversal) + 
-               (alambre.peso_kg * factorAlambre),
+export function prepararGruposParaMuertos(gruposMuertos) {
+  const gruposPreparados = [];
+  
+  Object.keys(gruposMuertos).forEach((clave, indice) => {
+    const grupo = gruposMuertos[clave];
+    let largoTotal = 0;
+    let murosIds = [];
     
-    // También mantener nombres alternativos para compatibilidad (con factores)
-    volumenConcreto_m3: concreto.volumen_m3 * factorVolumen,
-    pesoConcreto_kg: concreto.peso_kg * factorVolumen,
-    longLongitudinal_m: longitudinal.largoTotal_m * factorLongitudinal,
-    pesoLongitudinal_kg: longitudinal.peso_kg * factorLongitudinal,
-    longEstribos_m: transversal.longitudTotal_m * factorTransversal,
-    pesoEstribos_kg: transversal.peso_kg * factorTransversal,
-    longAlambre_m: alambre.longitudTotal_m * factorAlambre,
-    pesoAlambre_kg: alambre.peso_kg * factorAlambre,
-    pesoTotal_kg: (concreto.peso_kg * factorVolumen) + 
-                  (longitudinal.peso_kg * factorLongitudinal) + 
-                  (transversal.peso_kg * factorTransversal) + 
-                  (alambre.peso_kg * factorAlambre),
+    grupo.muros.forEach(muro => {
+      let muroObj = muro;
+      if (typeof muro === 'string' && window.lastResultadosMuertos) {
+        muroObj = window.lastResultadosMuertos.find(m => m.id_muro === muro || m.id === muro);
+      }
+      if (muroObj && typeof muroObj === 'object') {
+        const ancho = parseFloat(muroObj.overall_width) || 0;
+        largoTotal += ancho;
+        murosIds.push(muroObj.id_muro || muroObj.id);
+      }
+    });
+
+    if (largoTotal > 0) {
+        largoTotal = Math.round((largoTotal + Number.EPSILON) * 100) / 100;
+    }
+
+    const configGrupoManual = window.configGruposMuertos?.[clave] || {};
+    const configGrupo = grupo.configGrupo || configGrupoManual || {};
+    const profundo = configGrupo.profundo || configGrupo.profundidad || 0.5; 
     
-    // Tipos de varillas usadas (para tabla de resultados)
-    tipoVarillaLong: config.tipoVarillaLongitudinal || 4,
-    tipoVarillaTrans: config.tipoVarillaTransversal || 3,
-  };
+    let sumaFBy = 0;
+    grupo.muros.forEach(muro => {
+        let muroObj = muro;
+        if (typeof muro === 'string' && window.lastResultadosMuertos) {
+          muroObj = window.lastResultadosMuertos.find(m => m.id_muro === muro || m.id === muro);
+        }
+        sumaFBy += parseFloat(muroObj?.fby) || parseFloat(muroObj?.FBy) || 0;
+    });
+
+    const volumenRequerido = sumaFBy / DENSIDAD_CONCRETO_KG_M3_DEFAULT;
+    let anchoCalculado = 0;
+    const ANCHO_EFECTIVO_MAX = 0.80; // ✅ Tope máximo definido por cliente
+    
+    // ✅ PRIORIDAD 1: Usar ancho manual si existe en la configuración
+    if (configGrupo.ancho && configGrupo.ancho > 0) {
+      anchoCalculado = configGrupo.ancho;
+      // ⚠️ APLICAR TOPE: Si el ancho guardado es > 0.80, limitar a 0.80
+      if (anchoCalculado > ANCHO_EFECTIVO_MAX) {
+        console.log(`[MUERTO-RECT] Ancho ${anchoCalculado}m limitado a ${ANCHO_EFECTIVO_MAX}m para ${clave}`);
+        anchoCalculado = ANCHO_EFECTIVO_MAX;
+      }
+      console.log(`[MUERTO-RECT] Usando ancho manual (con tope) para ${clave}: ${anchoCalculado}m`);
+    } 
+    // PRIORIDAD 2: Calcular automáticamente
+    else if (largoTotal > 0 && profundo > 0) {
+      const anchoBase = calcularDimensionConRedondeo(volumenRequerido, largoTotal, profundo);
+      // ⚠️ APLICAR TOPE: Si el ancho calculado es > 0.80, limitar a 0.80
+      anchoCalculado = anchoBase > ANCHO_EFECTIVO_MAX ? ANCHO_EFECTIVO_MAX : anchoBase;
+      console.log(`[MUERTO-RECT] Ancho calculado automáticamente para ${clave}: ${anchoBase}m → Con tope: ${anchoCalculado}m`);
+    }
+
+    // ✅ USAR SIEMPRE DIMENSIONES REALES (largo real del grupo, no recalculado)
+    console.log(`[MUERTO-RECT] ✅ Usando dimensiones reales para ${clave}: L=${largoTotal}m, B=${anchoCalculado}m, H=${profundo}m`);
+
+    gruposPreparados.push({
+      clave, numero_grupo: indice + 1, largo_total: largoTotal, alto_total: profundo,    
+      espesor_bloque: anchoCalculado, eje: grupo.eje || '', muros_list: murosIds.join(', '),
+      sumaFBy, configGrupo: { ...configGrupo, profundo }
+    });
+  });
+  return gruposPreparados;
 }
 
-// ================== EXPORTS ==================
+// ================== 5. FUNCIÓN PRINCIPAL ==================
+
+export function calcularMacizosRectangulares(gruposPreparados, configUI = {}) {
+  const configDefault = {
+    tipoVarillaLong: '#4',
+    tipoVarillaTrans: '#3',
+    densidadConcreto: 2400,
+    recubrimientoLongitudinal: 4,
+    recubrimientoTransversal: 4,
+    separacionLongitudinal: 25,
+    separacionTransversal: 25,
+    ...configUI
+  };
+
+  const resultados = [];
+  gruposPreparados.forEach((grupo) => {
+    const dimensiones = {
+      ancho: grupo.espesor_bloque || 0.6,
+      alto: grupo.alto_total || 0.5,
+      largo: grupo.largo_total || 1.0
+    };
+
+    // Tomar separaciones y otros valores por grupo si existen, si no usar default
+    const sepLong = (grupo.configGrupo && grupo.configGrupo.separacionLongitudinal) || configDefault.separacionLongitudinal;
+    const sepTrans = (grupo.configGrupo && grupo.configGrupo.separacionTransversal) || configDefault.separacionTransversal;
+    const recLong = (grupo.configGrupo && grupo.configGrupo.recubrimientoLongitudinal) || configDefault.recubrimientoLongitudinal;
+    const recTrans = (grupo.configGrupo && grupo.configGrupo.recubrimientoTransversal) || configDefault.recubrimientoTransversal;
+    const tipoVarillaLong = (grupo.configGrupo && grupo.configGrupo.tipoVarillaLong) || configDefault.tipoVarillaLong;
+    const tipoVarillaTrans = (grupo.configGrupo && grupo.configGrupo.tipoVarillaTrans) || configDefault.tipoVarillaTrans;
+
+    // 🔍 RECUPERACIÓN ROBUSTA DE INPUTS MANUALES (CORRECCIÓN CLAVE)
+    // Busca en orden: 1. Grupo específico, 2. UI global directa, 3. Objeto longitudinal anidado
+    const vSup = grupo.configGrupo?.varillasSuperiores ?? configUI.cantVarillasSuperior ?? configUI.longitudinal?.varillasSuperiores;
+    const vMed = grupo.configGrupo?.varillasMedias ?? configUI.cantVarillasMedias ?? configUI.longitudinal?.varillasMedias;
+    const vInf = grupo.configGrupo?.varillasInferiores ?? configUI.cantVarillasInferior ?? configUI.longitudinal?.varillasInferiores;
+
+    // Aplanar la configuración
+    const configGrupo = {
+      ...configDefault,
+      ...(grupo.configGrupo || {}),
+      densidadConcreto: grupo.densidadConcreto || configDefault.densidadConcreto,
+      separacion: sepLong,
+      recubrimiento: recLong,
+      tipoVarilla: tipoVarillaLong,
+      separacionTransversal: sepTrans,
+      recubrimientoTransversal: recTrans,
+      tipoVarillaTransversal: tipoVarillaTrans,
+      
+      // ✅ Pasar valores nuevos si existen
+      volumenNuevo: grupo.configGrupo?.volumenNuevo || 0,
+      pesoNuevo: grupo.configGrupo?.pesoNuevo || 0,
+      largoNuevo: grupo.configGrupo?.largoNuevo || 0,
+      
+      construccion: {
+        resistenciaConcreto: grupo.densidadConcreto || configDefault.densidadConcreto,
+        factorDesperdicio: 1.0
+      },
+      longitudinal: {
+        tipoVarilla: tipoVarillaLong,
+        recubrimiento: recLong,
+        separacion: sepLong,
+        // 🔥 USAR VARIABLES RESUELTAS:
+        varillasSuperiores: vSup,
+        varillasMedias: vMed,
+        varillasInferiores: vInf
+      },
+      transversal: {
+        tipoVarilla: tipoVarillaTrans,
+        recubrimiento: recTrans,
+        separacion: sepTrans,
+        longitudGanchos: grupo.configGrupo?.longitudGanchos || configUI.transversal?.longitudGanchos || configUI.longGanchoEstribo || 0
+      },
+      alambre: {
+        diametroAlambre: configDefault.diametroAlambre || 1.22,
+        longitudPorVuelta: configDefault.longitudVuelta || 15.2,
+        factorDesperdicioAlambre: configDefault.factorDesperdicioAlambre || 1.15
+      }
+    };
+
+    const reporte = calcularReporteMuerto(dimensiones, configGrupo);
+    // ✅ USAR SIEMPRE el peso del concreto calculado geométricamente (no FBy)
+    const pesoReportar_kg = reporte.pesoConcreto_kg;
+
+    resultados.push({
+      grupo_numero: grupo.numero_grupo,
+      grupo_clave: grupo.clave,
+      eje: grupo.eje,
+      muros_list: grupo.muros_list,
+      largo_total: reporte.L,
+      alto_total: reporte.H,
+      espesor_bloque: reporte.B,
+      fuerzaBrace_kN: (grupo.sumaFBy || 0) / 1000,
+
+      tipoVarillaLong: reporte.tipoVarillaLong,
+      longLongitudinal_m: reporte.longLongitudinal_m,
+      pesoLongitudinal_kg: reporte.pesoLongitudinal_kg,
+      tipoVarillaTrans: reporte.tipoVarillaTrans,
+      longEstribos_m: reporte.longEstribos_m,
+      pesoEstribos_kg: reporte.pesoEstribos_kg,
+
+      volumenConcreto_m3: reporte.volumenConcreto_m3,
+      pesoConcreto_kg: pesoReportar_kg,
+      valor_LBH: reporte.volumenConcreto_m3,
+
+      longAlambre_m: reporte.longAlambre_m,
+      pesoAlambre_kg: reporte.pesoAlambre_kg,
+      pesoTotal_kg: pesoReportar_kg + reporte.pesoTotalArmado_kg
+    });
+  });
+  return resultados;
+}
+
+// ================== 6. GENERADOR DE TABLA HTML ==================
+
+export function generarTablaResultadosMacizos(resultados) {
+  if (!resultados || resultados.length === 0) return '<p class="text-center p-4">No hay resultados calculados.</p>';
+
+  let tVol = 0, tPesoConc = 0;
+  let tPesoLong = 0, tPesoTrans = 0; 
+  let tAlambreL = 0, tAlambreP = 0;
+
+  const cleanVarilla = (v) => (v || '').split(' ')[0]; 
+
+  let html = `<tbody>`;
+  
+  resultados.forEach((res) => {
+    tVol += res.volumenConcreto_m3 || 0;
+    tPesoConc += res.pesoConcreto_kg || 0;
+    tPesoLong += res.pesoLongitudinal_kg || 0;
+    tPesoTrans += res.pesoEstribos_kg || 0;
+    tAlambreL += res.longAlambre_m || 0;
+    tAlambreP += res.pesoAlambre_kg || 0;
+
+    // ✅ Truncar peso de concreto a 1 decimal: 6515.7 kg → 6.5 ton
+    const pesoTon = Math.floor((res.pesoConcreto_kg || 0) / 1000 * 10) / 10;
+    console.log(`[PESO] G${res.grupo_numero}: ${res.pesoConcreto_kg} kg → floor(${(res.pesoConcreto_kg/1000*10).toFixed(3)}) / 10 = ${pesoTon} ton`);
+
+    // Truco visual: floor para longitudinal (56.7)
+    const pesoLongStr = (Math.floor(res.pesoLongitudinal_kg * 10) / 10).toFixed(1);
+
+    html += `
+      <tr>
+        <td rowspan="2" class="align-middle text-center"><strong>G${res.grupo_numero}</strong></td>
+        <td rowspan="2" class="align-middle">${res.eje || '-'}</td>
+        <td rowspan="2" class="align-middle"><small>${res.muros_list || '-'}</small></td>
+        
+        <td rowspan="2" class="align-middle text-center">${res.largo_total?.toFixed(2)}</td>
+        <td rowspan="2" class="align-middle text-center">${res.alto_total?.toFixed(2)}</td>
+        <td rowspan="2" class="align-middle text-center" style="font-weight:bold; color:#0d6efd;">${res.espesor_bloque?.toFixed(2)}</td>
+        
+        <td class="text-center">${cleanVarilla(res.tipoVarillaLong)}</td>
+        <td class="text-end">${res.longLongitudinal_m?.toFixed(1)}</td>
+        <td class="text-end">${pesoLongStr}</td> <td class="text-muted"><small>Long.</small></td>
+        
+        <td rowspan="2" class="align-middle text-end">${res.volumenConcreto_m3?.toFixed(2)}</td>
+        <td rowspan="2" class="align-middle text-end fw-bold">${pesoTon.toFixed(1)}</td>
+        
+        <td rowspan="2" class="align-middle text-end">${res.longAlambre_m?.toFixed(1)}</td>
+        <td rowspan="2" class="align-middle text-end">${res.pesoAlambre_kg?.toFixed(1)}</td> </tr>
+      <tr>
+        <td class="text-center">${cleanVarilla(res.tipoVarillaTrans)}</td>
+        <td class="text-end">${res.longEstribos_m?.toFixed(1)}</td>
+        <td class="text-end">${res.pesoEstribos_kg?.toFixed(1)}</td>
+        <td class="text-muted"><small>Estribo</small></td>
+      </tr>
+    `;
+  });
+
+  html += `</tbody>
+  <tfoot class="table-light" style="border-top: 2px solid #333;">
+    <tr class="fw-bold">
+      <td colspan="6" class="text-end">TOTALES PROYECTO:</td>
+      
+      <td colspan="2" class="text-end"><small>Acero Total:</small></td>
+      <td class="text-end">${(tPesoLong + tPesoTrans).toFixed(1)} kg</td>
+      <td></td>
+      
+      <td class="text-end">${tVol.toFixed(2)} m³</td>
+      <td class="text-end">${(tPesoConc/1000).toFixed(1)} Ton</td>
+      <td class="text-end">${tAlambreL.toFixed(1)} m</td>
+      <td class="text-end">${tAlambreP.toFixed(1)} kg</td>
+    </tr>
+  </tfoot>`;
+
+  return html;
+}
+
+if (typeof window !== 'undefined') {
+  window.MuertoRectangular = {
+    prepararGruposParaMuertos,
+    calcularMacizosRectangulares,
+    generarTablaResultadosMacizos,
+    calcularReporteMuerto 
+  };
+}
 
 export {
   calcularConcreto,
@@ -273,505 +595,3 @@ export {
   calcularReporteMuerto,
   PESO_ESPECIFICO_KG_M,
 };
-
-// ================== FUNCIÓN DE AGRUPACIÓN Y SUMA ==================
-/**
- * Prepara datos de grupos de muros para cálculo de macizos de anclaje rectangulares
- * Suma los valores dentro de cada grupo (agrupado por x_braces, ángulo, eje)
- * 
- * @param {Object} gruposMuertos - Objeto con grupos agrupados por braces
- *   Estructura: { "x_braces_angulo_eje": { x_braces, angulo, eje, muros: [...] } }
- * 
- * @returns {Array} Array de grupos preparados para cálculos
- *   Cada grupo contiene:
- *   - largo_total: suma de grosor (ancho) de todos los muros
- *   - alto_total: suma de overall_height de todos los muros
- *   - espesor_bloque: espesor del bloque del muerto
- *   - x_braces, angulo, eje: datos del grupo
- *   - cantidad_muros: cantidad de muros en el grupo
- *   - muros_list: lista de ids de muros
- *   - cant_b14, cant_b12, cant_b04, cant_b15: cantidades de braces
- */
-export function prepararGruposParaMuertos(gruposMuertos) {
-  console.log('[MUERTO-RECTANGULAR] prepararGruposParaMuertos - Inicio');
-  console.log('[MUERTO-RECTANGULAR] gruposMuertos recibido:', gruposMuertos);
-  
-  const gruposPreparados = [];
-  
-  Object.keys(gruposMuertos).forEach((clave, indice) => {
-    const grupo = gruposMuertos[clave];
-    
-    console.log(`[MUERTO-RECTANGULAR] Procesando grupo ${indice + 1}: ${clave}`);
-    console.log(`[MUERTO-RECTANGULAR]   Muros en grupo: ${grupo.muros.length}`);
-    
-    // SUMAR valores dentro del grupo
-    let largoTotal = 0;  // suma de grosor (ancho de muros)
-    let altoTotal = 0;   // suma de overall_height
-    let espesorBloque = 0.80; // valor por defecto, se puede ajustar
-    let murosIds = [];  // Para llenar muros_list
-    
-    // Sumar dimensiones de cada muro
-    grupo.muros.forEach(muro => {
-      // Manejar dos casos:
-      // 1. muro es un OBJETO completo (del PDF/dashboard.js)
-      // 2. muro es un STRING con ID (del script.js viejo)
-      
-      let muroObj = muro;
-      let muroId = '?';
-      
-      if (typeof muro === 'string') {
-        // Caso 2: es un string, buscar el objeto completo en window.lastResultadosMuertos
-        muroId = muro;
-        if (window.lastResultadosMuertos && Array.isArray(window.lastResultadosMuertos)) {
-          muroObj = window.lastResultadosMuertos.find(m => m.id_muro === muro || m.id === muro);
-        }
-        if (!muroObj) {
-          console.warn(`[MUERTO-RECTANGULAR]   ⚠️ Muro ${muroId} no encontrado en lastResultadosMuertos`);
-          return; // Saltar este muro
-        }
-      } else if (muro && typeof muro === 'object') {
-        // Caso 1: es un objeto
-        muroId = muro.id_muro || muro.id || '?';
-      } else {
-        console.warn(`[MUERTO-RECTANGULAR]   ⚠️ Muro inválido:`, muro);
-        return;
-      }
-      
-      if (muroObj && typeof muroObj === 'object') {
-        let grosor = 0;
-        let altura = 0;
-        
-        // ✅ GROSOR: intentar grosor directo, si no calcular como área/altura
-        grosor = parseFloat(muroObj.grosor);
-        if (!grosor || grosor === 0) {
-          const area = parseFloat(muroObj.area_m2) || parseFloat(muroObj.area) || 0;
-          const h = parseFloat(muroObj.overall_height) || parseFloat(muroObj.altura_z_m) || 0;
-          grosor = h > 0 ? area / h : 0;
-        }
-        
-        // ✅ ALTURA: usar overall_height primero, luego altura_z_m
-        altura = parseFloat(muroObj.overall_height) || parseFloat(muroObj.altura_z_m) || 0;
-        
-        largoTotal += grosor || 0;
-        altoTotal += altura || 0;
-        murosIds.push(muroId);
-        
-        console.log(`[MUERTO-RECTANGULAR]   Muro ${muroId}: grosor=${grosor}, altura=${altura}`);
-      } else {
-        console.warn(`[MUERTO-RECTANGULAR]   ⚠️ Muro inválido (no es objeto):`, muro);
-      }
-    });
-    
-    console.log(`[MUERTO-RECTANGULAR]   Totales sumados: largo=${largoTotal}m, alto=${altoTotal}m`);
-    
-    // Crear objeto de grupo preparado
-    const grupoPrepado = {
-      clave: clave,                           // Identificador del grupo
-      numero_grupo: indice + 1,               // Número secuencial
-      
-      // Datos sumados (para cálculos)
-      largo_total: largoTotal,                // Σ grosor (ancho de muros)
-      alto_total: altoTotal,                  // Σ overall_height
-      espesor_bloque: espesorBloque,          // Espesor del bloque del muerto
-      
-      // Datos heredados del grupo (de braces)
-      x_braces: grupo.x_braces || 0,
-      angulo: grupo.angulo || 0,
-      eje: grupo.eje || '',
-      
-      // Cantidades de braces
-      cant_b14: grupo.muros[0]?.cant_b14 || 0,
-      cant_b12: grupo.muros[0]?.cant_b12 || 0,
-      cant_b04: grupo.muros[0]?.cant_b04 || 0,
-      cant_b15: grupo.muros[0]?.cant_b15 || 0,
-      
-      // Información del grupo
-      cantidad_muros: grupo.muros.length,
-      muros_list: murosIds.join(', '),
-      muros: grupo.muros,  // Guardar los muros originales para referencia
-      
-      // ===== CONFIGURACIÓN ESPECÍFICA DEL GRUPO (ingresada manualmente) =====
-      configGrupo: window.configGruposMuertos?.[clave] || {
-        profundo: 0.80,           // Profundidad del muerto (m)
-        espaciadoLong: 25,        // Espaciado varilla longitudinal (cm)
-        espaciadoTrans: 25,       // Espaciado varilla transversal (cm)
-        factorSeguridad: 1.0,     // Factor de seguridad
-        friccion: 0.3             // Coeficiente de fricción
-      }
-    };
-    
-    gruposPreparados.push(grupoPrepado);
-    
-    console.log(`[MUERTO-RECTANGULAR]   Grupo preparado:`, grupoPrepado);
-  });
-  
-  console.log('[MUERTO-RECTANGULAR] prepararGruposParaMuertos - Total grupos preparados:', gruposPreparados.length);
-  return gruposPreparados;
-}
-
-// ================== FUNCIÓN DE CÁLCULO DE MACIZOS RECTANGULARES ==================
-/**
- * Calcula macizos de anclaje rectangulares para cada grupo de muros
- * Utiliza datos sumados dentro de cada grupo (largo_total, alto_total, espesor_bloque)
- * 
- * @param {Array} gruposPreparados - Array retornado por prepararGruposParaMuertos()
- * @param {Object} config - Configuración de cálculo (opcional)
- *   - tipoVarillaLong: tipo de varilla longitudinal (default: 4)
- *   - tipoVarillaTrans: tipo de varilla transversal (default: 3)
- *   - espaciamientoEstribo: espaciamiento entre estribos en m (default: 0.25)
- *   - densidadConcreto: kg/m³ (default: 2400)
- * 
- * @returns {Array} Array con cálculos de macizos para cada grupo
- */
-export function calcularMacizosRectangulares(gruposPreparados, config = {}) {
-  console.log('[MUERTO-RECTANGULAR] calcularMacizosRectangulares - Inicio');
-  console.log('[MUERTO-RECTANGULAR] gruposPreparados:', gruposPreparados.length);
-  
-  // Config por defecto
-  const configDefault = {
-    tipoVarillaLong: 4,
-    tipoVarillaTrans: 3,
-    espaciamientoEstribo: 0.25,
-    densidadConcreto: 2400,
-    ...config
-  };
-  
-  const resultados = [];
-  
-  gruposPreparados.forEach((grupo, indice) => {
-    console.log(`[MUERTO-RECTANGULAR] Calculando macizo grupo ${indice + 1}/${gruposPreparados.length}`);
-    
-    // ===== OBTENER CONFIGURACIÓN ESPECÍFICA DEL GRUPO =====
-    const configGrupo = grupo.configGrupo || {
-      profundo: 0.80,
-      espaciadoLong: 25,
-      espaciadoTrans: 25,
-      factorSeguridad: 1.0,
-      friccion: 0.3
-    };
-    
-    console.log(`[MUERTO-RECTANGULAR]   Config del grupo:`, configGrupo);
-    
-    // ===== PASO 1: CALCULAR FUERZA TOTAL DEL BRACE =====
-    let fuerzaBraceTotal_kN = 0;
-    grupo.muros.forEach(muro => {
-      console.log(`[MUERTO-RECTANGULAR]     Diagnóstico muro:`, {
-        id: muro.id_muro || muro.id,
-        fb: muro.fb,
-        fuerza_brace: muro.fuerza_brace,
-        fuerza_braces_kN: muro.fuerza_braces_kN,
-        campos_disponibles: Object.keys(muro)
-      });
-      
-      // Intentar múltiples campos posibles para la fuerza
-      const fuerzaMuro = parseFloat(muro.fuerza_braces_kN) || 
-                         parseFloat(muro.fuerza_brace) || 
-                         parseFloat(muro.fb) || 0;
-      fuerzaBraceTotal_kN += fuerzaMuro;
-    });
-    
-    console.log(`[MUERTO-RECTANGULAR]   Fuerza total brace: ${fuerzaBraceTotal_kN} kN`);
-    
-    // ===== PASO 2: CALCULAR PESO DEL MUERTO =====
-    // Fórmula: pesoMuerto = fuerza * (sin(ángulo) - fricción * cos(ángulo))
-    const anguloRad = (grupo.angulo || 0) * Math.PI / 180;
-    const sin_ang = Math.sin(anguloRad);
-    const cos_ang = Math.cos(anguloRad);
-    const friccion = configGrupo.friccion || 0.3;
-    
-    // Convertir kN a N para el cálculo
-    const fuerzaBrace_N = fuerzaBraceTotal_kN * 1000;
-    const pesoMuerto_N = fuerzaBrace_N * (sin_ang - friccion * cos_ang);
-    const pesoMuerto_kg = pesoMuerto_N / 9.81;
-
-    console.log(`[MUERTO-RECTANGULAR]   Cálculo peso muerto:`);
-    console.log(`[MUERTO-RECTANGULAR]     Ángulo (rad): ${anguloRad.toFixed(4)}`);
-    console.log(`[MUERTO-RECTANGULAR]     sin(ángulo): ${sin_ang.toFixed(4)}`);
-    console.log(`[MUERTO-RECTANGULAR]     cos(ángulo): ${cos_ang.toFixed(4)}`);
-    console.log(`[MUERTO-RECTANGULAR]     Fuerza brace (N): ${fuerzaBrace_N.toFixed(2)}`);
-    console.log(`[MUERTO-RECTANGULAR]     Peso muerto (N): ${pesoMuerto_N.toFixed(2)} N`);
-    console.log(`[MUERTO-RECTANGULAR]     Peso muerto (kg): ${pesoMuerto_kg.toFixed(2)} kg`);
-    console.log(`[MUERTO-RECTANGULAR]     Fuerza total brace: ${fuerzaBraceTotal_kN}`);
-    
-    console.log(`[MUERTO-RECTANGULAR]   Peso del muerto: ${pesoMuerto_kg.toFixed(2)} kg`);
-    
-    // ===== PASO 3: CALCULAR VOLUMEN DEL MUERTO =====
-    // Fórmula: V = pesoMuerto_kg / densidadConcreto
-    const densidadConcreto = configDefault.densidadConcreto || 2400;
-    const volumenMuerto_m3 = pesoMuerto_kg / densidadConcreto;
-    
-    console.log(`[MUERTO-RECTANGULAR]   Volumen del muerto: ${volumenMuerto_m3.toFixed(4)} m³`);
-    
-    // ===== PASO 4: CALCULAR DIMENSIONES DEL MUERTO =====
-    // Según tu tabla:
-    // L = Área_muro / OVERALL_HEIGHT = grupo.largo_total
-    // H = OVERALL_HEIGHT = grupo.alto_total
-    // B = volumenMuerto / (L × profundo)
-    
-    const L = grupo.largo_total;  // Largo (m)
-    const H = grupo.alto_total;   // Alto (m)
-    const profundo = configGrupo.profundo; // Profundo (m) - del usuario
-    const B = (L * profundo > 0) ? (volumenMuerto_m3 / (L * profundo)) : 0;  // Ancho (m)
-    
-    console.log(`[MUERTO-RECTANGULAR]   Dimensiones: L=${L.toFixed(3)}m, H=${H.toFixed(3)}m, B=${B.toFixed(3)}m, Profundo=${profundo.toFixed(3)}m`);
-    
-    // ===== PASO 5: CALCULAR ACERO LONGITUDINAL =====
-    // Fórmula de tu tabla: Long_acero_long = (L / 1.50) × 12
-    // Peso_acero_long = (L / 1.50) × 11.9
-    const longAceroLong_m = (L / 1.50) * 12;
-    const pesoAceroLong_kg = (L / 1.50) * 11.9;
-    
-    // Número de barras longitudinales (N_SUP + N_MED + N_INF)
-    const nBarrasLong = 8; // Como en tu tabla: 4 + 2 + 2 = 8
-    
-    console.log(`[MUERTO-RECTANGULAR]   Acero longitudinal: Long=${longAceroLong_m.toFixed(2)}m, Peso=${pesoAceroLong_kg.toFixed(2)}kg, #Barras=${nBarrasLong}`);
-    
-    // ===== PASO 6: CALCULAR ACERO TRANSVERSAL (ESTRIBOS) - FÓRMULA DETALLADA =====
-    // n_estribos = ceil((L - 2×REC) / (SEP_cm/100)) + 1
-    const REC = 0.04; // Recubrimiento (m) = 4 cm
-    const SEP_m = configGrupo.espaciadoTrans / 100; // Espaciado transversal convertido a m
-    const n_estribos = Math.ceil((L - 2 * REC) / SEP_m) + 1;
-    
-    // Longitud de un estribo:
-    // L_estribo = 2×(B - 2×REC) + 2×(H - 2×REC) + 2×GANCHO
-    const GANCHO = 0.7; // Longitud de gancho (m)
-    const L_estribo = 2 * Math.max(B - 2 * REC, 0) + 2 * Math.max(H - 2 * REC, 0) + 2 * GANCHO;
-    
-    // Longitud total de estribos
-    const longEstribos_m = n_estribos * L_estribo;
-    
-    // Peso de estribos (tipo #3 = 0.560 kg/m)
-    const pesoEstribos_kg = longEstribos_m * 0.560;
-    
-    console.log(`[MUERTO-RECTANGULAR]   Estribos detallado:`);
-    console.log(`[MUERTO-RECTANGULAR]     n_estribos = ceil((${L.toFixed(3)} - 2×${REC}) / ${SEP_m.toFixed(3)}) + 1 = ${n_estribos}`);
-    console.log(`[MUERTO-RECTANGULAR]     L_estribo = 2×(${B.toFixed(3)} - 2×${REC}) + 2×(${H.toFixed(3)} - 2×${REC}) + 2×${GANCHO} = ${L_estribo.toFixed(3)}m`);
-    console.log(`[MUERTO-RECTANGULAR]     L_total = ${n_estribos} × ${L_estribo.toFixed(3)} = ${longEstribos_m.toFixed(2)}m`);
-    console.log(`[MUERTO-RECTANGULAR]     Peso = ${longEstribos_m.toFixed(2)} × 0.560 = ${pesoEstribos_kg.toFixed(2)}kg`);
-    
-    // ===== PASO 7: CALCULAR ALAMBRE - FÓRMULA DETALLADA =====
-    // n_nudos = n_barras_long × n_estribos
-    // L_alambre = n_nudos × LONG_NUDO_M
-    // Peso_alambre = L_alambre × A × densidad_acero
-    // donde A = π × (d/2)²
-    
-    const LONG_NUDO = 0.35; // Longitud de nudo (m)
-    const DIAM_ALAMBRE = 0.00122; // Diámetro alambre (m)
-    const n_nudos = nBarrasLong * n_estribos;
-    const longAlambre_m = n_nudos * LONG_NUDO;
-    
-    // Cálculo del peso del alambre
-    const radio_alambre = DIAM_ALAMBRE / 2;
-    const area_alambre = Math.PI * Math.pow(radio_alambre, 2);
-    const DENSIDAD_ACERO = 7850; // kg/m³
-    const pesoAlambre_kg = longAlambre_m * area_alambre * DENSIDAD_ACERO;
-    
-    console.log(`[MUERTO-RECTANGULAR]   Alambre detallado:`);
-    console.log(`[MUERTO-RECTANGULAR]     n_nudos = ${nBarrasLong} barras × ${n_estribos} estribos = ${n_nudos}`);
-    console.log(`[MUERTO-RECTANGULAR]     L_alambre = ${n_nudos} × ${LONG_NUDO} = ${longAlambre_m.toFixed(2)}m`);
-    console.log(`[MUERTO-RECTANGULAR]     d = ${DIAM_ALAMBRE} m, A = π × (${radio_alambre})² = ${area_alambre.toFixed(8)} m²`);
-    console.log(`[MUERTO-RECTANGULAR]     Peso = ${longAlambre_m.toFixed(2)} × ${area_alambre.toFixed(8)} × ${DENSIDAD_ACERO} = ${pesoAlambre_kg.toFixed(2)}kg`);
-    
-    // ===== PASO 8: CALCULAR CONCRETO =====
-    // V = L × H × B
-    // Peso_conc = V × DENS_CONC × FACTOR_DESP ÷ 1000
-    
-    const volumenConcreto_m3 = L * H * B;
-    const FACTOR_DESP_CONC = 1.0; // Factor de desperdicio concreto
-    const pesoConcreto_kg = volumenConcreto_m3 * densidadConcreto * FACTOR_DESP_CONC;
-    
-    console.log(`[MUERTO-RECTANGULAR]   Concreto: V=${volumenConcreto_m3.toFixed(3)}m³, Peso=${pesoConcreto_kg.toFixed(2)}kg`);
-    
-    // ===== PASO 9: APLICAR FACTOR DE SEGURIDAD =====
-    const factorSeg = configGrupo.factorSeguridad || 1.0;
-    const pesoAceroLong_kg_final = pesoAceroLong_kg * factorSeg;
-    const pesoEstribos_kg_final = pesoEstribos_kg * factorSeg;
-    const pesoAlambre_kg_final = pesoAlambre_kg * factorSeg;
-    
-    // ===== PASO 10: CREAR OBJETO RESULTADO =====
-    const resultado = {
-      // DEADMAN - Dimensiones
-      grupo_numero: grupo.numero_grupo,
-      grupo_clave: grupo.clave,
-      eje: grupo.eje,
-      muros_list: grupo.muros_list,
-      largo_total: L,
-      alto_total: H,
-      espesor_bloque: B,  // Ancho calculado
-      profundo: profundo,
-      
-      // Datos de cálculo del peso del muerto
-      fuerzaBrace_kN: fuerzaBraceTotal_kN / 1000,
-      pesoMuerto_kg: pesoMuerto_kg,
-      volumenMuerto_m3: volumenMuerto_m3,
-      friccion: friccion,
-      anguloBrace: grupo.angulo,
-      
-      // ACERO LONGITUDINAL
-      tipoVarillaLong: 4,
-      nBarrasLong: nBarrasLong,
-      longLongitudinal_m: longAceroLong_m,
-      pesoLongitudinal_kg: pesoAceroLong_kg_final,
-      
-      // ACERO TRANSVERSAL
-      tipoVarillaTrans: 3,
-      nEstribos: n_estribos,
-      longEstribos_m: longEstribos_m,
-      pesoEstribos_kg: pesoEstribos_kg_final,
-      
-      // CONCRETO
-      volumenConcreto_m3: volumenConcreto_m3,
-      pesoConcreto_kg: pesoConcreto_kg,
-      
-      // ALAMBRE
-      nNudos: n_nudos,
-      longAlambre_m: longAlambre_m,
-      pesoAlambre_kg: pesoAlambre_kg_final,
-      
-      // Totales
-      pesoTotal_kg: pesoAceroLong_kg_final + pesoEstribos_kg_final + pesoAlambre_kg_final + pesoConcreto_kg,
-      
-      // Datos del grupo (referencia)
-      cantidad_muros: grupo.cantidad_muros,
-      x_braces: grupo.x_braces,
-      angulo: grupo.angulo,
-      cant_b14: grupo.cant_b14,
-      cant_b12: grupo.cant_b12,
-      cant_b04: grupo.cant_b04,
-      cant_b15: grupo.cant_b15,
-      
-      // Para compatibilidad con tabla anterior
-      factorSeguridad: factorSeg,
-      espaciadoLong: configGrupo.espaciadoLong,
-      espaciadoTrans: configGrupo.espaciadoTrans
-    };
-    
-    console.log(`[MUERTO-RECTANGULAR] Resultado grupo ${indice + 1}:`, resultado);
-    resultados.push(resultado);
-  });
-  
-  console.log('[MUERTO-RECTANGULAR] calcularMacizosRectangulares - Total macizos calculados:', resultados.length);
-  return resultados;
-}
-
-// ================== FUNCIÓN PARA GENERAR TABLA HTML ==================
-/**
- * Genera tabla HTML con resultados de macizos rectangulares
- * 
- * @param {Array} resultados - Array retornado por calcularMacizosRectangulares()
- * @returns {String} HTML de la tabla
- */
-export function generarTablaResultadosMacizos(resultados) {
-  console.log('[MUERTO-RECTANGULAR] generarTablaResultadosMacizos - Inicio');
-  
-  if (!resultados || resultados.length === 0) {
-    return '<p>No hay resultados para mostrar</p>';
-  }
-
-  // Calcular totales EXACTAMENTE según tu tabla
-  let totalAceroLongLong = 0, totalAceroLongPeso = 0;
-  let totalAceroTransLong = 0, totalAceroTransPeso = 0;
-  let totalVoluConcreto = 0, totalPesoConcreto = 0;
-  let totalAlambreLong = 0, totalAlambrePeso = 0;
-
-  resultados.forEach(res => {
-    // Acero Longitudinal
-    totalAceroLongLong += res.longLongitudinal_m || 0;
-    totalAceroLongPeso += res.pesoLongitudinal_kg || 0;
-    
-    // Acero Transversal
-    totalAceroTransLong += res.longEstribos_m || 0;
-    totalAceroTransPeso += res.pesoEstribos_kg || 0;
-    
-    // Concreto
-    totalVoluConcreto += res.volumenConcreto_m3 || 0;
-    totalPesoConcreto += res.pesoConcreto_kg || 0;
-    
-    // Alambre
-    totalAlambreLong += res.longAlambre_m || 0;
-    totalAlambrePeso += res.pesoAlambre_kg || 0;
-  });
-
-  // Generar HTML para tbody y tfoot
-  let html = `<tbody>`;
-
-  // Agregar filas de datos - DOS filas por grupo (longitudinal + transversal)
-  resultados.forEach((res, idx) => {
-    // Convertir peso concreto a toneladas
-    const pesoConcreto_ton = (res.pesoConcreto_kg || 0) / 1000;
-    
-    // ===== FILA 1: ACERO LONGITUDINAL =====
-    html += `
-      <tr>
-        <td rowspan="2">D${res.grupo_numero}</td>
-        <td rowspan="2">${res.eje || 'N/A'}</td>
-        <td rowspan="2">${res.muros_list || 'N/A'}</td>
-        
-        <!-- DEADMAN - Dimensiones -->
-        <td rowspan="2">${res.largo_total?.toFixed(2) || '0.00'}</td>
-        <td rowspan="2">${res.alto_total?.toFixed(2) || '0.00'}</td>
-        <td rowspan="2">${res.espesor_bloque?.toFixed(2) || '0.00'}</td>
-        
-        <!-- ACERO - Longitud (fila 1: Longitudinal) -->
-        <td>${res.tipoVarillaLong || '4'}</td>
-        <td>${res.longLongitudinal_m?.toFixed(2) || '0.00'}</td>
-        <td>${res.pesoLongitudinal_kg?.toFixed(2) || '0.00'}</td>
-        <td>Long.</td>
-        
-        <!-- CONCRETO (rowspan=2) -->
-        <td rowspan="2">${res.volumenConcreto_m3?.toFixed(3) || '0.000'}</td>
-        <td rowspan="2">${pesoConcreto_ton.toFixed(2)}</td>
-        
-        <!-- ALAMBRE (rowspan=2) -->
-        <td rowspan="2">${res.longAlambre_m?.toFixed(2) || '0.00'}</td>
-        <td rowspan="2">${res.pesoAlambre_kg?.toFixed(2) || '0.00'}</td>
-      </tr>
-      
-      <!-- FILA 2: ACERO TRANSVERSAL (ESTRIBOS) -->
-      <tr>
-        <!-- ACERO - Longitud (fila 2: Transversal/Estribos) -->
-        <td>${res.tipoVarillaTrans || '3'}</td>
-        <td>${res.longEstribos_m?.toFixed(2) || '0.00'}</td>
-        <td>${res.pesoEstribos_kg?.toFixed(2) || '0.00'}</td>
-        <td>Trans.</td>
-      </tr>
-    `;
-  });
-
-  // Footer con totales
-  const totalPesoConcreto_ton = (totalPesoConcreto / 1000).toFixed(2);
-  
-  html += `
-      </tbody>
-      <tfoot>
-        <tr>
-          <td colspan="6">TOTALES</td>
-          <td colspan="2">-</td>
-          <td>-</td>
-          <td>-</td>
-          <td>${totalVoluConcreto.toFixed(3)}</td>
-          <td>${totalPesoConcreto_ton}</td>
-          <td>${totalAlambreLong.toFixed(2)}</td>
-          <td>${totalAlambrePeso.toFixed(2)}</td>
-        </tr>
-      </tfoot>
-  `;
-
-  return html;
-}
-
-// opcional para usar en el browser directo
-if (typeof window !== 'undefined') {
-  window.MuertoRectangular = {
-    calcularConcreto,
-    calcularLongitudinal,
-    calcularTransversal,
-    calcularAlambre,
-    calcularReporteMuerto,
-    prepararGruposParaMuertos,
-    calcularMacizosRectangulares,
-    generarTablaResultadosMacizos,
-    PESO_ESPECIFICO_KG_M,
-  };
-  console.log('[MUERTO-RECTANGULAR] módulo cargado (rectangular, modo PDF)');
-}

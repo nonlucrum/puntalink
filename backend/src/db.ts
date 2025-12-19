@@ -7,7 +7,7 @@ const isProd = process.env.NODE_ENV === 'production';
 
 const resolvedPort =
   Number(process.env.PGPORT) ||
-  (process.env.PGHOST === 'db' ? 5432 : 5008);
+  (process.env.PGHOST === 'database' ? 5432 : 5008);
 
 
 const sslEnabled =

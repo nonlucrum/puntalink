@@ -13,89 +13,126 @@
   <title>PuntaLink - Sistema de Análisis</title>
   <link rel="stylesheet" href="styles.css"/>
 </head>
-<body>
-  <header class="header">
-    <div class="container header__inner">
-      <h1 class="brand">PuntaLink</h1>
-      <span class="muted">Sistema de análisis y cálculo</span>
-    </div>
-  </header>
 
-  <main class="container space-y">
-    <!-- ===== Información del Proyecto ===== -->
-    <section class="project-info-section">
-      <div class="project-info-header">
-        <h2>Información del Proyecto</h2>
-        <div class="actions">
-            <button id="btnEditProject" class="btn btn--ghost"> Editar</button>
-            <button id="btnCancelUpdateProject" class="btn btn--ghost" style="display: none;">Cancelar</button>
-            <button id="btnUpdateProject" class="btn" style="display: none;">Guardar</button>
+
+<body>
+  <!-- Todo el contenido actual, encerrado -->
+  <div class="content">
+    <!-- Header moderno con info de usuario -->
+    <header class="user-header dashboard-header">
+      <div class="header-content">
+        <div class="brand-section">
+          <div class="brand-logo">
+            <img src="img/backgrounds/13.png" alt="PuntaLink Logo" />
+          </div>
+          <div class="brand-text">
+            <h2 class="brand-title">PuntaLink</h2>
+            <p class="brand-subtitle">Sistema de análisis y cálculo</p>
+          </div>
+        </div>
+        
+        <div id="userInfoDashboard" class="user-info-section" style="display:none;">
+          <img id="userPicDashboard" alt="avatar" class="user-avatar" referrerPolicy="no-referrer"/>
+          <span id="userEmailDashboard" class="user-email"></span>
+          <button id="btnLogoutDashboard" class="btn-logout" type="button">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M6 14H3C2.44772 14 2 13.5523 2 13V3C2 2.44772 2.44772 2 3 2H6M11 11L14 8M14 8L11 5M14 8H6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Cerrar sesión
+          </button>
         </div>
       </div>
-      
-      <form id="formProyecto" autocomplete="off">
-        <div class="project-info-grid">
-          <div class="project-field">
-            <label>NOMBRE DEL PROYECTO</label>
-            <input type="text" id="proyectoNombre" class="project-value-dim" disabled required>
+    </header>
+
+    <main class="container space-y">
+      <!-- ===== Información del Proyecto ===== -->
+      <section class="project-info-section" id="info-proyecto">
+        <div class="project-info-header">
+          <div style="display: flex; align-items: baseline; gap: 1em;">
+            <h2 id="projectNameHeader">Información del Proyecto</h2>
+            <label id="projectVersionHeader" style="font-size: 1.1rem;"></label>
           </div>
-          
-          <div class="project-field">
-            <label>EMPRESA CONSTRUCTORA</label>
-            <input type="text" id="proyectoEmpresa" class="project-value-dim" disabled required>
-          </div>
-          
-          <div class="project-field">
-            <label>TIPO DE MUERTO</label>
-            <select id="proyectoTipoMuerto" class="project-value-dim" disabled>
-                <option value="Cilindrico">Cilindrico</option>
-                <!-- <option value="Triangular">Triangular</option> -->
-                <option value="Corrido">Corrido Rectangular</option>
-            </select>
-          </div>
-          
-          <div class="project-field">
-            <label>
-              VELOCIDAD DEL VIENTO
-              <span class="tooltip-icon" data-tooltip="Velocidad básica del viento según la zona geográfica del proyecto (NSR-10 Título B). Se usa para calcular las cargas de viento sobre los muros.">i</span>
-            </label>
-            <div class="project-field-unit">
-              <input type="number" id="proyectoVelViento" class="project-value-dim" step="0.1" disabled required>
-              <div class="project-value-unit">km/h</div>
-            </div>
-          </div>
-          
-          <div class="project-field">
-            <label>
-              TEMPERATURA PROMEDIO
-              <span class="tooltip-icon" data-tooltip="Temperatura promedio del lugar donde se construirá el proyecto. Utilizada para cálculos térmicos y de materiales.">i</span>
-            </label>
-            <div class="project-field-unit">
-              <input type="number" id="proyectoTempPromedio" class="project-value-dim" step="0.1" disabled required>
-              <div class="project-value-unit">°C</div>
-            </div>
-          </div>
-          
-          <div class="project-field">
-            <label>PRESIÓN ATMOSFÉRICA</label>
-            <div class="project-field-unit">
-              <input type="number" id="proyectoPresionAtm" class="project-value-dim" step="0.1" disabled required>
-              <div class="project-value-unit">mmHg</div>
-            </div>
+          <div class="actions">
+              <button id="btnEditProject" class="btn btn--ghost"> Editar</button>
+              <button id="btnCancelUpdateProject" class="btn btn--ghost" style="display: none;">Cancelar</button>
+              <button id="btnUpdateProject" class="btn" style="display: none;">Guardar</button>
           </div>
         </div>
-      </form>
-    </section>
+        
+        <form id="formProyecto" autocomplete="off">
+          <div class="project-info-grid">
+            <div class="project-field" style="display: none;">
+              <label>NOMBRE DEL PROYECTO</label>
+              <div class="project-field-unit">
+                <input type="text" id="proyectoNombre" class="project-value-dim" disabled required>
+                <div type="text" class="project-value-unit" id="proyectoVersion"></div>
+              </div>
+            </div>
 
-    <!-- ===== Acordeón de funcionalidades ===== -->
-    <div class="accordion">
-      
-      <!-- Sección 1: Importar archivo TXT -->
-      <div class="accordion-item">
-        <div class="accordion-header" data-target="import-section">
-          <h2 class="accordion-title">
-            <span class="accordion-icon"></span>
-            Importar Datos desde TXT
+            <div class="project-field">
+              <label>EMPRESA CONSTRUCTORA</label>
+              <input type="text" id="proyectoEmpresa" class="project-value-dim" disabled required>
+            </div>
+            
+            <div class="project-field">
+              <label>UBICACIÓN</label>
+              <input type="text" id="proyectoUbicacion" class="project-value-dim" disabled required>
+            </div>
+            
+            <div class="project-field">
+              <label>TIPO DE MUERTO</label>
+              <select id="proyectoTipoMuerto" class="project-value-dim" disabled>
+                  <option value="Cilindrico">Aislado Cilindrico</option>
+                  <option value="Corrido">Corrido Rectangular</option>
+                  <option value="Triangular">Corrido Triangular</option>
+              </select>
+            </div>
+            
+            <div class="project-field">
+              <label>
+                VELOCIDAD DEL VIENTO
+                <span class="tooltip-icon" data-tooltip="Velocidad básica del viento según la zona geográfica del proyecto (NSR-10 Título B). Se usa para calcular las cargas de viento sobre los muros.">i</span>
+              </label>
+              <div class="project-field-unit">
+                <input type="number" id="proyectoVelViento" class="project-value-dim" step="0.1" disabled required>
+                <div class="project-value-unit">km/h</div>
+              </div>
+            </div>
+            
+            <div class="project-field">
+              <label>
+                TEMPERATURA PROMEDIO
+                <span class="tooltip-icon" data-tooltip="Temperatura promedio del lugar donde se construirá el proyecto. Utilizada para cálculos térmicos y de materiales.">i</span>
+              </label>
+              <div class="project-field-unit">
+                <input type="number" id="proyectoTempPromedio" class="project-value-dim" step="0.1" disabled required>
+                <div class="project-value-unit">°C</div>
+              </div>
+            </div>
+            
+            <div class="project-field">
+              <label>PRESIÓN ATMOSFÉRICA</label>
+              <div class="project-field-unit">
+                <input type="number" id="proyectoPresionAtm" class="project-value-dim" step="0.1" disabled required>
+                <div class="project-value-unit">mmHg</div>
+              </div>
+            </div>
+          </div>
+        </form>
+        <div style="margin-top: 1.5em;">
+            <button id="btnSaveProjectNewVersion" class="btn">Guardar como Nueva Versión</button>
+        </div>
+      </section>
+
+      <!-- ===== Acordeón de funcionalidades ===== -->
+      <div class="accordion">
+        
+        <!-- Sección 1: Importar archivo TXT -->
+        <div id="section-import-txt" class="accordion-item">
+          <div class="accordion-header" data-target="import-section">
+            <h2 class="accordion-title">
+              <span class="accordion-icon"></span>
+              Importar Datos desde TXT
           </h2>
           <span class="accordion-toggle">▼</span>
         </div>
@@ -123,7 +160,7 @@
           </div>
 
           <!-- Sub-acordeón para eliminar muros -->
-          <div class="sub-accordion-item" id="eliminarMurosAccordion" style="display: none;">
+          <div class="sub-accordion-item active" id="eliminarMurosAccordion" style="display: none;">
             <div class="sub-accordion-header" data-target="eliminar-muros-section">
               <h3 class="sub-accordion-title">
                 🗑️ Eliminar Muros por Rangos
@@ -160,27 +197,16 @@
               </div>
             </div>
           </div>
-        </div>
-      </div>
-
-      <!-- Sección 2: Paneles Importados -->
-      <div class="accordion-item">
-        <div class="accordion-header" data-target="results-section">
-          <h2 class="accordion-title">
-            <span class="accordion-icon"></span>
-            Paneles Importados
-          </h2>
-          <span class="accordion-toggle">▼</span>
-        </div>
-        <div class="accordion-content" id="results-section">
+          <!-- Informacion de muros importados -->
+        <div id="results-section">
           <div id="panelesInfo">
-            <p class="muted">Los paneles importados aparecerán aquí después de subir un archivo TXT.</p>
           </div>
+        </div>
         </div>
       </div>
 
       <!-- Sección 3: Cálculos Libro III -->
-      <div class="accordion-item">
+      <div id="section-calculos-libro" class="accordion-item disabled">
         <div class="accordion-header" data-target="wind-section">
           <h2 class="accordion-title">
             <span class="accordion-icon"></span>
@@ -209,32 +235,102 @@
               </div>
 
               <div class="parameter-group">
-                <h4>Parámetros de Viento</h4>
+                <h4>Clasificación de Estructura (NSR-10)</h4>
                 <div class="form-row">
-                  <label for="VR_kmh">VR (mapa regional):</label>
-                  <input type="number" id="VR_kmh" min="0" value="128">
-                  <span>km/h</span>
+                  <label for="categoria_estructura_nsr10">Categoría NSR-10:</label>
+                  <select id="categoria_estructura_nsr10">
+                    <option value="A">A - Estructuras de ocupación especial</option>
+                    <option value="B" selected>B - Estructuras de ocupación normal</option>
+                    <option value="C">C - Estructuras de ocupación miscelánea</option>
+                  </select>
                 </div>
-                <div class="form-row">
-                  <label for="FT">FT (topografía):</label>
-                  <input type="number" id="FT" step="0.01" min="0" value="1.0">
+                <div style="margin-top: 0.5rem; padding: 0.75rem; background: rgba(31, 111, 235, 0.1); border-radius: 6px; border-left: 4px solid var(--primary);">
+                  <div style="font-size: 0.85rem; color: var(--muted); line-height: 1.4;">
+                    <strong style="color: var(--primary);">CATEGORÍA SELECCIONADA:</strong>
+                    <div id="categoria_nsr10_display" style="font-size: 1.3rem; font-weight: bold; color: var(--primary); margin-top: 0.25rem;">
+                      B
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <div class="parameter-group">
-                <h4>Condiciones Ambientales</h4>
+                <h4>Parámetros de Viento</h4>
                 <div class="form-row">
-                  <label for="temperatura_C">Temperatura:</label>
-                  <input type="number" id="temperatura_C" step="0.1" value="30">
-                  <span>°C</span>
+                  <label for="VR_kmh">VR (mapa regional):</label>
+                  <input type="number" id="VR_kmh" min="0" value="" disabled style="cursor: not-allowed;">
+                  <span>km/h</span>
                 </div>
+                <script>
+                document.addEventListener('DOMContentLoaded', () => {
+                  const projInput = document.getElementById('proyectoVelViento'); // ID del input del proyecto
+                  const vrInput = document.getElementById('VR_kmh');
+                  if (!vrInput) return;
+                  const syncVR = () => {
+                  if (!projInput) { vrInput.value = ''; return; }
+                  const v = projInput.value;
+                  vrInput.value = v === '' ? '' : parseFloat(v);
+                  };
+                  syncVR();
+                  if (projInput) {
+                  projInput.addEventListener('input', syncVR);
+                  projInput.addEventListener('change', syncVR);
+                  }
+                });
+                </script>
                 <div class="form-row">
-                  <label for="presion_barometrica_mmHg">Presión barométrica:</label>
-                  <input type="number" id="presion_barometrica_mmHg" step="0.1" min="0" value="760">
-                  <span>mm Hg</span>
+                  <label for="FT">FT (topografía):</label>
+                  <input type="number" id="FT" step="0.01" min="0" value="1.0"  disabled style="cursor: not-allowed;">
                 </div>
               </div>
 
+              <div class="parameter-group">
+                <h4>Condiciones Ambientales (Desde Proyecto)</h4>
+                <div class="form-row">
+                  <label for="temperatura_C">Temperatura:</label>
+                  <input type="number" id="temperatura_C" step="0.1" value=""  disabled style="cursor: not-allowed;">
+                  <span>°C</span>
+                </div>
+                <script>
+                document.addEventListener('DOMContentLoaded', () => {
+                  const projInput = document.getElementById('proyectoTempPromedio'); // ID del input del proyecto
+                  const vrInput = document.getElementById('temperatura_C');
+                  if (!vrInput) return;
+                  const syncVR = () => {
+                  if (!projInput) { vrInput.value = ''; return; }
+                  const v = projInput.value;
+                  vrInput.value = v === '' ? '' : parseFloat(v);
+                  };
+                  syncVR();
+                  if (projInput) {
+                  projInput.addEventListener('input', syncVR);
+                  projInput.addEventListener('change', syncVR);
+                  }
+                });
+                </script>
+                <div class="form-row">
+                  <label for="presion_barometrica_mmHg">Presión barométrica:</label>
+                  <input type="number" id="presion_barometrica_mmHg" step="0.1" min="0" value="" disabled style="cursor: not-allowed;">
+                  <span>mm Hg</span>
+                </div>
+              </div>
+              <script>
+                document.addEventListener('DOMContentLoaded', () => {
+                  const projInput = document.getElementById('proyectoPresionAtm'); // ID del input del proyecto
+                  const vrInput = document.getElementById('presion_barometrica_mmHg');
+                  if (!vrInput) return;
+                  const syncVR = () => {
+                  if (!projInput) { vrInput.value = ''; return; }
+                  const v = projInput.value;
+                  vrInput.value = v === '' ? '' : parseFloat(v);
+                  };
+                  syncVR();
+                  if (projInput) {
+                  projInput.addEventListener('input', syncVR);
+                  projInput.addEventListener('change', syncVR);
+                  }
+                });
+                </script>
               <div class="parameter-group">
                 <h4>Coeficientes de Presión</h4>
                 <div class="form-row">
@@ -330,10 +426,7 @@
                 </div>
                 
                 <!-- Vista previa de la asignación -->
-                <div id="vistaPrevia" style="margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 0.5rem; display: none;">
-                  <h5>Vista Previa de Asignación:</h5>
-                  <div id="vistaPreviaContenido"></div>
-                </div>
+                
               </div>
             </div>
           </div>
@@ -342,7 +435,7 @@
       </div>
 
       <!-- Sección 4: Resultados de Cálculos -->
-      <div class="accordion-item">
+      <div id="section-resultados-calculo" class="accordion-item disabled">
         <div class="accordion-header" data-target="calculations-section">
           <h2 class="accordion-title">
             <span class="accordion-icon"></span>
@@ -357,14 +450,17 @@
           <div class="wind-results" id="resultadosViento" style="display: block;">
             <h3>Resultados del Cálculo de Viento</h3>
             
-            
+            <!-- Panel Edicion Masiva -->
+            <div id="tablaEdicionMasiva"></div>
+            <!-- Panel de Guardado de Braces -->
+             <div id="panelGuardarBraces"></div>
             <!-- Tabla de Resultados -->
             <div class="table-container">
-              <div id="tablaResultadosViento"></div>
+              <div id="tablaResultadosViento" style="max-height: 750px; overflow-y: scroll;"></div>
             </div>
 
             <!-- Sub-acordeón: Tabla agrupada por muertos -->
-            <div class="sub-accordion-item" id="tablaMuertosAccordion" style="margin-top:1rem;">
+            <div class="sub-accordion-item" id="tablaMuertosAccordion" style="margin-top:1rem; display: none;">
               <div class="sub-accordion-header" data-target="muertos-section">
                 <h3 class="sub-accordion-title">Tabla agrupada por Muertos (agrupa braces por características)</h3>
                 <span class="sub-accordion-toggle">▼</span>
@@ -388,10 +484,10 @@
             </div>
             
             <!-- Detalle de Cálculos Expandibles -->
-            <div class="calculation-details">
+<!--             <div class="calculation-details">
               <h4>Detalle de Cálculos por Muro</h4>
               <div id="detalleCalculosViento"></div>
-            </div>
+            </div> -->
             
             <!-- Botones de Acción para Braces (ocultos porque ahora están arriba de la tabla) -->
             <div class="actions" style="margin-top: 2rem; display: none;">
@@ -401,126 +497,45 @@
           </div>
 
           <!-- Mensaje inicial -->
-          <div id="resultadosCalculo">
+<!--           <div id="resultadosCalculo">
             <p class="muted">Los resultados de cálculo aparecerán aquí después de hacer los cálculos.</p>
-          </div>
+          </div> -->
 
         </div>
       </div>
 
-      <!-- <div id="config-profundidades-container" style="margin-top: 1rem;"></div> -->
-  <!-- Configuración de Grupos de Muertos -->
-              <div id="configGruposContainer" style="display: none; margin-top: 2rem; padding: 1.5rem; background: var(--bg); border-radius: 8px; border: 1px solid var(--border);">
-                <h3>⚙️ Configuración de Grupos de Muertos</h3>
-                <p style="color: #5fabc4; font-size: 0.9rem; margin-bottom: 1rem;">Ingresa los valores específicos para cada grupo de muerto (se aplican después de agrupar)</p>
-                
-                <div id="configGruposForm" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
-                  <!-- Los grupos se generarán dinámicamente aquí -->
-                </div>
-
-                <div class="actions" style="margin-top: 1.5rem;">
-                  <button id="btnGuardarConfigGrupos" class="btn btn--primary">✅ Guardar Configuración</button>
-                </div>
-              </div>
-      <!-- Sección 5: Macizos de Anclaje (Muertos Cilíndricos) - DESHABILITADA -->
-      <!-- Los cálculos cilíndricos son FUNCIONALIDADES INDEPENDIENTES que deben recibir datos del TXT sin agrupar -->
-      <!-- NO deben usar la agrupación de braces (window.lastGruposMuertos) -->
-      <!-- TODO: Refactorizar para ser completamente independiente del flujo de braces -->
-      <!--
-      <div class="accordion-item">
-        <div class="accordion-header" data-target="muertos-anclaje-section">
+      <!-- Sección 4a: Detalle de Cálculos por Muro -->
+      <div class="accordion-item disabled">
+        <div class="accordion-header" data-target="detalleCalculosViento">
           <h2 class="accordion-title">
             <span class="accordion-icon"></span>
-            Cálculo de Macizos de Anclaje (Muertos Cilíndricos)
+            Detalle de Cálculos por Muro
           </h2>
           <span class="accordion-toggle">▼</span>
         </div>
-        <div class="accordion-content" id="muertos-anclaje-section">
-          
-          <!-- Parámetros de Configuración
-          <div class="muertos-config">
-            <h3>⚙️ Parámetros de Configuración</h3>
-            
-            <div class="parameter-groups">
-              <div class="parameter-group">
-                <h4>Acero de Refuerzo</h4>
-                <div class="form-row">
-                  <label for="nVarillas">N° Varillas verticales:</label>
-                  <input type="number" id="nVarillas" min="3" max="12" value="4">
-                </div>
-                <div class="form-row">
-                  <label for="tipoVarilla">Tipo de Varilla:</label>
-                  <select id="tipoVarilla">
-                    <option value="#4" selected>#4 (0.785 kg/m)</option>
-                    <option value="#5">#5 (1.27 kg/m)</option>
-                  </select>
-                </div>
-                <div class="form-row">
-                  <label for="nAnillos">N° Anillos horizontales:</label>
-                  <input type="number" id="nAnillos" min="2" max="6" value="3">
-                </div>
-              </div>
-
-              <div class="parameter-group">
-                <h4>Muertos por Muro</h4>
-                <div class="form-row">
-                  <label for="nMuertos">Cantidad de muertos (CMC):</label>
-                  <input type="number" id="nMuertos" min="1" max="4" value="1">
-                  <label>Normalmente 1 muerto por muro</label>
-                </div>
-              </div>
-
-              <div class="parameter-group">
-                <h4>Constantes</h4>
-                <div class="form-row">
-                  <label>Densidad concreto:</label>
-                  <span>2400 kg/m³</span>
-                </div>
-                <div class="form-row">
-                  <label>Anillos #3:</label>
-                  <span>0.376 kg/m</span>
-                </div>
-                <div class="form-row">
-                  <label>Alambre Ø1.22mm:</label>
-                  <span>Amarre 0.35m</span>
-                </div>
-              </div>
-            </div> -->
-
-            <!-- Botones de Acción 
-            <div class="actions" style="margin-top: 1.5rem;">
-              <button id="btnCalcularMuertos" class="btn btn--primary">🔄 Calcular Macizos de Anclaje</button>
-              <button id="btnExportarMuertosCSV" class="btn btn--secondary" style="display: none;">📊 Exportar a CSV</button>
-              <button id="btnMostrarAlternativas" class="btn btn--secondary" style="display: none;">🔍 Ver Alternativas</button>
-              <button id="btnTablaDetallada" class="btn btn--secondary" style="display: none;">📋 Tabla Detallada por Muro</button>
-            </div>
-          </div>-->
-
-          <!-- Resultados 
-          <div class="muertos-results" id="resultadosMuertos" style="display: none; margin-top: 2rem;">
-            <div id="tablaMuertosResultados">
-              <!-- Los resultados se cargarán aquí dinámicamente 
-            </div>
-          </div>-->
-
-          <!-- Información de Ayuda 
-          <div class="info-panel" style="margin-top: 2rem;">
-            <h4>📖 Información del Cálculo</h4>
-            <p><strong>Tabla de referencia:</strong> TILT-UP HANDBOOK página 71</p>
-            <p><strong>Fórmula principal:</strong> FMC = FBX / (N° braces × cos(θ))</p>
-            <ul>
-              <li><strong>FBX:</strong> Fuerza del viento en el muro (kN)</li>
-              <li><strong>N° braces:</strong> Número de riostras por muro</li>
-              <li><strong>θ:</strong> Ángulo del brace (grados)</li>
-            </ul>
-            <p><strong>Criterio de selección:</strong> El macizo debe pesar igual o más que la carga FMC calculada.</p>
+        <div class="accordion-content" id="detalleCalculosViento">
+          <div id="resultadosCalculo">
+            <p class="muted">Los resultados de cálculo aparecerán aquí después de hacer los cálculos.</p>
           </div>
-
         </div>
-      </div>-->
-  
+      </div>
+
+      <!-- Configuración de Grupos de Muertos -->
+      <div id="configGruposContainer" style="display: none; margin-top: 2rem; padding: 1.5rem; background: var(--bg); border-radius: 8px; border: 1px solid var(--border);">
+        <h3>⚙️ Configuración de Grupos de Muertos</h3>
+        <p style="color: #5fabc4; font-size: 0.9rem; margin-bottom: 1rem;">Ingresa los valores específicos para cada grupo de muerto (se aplican después de agrupar)</p>
+        
+        <div id="configGruposForm" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+          <!-- Los grupos se generarán dinámicamente aquí -->
+        </div>
+
+        <div class="actions" style="margin-top: 1.5rem;">
+          <button id="btnGuardarConfigGrupos" class="btn btn--primary">✅ Guardar Configuración</button>
+        </div>
+      </div>
+
       <!-- Sección 6: Armado Rectangular para Muertos -->
-      <div class="accordion-item">
+      <div id="section-armado-deadman" class="accordion-item disabled" style="display: none;">
         <div class="accordion-header" data-target="armado-section">
           <h2 class="accordion-title">
             <span class="accordion-icon"></span>
@@ -553,10 +568,6 @@
                       <input type="number" id="recubrimientoLongitudinal" class="form-control" value="7.5" step="0.1">
                     </div>
                     <div class="form-row">
-                      <label>Separación (cm):</label>
-                      <input type="number" id="separacionLongitudinal" class="form-control" value="60" step="1">
-                    </div>
-                    <div class="form-row">
                       <label>Varillas superiores:</label>
                       <input type="number" id="cantVarillasSuperior" class="form-control" value="4" min="1" step="1">
                     </div>
@@ -586,10 +597,6 @@
                       <input type="number" id="recubrimientoTransversal" class="form-control" value="7.5" step="0.1">
                     </div>
                     <div class="form-row">
-                      <label>Separación (cm):</label>
-                      <input type="number" id="separacionTransversal" class="form-control" value="30" step="1">
-                    </div>
-                    <div class="form-row">
                       <label>Longitud ganchos (m):</label>
                       <input type="number" id="longGanchoEstribo" class="form-control" value="0.7" step="0.05">
                     </div>
@@ -598,8 +605,8 @@
                   <div class="parameter-group">
                     <h4>🏗️ Construcción</h4>
                     <div class="form-row">
-                      <label>Tipo de concreto (kg/m³):</label>
-                      <input type="number" id="tipoConcreto" class="form-control" value="280" step="10" min="200">
+                        <label>Resistencia del Concreto (kg/m³):</label>
+                      <input type="number" id="tipoConcreto" class="form-control" value="2400" step="100" min="1000">
                     </div>
                     <div class="form-row">
                       <label>Factor desperdicio:</label>
@@ -623,37 +630,12 @@
                   </div>
                 </div>
 
-                <!-- Campos adicionales debajo 
-                <div class="extra-parameters">
-                  <div class="form-row">
-                    <label>Longitud por nudo (m):</label><span class="tooltip-icon" data-tooltip="se utiliza para convertir el volumen de concreto (m³) en masa (kg) con la fórmula: peso_concreto = volumen_m3 × densidad × factor_de_desperdicio. Cambiar la densidad ajusta linealmente el peso total de concreto.">i</span>
-                    
-                    <input type="number" id="longitudNudo" value="0.35" step="0.05">
-                  </div>
-                  <div class="form-row">
-                    <label>Diámetro Alambre (m):</label> <span class="tooltip-icon" data-tooltip="se usa para calcular el área de la sección del alambre (A = π·(d/2)²) y, con la densidad del acero, obtener el peso del alambre: peso_alambre = densidad_acero × A × longitud_total. Cambiar el diámetro afecta al peso en proporción al cuadrado del diámetro (p. ej. aumentar en 10% → peso aumenta ≈ 21%).">i</span>
-                    <input type="number" id="diametroAlambreM" value="0.00122" step="0.00001">
-                  </div>
-                  <div class="form-row">
-                    <label>Densidad Concreto (kg/m³):</label> <span class="tooltip-icon" data-tooltip="Representa la longitud de alambre necesaria para una sola vuelta de amarre alrededor del armado (estribo) en cada 'nodo'. Se usa en la fórmula: longitud total de alambre = número de nodos × longitud por vuelta × factor de desperdicio. Cambiar este valor modifica linealmente la longitud y el peso total de alambre.">i</span>
-                    <input type="number" id="densidadConcreto" value="2400">
-                  </div>
-                </div> -->
-
-                
-
-               
-
-                
-
                 <div class="actions" style="margin-top: 1.5rem;"> 
                   <button id="btnCalcularArmado" class="btn btn--primary"> Calcular Armado Rectangular</button>
                   <button id="btnInforme" class="btn btn--primary" >Generar Informe PDF</button>
                 </div>
               </div>
 
-             
-              
               <!-- Tabla de Resultados -->
               <h3>📋 Tabla de Armado por Muerto</h3>
                 
@@ -704,6 +686,27 @@
                   </tfoot>
                 </table>
               </div>
+
+              <!-- Tabla de Información de Configuración -->
+              <h3>⚙️ Configuración por Muerto</h3>
+              <div class="table-container">
+                <table id="tablaInfoMuertos" class="results-table">
+                  <thead>
+                    <tr>
+                      <th>Muerto</th>
+                      <th>Eje</th>
+                      <th>Muros</th>
+                      <th>Esp. Long.<br><span style="font-size: 0.8em; text-transform: none;">m</span></th>
+                      <th>Esp. Trans.<br><span style="font-size: 0.8em; text-transform: none;">m</span></th>
+                      <th>Distancia X<br><span style="font-size: 0.8em; text-transform: none;">m</span></th>
+                    </tr>
+                  </thead>
+                  <tbody id="tablaInfoMuertosBody">
+                    <!-- Los datos se llenarán dinámicamente -->
+                  </tbody>
+                </table>
+              </div>
+                
               
               <!-- Tabla de Resumen de Totales -->
                <div class="table-container"> 
@@ -714,8 +717,6 @@
                       <th> Acero Total</th>
                       <th style="padding: 10px;">🔗 Alambre Total</th>
                       <th style="padding: 10px;">⚖️ Metal Total</th>
-
-                      
                     </tr>
                   </thead>
                   <tbody>
@@ -734,20 +735,331 @@
         </div>
       </div>
 
+<div class="accordion-item disabled" id="section-armado-cilindrico" style="display: none;">
+  
+  <div class="accordion-header" data-target="armado-cilindrico-section">
+    <h2 class="accordion-title">
+      <span class="accordion-icon"></span>
+      🕳️ Armado Cilíndrico (Pozos)
+    </h2>
+    <span class="accordion-toggle">▼</span>
+  </div>
+
+  <div class="accordion-content" id="armado-cilindrico-section">
+  
+    <div class="configuracion-global">
+      <h3>⚙️ Configuración y Materiales</h3>
+      
+      <div class="parameter-groups">
+        
+        <div class="parameter-group">
+          <label>Densidad (kg/m³):</label>
+          <input type="number" id="cil_densidad_concreto" class="form-control" value="2400">
+          
+          <label>Desperdicio:</label>
+          <input type="number" id="cil_desperdicio" class="form-control" value="1.05" step="0.01">
+        </div>
+
+        <div class="parameter-group">
+          <label>Cant. Varillas Vert:</label>
+          <input type="number" id="cil_cant_vert" class="form-control" value="4">
+          
+          <label>Tipo Varilla:</label>
+          <select id="cil_tipo_vert" class="form-control"> <option value="#4" selected>#4 (1/2")</option>
+            <option value="#5">#5 (5/8")</option>
+            <option value="#6">#6 (3/4")</option>
+          </select>
+        </div>
+
+        <div class="parameter-group">
+          <label>Tipo Anillo:</label>
+          <select id="cil_tipo_anillo" class="form-control">
+            <option value="#3" selected>#3 (3/8")</option>
+            <option value="#4">#4 (1/2")</option>
+          </select>
+
+          <label>Criterio Anillos:</label>
+          <select id="cil_modo_anillos" class="form-control">
+            <option value="fijo" selected>Cantidad Fija</option>
+            <option value="separacion">Por Separación</option>
+          </select>
+
+          <label>Cant. o Sep(mm):</label>
+          <input type="number" id="cil_dato_anillos" class="form-control" value="3" placeholder="3 o 250">
+        </div>
+
+      </div>
     </div>
-  </main>
+
+    <div class="table-container mt-3">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <button id="btnCargarMurosCil" class="btn btn-outline-secondary btn-sm">🔄 Cargar Muros</button>
+      </div>
+      
+      <div style="margin: 15px 0; padding: 10px; background: #f8f9fa; border-radius: 8px;">
+        <label style="font-weight: 600; margin-bottom: 8px; display: block;">📏 Selecciona los diámetros a calcular:</label>
+        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="checkbox" class="diametro-checkbox" value="610" style="margin-right: 5px;">
+            <span>Ø 610 mm (2')</span>
+          </label>
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="checkbox" class="diametro-checkbox" value="762" checked style="margin-right: 5px;">
+            <span>Ø 762 mm (2.5')</span>
+          </label>
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="checkbox" class="diametro-checkbox" value="914" checked style="margin-right: 5px;">
+            <span>Ø 914 mm (3')</span>
+          </label>
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="checkbox" class="diametro-checkbox" value="1067" style="margin-right: 5px;">
+            <span>Ø 1067 mm (3.5')</span>
+          </label>
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="checkbox" class="diametro-checkbox" value="1524" style="margin-right: 5px;">
+            <span>Ø 1524 mm (5')</span>
+          </label>
+          <button id="btnCalcularCilindrico" class="btn btn--primary">
+              🧮 Calcular Materiales Cilíndricos
+          </button>
+        </div>
+      </div>
+      
+      <div id="containerTablasCilindrico">
+        <table class="results-table" id="tablaInputsCilindrico">
+          <thead>
+            <tr>
+              <th>Muro</th>
+              <th>X (mm)</th>
+              <th>Cant. Muertos</th>
+              <th>Altura (mm)</th>
+              <th>Concreto (ton)</th>
+              <th>Acero Varillas (kg)</th>
+              <th>Acero anillos (kg)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="7" style="text-align:center; color:#888;">Presiona "Cargar Muros" y luego "Calcular" para ver los resultados...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="table-container mt-3">
+      <div id="resultadosCilindricoContainer">
+        <!-- Aquí se generarán las tablas por diámetro -->
+      </div>
+    </div>
+
+    <!-- TABLA RESUMEN -->
+    <div id="resumenCilindricoContainer" style="margin-top: 30px; display: none;">
+      <h4 style="background: #27ae60; color: white; padding: 12px; margin: 0; border-radius: 8px 8px 0 0; text-align: center;">
+        📊 Resumen Muerto Cilíndrico Aislado - Totales Materiales
+      </h4>
+      <div style="background: #f8f9fa; padding: 10px; border: 2px solid #27ae60; border-top: none; border-radius: 0 0 8px 8px; align-items: center; display: flex; flex-direction: column;">
+        <p style="margin: 5px 0; font-size: 0.9em; color: #666;">
+          <strong>Nota:</strong> Muestra solo opciones elegidas | Alambre = 0.35m | N° muertos por muro
+        </p>
+        <table class="results-table" id="tablaResumenCilindrico" style="margin-top: 10px; width: auto;">
+          <thead>
+            <tr>
+              <th></th>
+              <!-- Columnas de opciones se generarán dinámicamente -->
+            </tr>
+            <tr>
+              <th></th>
+              <!-- Diámetros se generarán dinámicamente -->
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Filas de materiales se generarán dinámicamente -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+      <div class="accordion-item disabled" id="section-armado-triangular" style="display: none;">
+        <div class="accordion-header" data-target="armado-triangular-section">
+          <h2 class="accordion-title">
+            <span class="accordion-icon"></span>
+            🔺 Armado Triangular (Prisma)
+          </h2>
+          <span class="accordion-toggle">▼</span>
+        </div>
+
+      <!-- SECCIÓN TRIANGULAR (NUEVO) - DENTRO DEL ACORDEÓN -->
+        <div class="accordion-content" id="armado-triangular-section">
+          <div class="armado-container">
+            
+            <!-- Panel de Configuración Global -->
+            <div class="configuracion-global">
+              <h3>⚙️ Configuración Global - Armado Triangular</h3>
               
+              <div class="parameter-groups">
+                
+                <!-- Parámetros específicos del triángulo -->
+                <div class="parameter-group">
+                  <h4>🔺 Geometría Triangular</h4>
+                  <div class="form-row">
+                    <label>
+                      Base del Triángulo (m):
+                      <span class="tooltip-icon" data-tooltip="Base del muerto triangular en metros. Define el ancho de la base del prisma triangular.">i</span>
+                    </label>
+                    <input type="number" id="tri_base" class="form-control" value="0.80" step="0.10">
+                  </div>
+                  <div class="form-row">
+                    <label>
+                      Cant. Varillas Long:
+                      <span class="tooltip-icon" data-tooltip="Cantidad de varillas longitudinales (verticales) para el armado triangular. Típicamente 3 varillas.">i</span>
+                    </label>
+                    <input type="number" id="tri_cant_long" class="form-control" value="3">
+                  </div>
+                </div>
+                
+                <div class="parameter-group">
+                  <h4>🔧 Varillas Longitudinales</h4>
+                  <div class="form-row">
+                    <label>Tipo de varilla:</label>
+                    <select id="tri_tipoVarillaLongitudinal" class="form-control">
+                      <option value="3">#3 (0.560 kg/m)</option>
+                      <option value="4" selected>#4 (0.994 kg/m)</option>
+                      <option value="5">#5 (1.552 kg/m)</option>
+                      <option value="6">#6 (2.235 kg/m)</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div class="parameter-group">
+                  <h4>🔗 Varillas Transversales (Estribos)</h4>
+                  <div class="form-row">
+                    <label>Tipo de varilla:</label>
+                    <select id="tri_tipoVarillaTransversal" class="form-control">
+                      <option value="3" selected>#3 (0.560 kg/m)</option>
+                      <option value="4">#4 (0.994 kg/m)</option>
+                      <option value="5">#5 (1.552 kg/m)</option>
+                      <option value="6">#6 (2.235 kg/m)</option>
+                    </select>
+                  </div>
+                  <div class="form-row">
+                    <label>
+                      Recubrimiento (cm):
+                      <span class="tooltip-icon" data-tooltip="Recubrimiento de concreto para protección del acero según normativa NSR-10.">i</span>
+                    </label>
+                    <input type="number" id="tri_recubrimientoTransversal" class="form-control" value="4" step="0.1">
+                  </div>
+                  <div class="form-row">
+                    <label>
+                      Separación Estribos (cm):
+                      <span class="tooltip-icon" data-tooltip="Separación entre estribos transversales en centímetros. Valores típicos entre 15-25 cm según normativa.">i</span>
+                    </label>
+                    <input type="number" id="tri_separacionTransversal" class="form-control" value="25" step="1">
+                  </div>
+                  <div class="form-row">
+                    <label>
+                      Longitud ganchos (m):
+                      <span class="tooltip-icon" data-tooltip="Longitud adicional para los ganchos de los estribos. Se suma al perímetro del estribo.">i</span>
+                    </label>
+                    <input type="number" id="tri_longGanchoEstribo" class="form-control" value="0.00" step="0.05">
+                  </div>
+                </div>
+                
+                <div class="parameter-group">
+                  <h4>🏗️ Construcción</h4>
+                  <div class="form-row">
+                    <label>
+                      Resistencia del Concreto (kg/m³):
+                      <span class="tooltip-icon" data-tooltip="Densidad del concreto armado. Valor típico: 2400 kg/m³.">i</span>
+                    </label>
+                    <input type="number" id="tri_tipoConcreto" class="form-control" value="2400" step="100" min="1000">
+                  </div>
+                  <div class="form-row">
+                    <label>
+                      Factor desperdicio:
+                      <span class="tooltip-icon" data-tooltip="Factor de desperdicio para el concreto (típicamente entre 1.05 y 1.15).">i</span>
+                    </label>
+                    <input type="number" id="tri_factorDesperdicio" class="form-control" value="1.0" step="0.05" min="1">
+                  </div>
+                </div>
+                
+                <div class="parameter-group">
+                  <h4>🔗 Alambre de Amarre</h4>
+                  <div class="form-row">
+                    <label>
+                      Diámetro alambre (mm):
+                      <span class="tooltip-icon" data-tooltip="Diámetro del alambre de amarre en milímetros. Típicamente 1.22 mm (calibre 16).">i</span>
+                    </label>
+                    <input type="number" id="tri_diametroAlambre" class="form-control" value="1.22" step="0.1" min="0.5">
+                  </div>
+                  <div class="form-row">
+                    <label>
+                      Longitud por vuelta (cm):
+                      <span class="tooltip-icon" data-tooltip="Longitud de alambre usada en cada amarre o nudo entre varillas.">i</span>
+                    </label>
+                    <input type="number" id="tri_longitudVuelta" class="form-control" value="15.2" step="1" min="5">
+                  </div>
+                  <div class="form-row">
+                    <label>
+                      Factor desperdicio alambre:
+                      <span class="tooltip-icon" data-tooltip="Factor de desperdicio del alambre de amarre (típicamente 1.15).">i</span>
+                    </label>
+                    <input type="number" id="tri_factorDesperdicioAlambre" class="form-control" value="1.15" step="0.05" min="1">
+                  </div>
+                </div>
+
+              </div>
+              
+              <div class="actions" style="margin-top: 1.5rem;"> 
+                <button id="btnCalcularTriangular" class="btn btn--primary">Calcular Armado Triangular</button>
+              </div>
             </div>
+
+            <!-- Tabla de Resultados -->
+            <h3>📋 Tabla de Armado Triangular por Grupo</h3>
+            
+            <div class="table-container mt-3">
+              <table id="tablaTriangular" class="results-table">
+                <thead>
+                  <tr>
+                    <th colspan="4">DEADMAN</th>
+                    <th colspan="4">Acero</th>
+                    <th colspan="2">Concreto</th>
+                    <th colspan="2">Alambre</th>
+                  </tr>
+                  <tr>
+                    <th>#</th>
+                    <th>Eje</th>
+                    <th>Muros</th>
+                    <th>Dim (LxHxB)</th>
+                    <th>#</th>
+                    <th>Long (m)</th>
+                    <th>Peso (kg)</th>
+                    <th>Dir.</th>
+                    <th>Vol (m³)</th>
+                    <th>Peso (T)</th>
+                    <th>Long (m)</th>
+                    <th>Peso (kg)</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            
           </div>
         </div>
       </div>
 
-    </div>
-  </main>
-  
+
+  </div>
+</div>
+
+
+    </div> <!-- FIN DEL DIV ACCORDION -->
+  </main> <!-- FIN DEL MAIN -->
 
   <footer class="footer">
-    <div class="container"></div>
+    <div class="container">
       <p>© <span id="year"></span> PuntaLink — Todos los derechos reservados</p>
     </div>
   </footer>
@@ -755,11 +1067,55 @@
   <!-- SISTEMA DE NOTIFICACIONES MEJORADO -->
   <script src="js/notifications.js"></script>
   
-  <!-- ELIMINADO: <script type="module" src="js/factoresRepeticion.js"></script> -->
-  <!-- Factores de repetición deben venir de BD, no de archivos hardcodeados -->
+  <!-- SCRIPTS DE CÁLCULO -->
   <script type="module" src="js/muertoRectangular.js"></script>
   <script type="module" src="js/muertoCilindrico.js"></script>
+  <script type="module" src="js/muertoTriangular.js"></script>
+  
   <script type="module" src="js/usability.js"></script>
+  <script type="module" src="js/dashboard.js"></script>
   <script type="module" src="script.js"></script>
+  <script>
+  document.addEventListener('DOMContentLoaded', () => {
+    // Seleccionamos todos los ítems principales que tienen submenú
+    const menuItems = document.querySelectorAll('.sidebar-nav > li > a[data-target]');
+
+    menuItems.forEach(item => {
+      item.addEventListener('click', (e) => {
+        e.preventDefault(); // evita salto de scroll inmediato
+
+        const targetId = item.getAttribute('data-target');
+        const submenu = document.getElementById('submenu-' + targetId.split('-')[0]); // usa el prefijo
+
+        // Alterna visibilidad del submenú
+        if (submenu) {
+          submenu.style.display = submenu.style.display === 'block' ? 'none' : 'block';
+        }
+
+        // Hace scroll hacia la sección principal
+        const section = document.getElementById(targetId);
+        if (section) {
+          section.scrollIntoView({ behavior: 'smooth' });
+        }
+      });
+    });
+
+    // Toggle sidebar con botón hamburguesa
+    const toggleBtn = document.getElementById('toggleSidebar');
+    const sidebar = document.getElementById('sidebar');
+    if (toggleBtn && sidebar) {
+      toggleBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('collapsed');
+      });
+    }
+  });
+  </script>
+  <script>
+  window.addEventListener("pageshow", function (event) {
+    if (event.persisted) {
+      window.location.reload();
+    }
+  });
+</script>
 </body>
 </html>

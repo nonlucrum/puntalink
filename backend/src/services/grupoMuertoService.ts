@@ -140,17 +140,37 @@ export async function obtenerGruposMuertosProyecto(
  */
 export async function actualizarProfundidadGrupo(
   pid: number,
-  profundidad: number
+  profundidad: number,
+  ancho?: number | null,
+  volumen_concreto?: number | null,
+  peso_acero?: number | null
 ): Promise<{ success: boolean; grupo?: GrupoMuertoAttributes; error?: string }> {
   try {
-    console.log('[GRUPO_MUERTO_SERVICE] Actualizando profundidad del grupo:', pid, 'a', profundidad);
+    console.log('[GRUPO_MUERTO_SERVICE] Actualizando grupo:', pid);
+    console.log('[GRUPO_MUERTO_SERVICE] Datos:', { profundidad, ancho, volumen_concreto, peso_acero });
 
+    // Actualizamos la query para incluir los campos opcionales.
+    // Usamos COALESCE($X, columna) para mantener el valor actual si el parámetro es NULL/undefined,
+    // O manejamos la lógica para permitir NULL si eso es lo que se desea.
+    // Asumiremos que si llega undefined no queremos tocar la columna.
+    
     const result = await pool.query(
       `UPDATE grupo_muerto 
-       SET profundidad = $1, updated_at = NOW() 
+       SET 
+         profundidad = $1, 
+         ancho = COALESCE($3, ancho),
+         volumen_concreto = COALESCE($4, volumen_concreto),
+         peso_acero = COALESCE($5, peso_acero),
+         updated_at = NOW() 
        WHERE pid = $2 
        RETURNING *`,
-      [profundidad, pid]
+      [
+        profundidad,       // $1
+        pid,               // $2
+        ancho,             // $3
+        volumen_concreto,  // $4
+        peso_acero         // $5
+      ]
     );
 
     if (result.rows.length === 0) {
@@ -160,14 +180,14 @@ export async function actualizarProfundidadGrupo(
       };
     }
 
-    console.log('[GRUPO_MUERTO_SERVICE] Profundidad actualizada exitosamente');
+    console.log('[GRUPO_MUERTO_SERVICE] Grupo actualizado exitosamente');
 
     return {
       success: true,
       grupo: result.rows[0],
     };
   } catch (error: any) {
-    console.error('[GRUPO_MUERTO_SERVICE] Error actualizando profundidad:', error);
+    console.error('[GRUPO_MUERTO_SERVICE] Error actualizando profundidad y datos:', error);
     return {
       success: false,
       error: error.message,

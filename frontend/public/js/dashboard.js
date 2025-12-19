@@ -1,13 +1,445 @@
-// ===== MÓDULO CONSOLIDADO DE BOTONES =====
-// import * as Muertos from './muertos.js'; // ELIMINADO - Cálculos cilíndricos ahora son funcionalidades independientes
+// === FUNCIÓN PARA PREPARAR DATOS DE MUERTOS CILÍNDRICOS ===
+/**
+ * Prepara los datos de entrada para el cálculo de muertos cilíndricos.
+ * Agrupa por eje, suma fuerzas y lee los parámetros de la UI.
+ * Devuelve un arreglo de grupos listos para calcular.
+ */
+import { toggleCalculationDetail } from '../script.js';
 
+function prepararDatosCilindricos() {
+  // Obtener los grupos de muertos globales
+  const grupos = window.gruposMuertosGlobal || {};
+  const resultado = [];
+  let idx = 1;
+  for (const clave in grupos) {
+    const grupo = grupos[clave];
+    // Sumar la fuerza total requerida (FBy) de los muros del grupo
+    let sumaFBy = 0;
+    let murosList = [];
+    (grupo.muros || []).forEach(muro => {
+      let m = typeof muro === 'object' ? muro : (window.lastResultadosMuertos || []).find(x => x.id_muro === muro || x.id === muro);
+      if (m && (m.fby || m.FBy)) {
+        sumaFBy += parseFloat(m.fby || m.FBy) || 0;
+      }
+      if (m && (m.id_muro || m.id)) {
+        murosList.push(m.id_muro || m.id);
+      }
+    });
+    // Leer profundidad desde la UI (si existe input por grupo)
+    let profundidad = 2.0;
+    if (window.configGruposMuertos && window.configGruposMuertos[clave] && window.configGruposMuertos[clave].profundo) {
+      profundidad = parseFloat(window.configGruposMuertos[clave].profundo) || 2.0;
+    }
+    // Leer diámetro desde la UI global (puede ser único para todos)
+    const diametro = parseFloat(document.getElementById('cil_diametro')?.value) || 0.6;
+    resultado.push({
+      clave,
+      numero_grupo: idx,
+      eje: grupo.eje || '',
+      muros_list: murosList.join(', '),
+      sumaFBy,
+      profundidad,
+      diametro
+    });
+    idx++;
+  }
+  return resultado;
+}
+console.log('[DEPURACIÓN] dashboard.js cargado correctamente');
+
+// ===== IMPORTS =====
 import {
   prepararGruposParaMuertos,
   calcularMacizosRectangulares,
   generarTablaResultadosMacizos
 } from './muertoRectangular.js';
 
+import {
+  calcularMacizosCilindricos,
+  generarTablaResultadosCilindricos,
+  obtenerProfundidadRecomendada
+} from './muertoCilindrico.js';
+
+import {
+  calcularMacizosTriangulares,
+  generarTablaResultadosTriangulares
+} from './muertoTriangular.js';
+
 import {mostrarResultadosViento} from '../script.js';
+// === EVENT HANDLERS PARA CÁLCULOS CILÍNDRICO Y TRIANGULAR ===
+document.addEventListener('DOMContentLoaded', () => {
+  // Cálculo Cilíndrico
+  if (document.getElementById('btnCalcularArmado')) {
+    console.log('[ARMADO] Inicializando armado rectangular...');
+    initArmadoRectangular();
+  }
+
+
+  // ==========================================
+  // 🕳️ LÓGICA DE MUERTOS CILÍNDRICOS
+  // ==========================================
+
+  const tbodyCilindrico = document.querySelector('#tablaInputsCilindrico tbody');
+
+  // 1. Botón para CARGAR los muros en la Tabla de Diseño (MURO POR MURO)
+  const btnCargarCil = document.getElementById('btnCargarMurosCil');
+  
+  if (btnCargarCil) {
+    btnCargarCil.addEventListener('click', () => {
+      
+      // Validación: Verificar que existan resultados de viento
+      if (!window.lastResultadosMuertos || window.lastResultadosMuertos.length === 0) {
+        alert("⚠️ No hay muros calculados. Primero calcula el Viento.");
+        return;
+      }
+
+      // Validación: Verificar que la tabla exista en el HTML
+      if (!tbodyCilindrico) {
+          console.error("❌ Error: No se encontró el elemento #tablaInputsCilindrico tbody en el HTML");
+          return;
+      }
+
+      const numMuros = window.lastResultadosMuertos.length;
+      tbodyCilindrico.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#666; padding: 20px;">
+        ✅ ${numMuros} muro${numMuros !== 1 ? 's' : ''} cargado${numMuros !== 1 ? 's' : ''}.<br>
+        <small>Selecciona los diámetros arriba y presiona "Calcular Materiales Cilíndricos".</small>
+      </td></tr>`;
+      
+      console.log(`[CILINDRICO] ✅ ${numMuros} muros cargados`);
+    });
+  }
+
+  // Listener simplificado - ya no necesario porque no hay inputs dinámicos
+  if (tbodyCilindrico) {
+      tbodyCilindrico.addEventListener('change', (e) => {
+          if (e.target && e.target.classList.contains('trigger-recalc-cil')) {
+              const select = e.target;
+              const row = select.closest('tr');
+              const inputProf = row.querySelector('.input-prof');
+              
+              // Recuperar datos almacenados
+              const fuerzaTotal = parseFloat(row.dataset.fuerza || 0);
+              const braces = parseFloat(row.dataset.braces || 1);
+              const cargaPorMuerto = fuerzaTotal / braces;
+              const nuevoDiametro = parseFloat(select.value);
+
+              // Buscar profundidad en tabla para el nuevo diámetro
+              const nuevaProfundidad = obtenerProfundidadRecomendada(cargaPorMuerto, nuevoDiametro);
+
+              // Actualizar UI
+              inputProf.value = nuevaProfundidad;
+              
+              // Efecto visual (flash verde) para indicar recálculo
+              inputProf.style.transition = "background-color 0.3s";
+              inputProf.style.backgroundColor = "#d1e7dd";
+              setTimeout(() => inputProf.style.backgroundColor = "", 500);
+          }
+      });
+  }
+
+  // Botón "Calcular Resultados"
+  const btnCalcularResultados = document.getElementById('btnCalcularCilindrico');
+
+  if (btnCalcularResultados) {
+      btnCalcularResultados.addEventListener('click', () => {
+          
+          if (!window.lastResultadosMuertos || window.lastResultadosMuertos.length === 0) {
+              alert("⚠️ No hay muros cargados. Primero presiona 'Cargar Muros'.");
+              return;
+          }
+
+          // Obtener diámetros seleccionados
+          const diametrosSeleccionados = Array.from(document.querySelectorAll('.diametro-checkbox:checked'))
+            .map(cb => parseInt(cb.value));
+
+          if (diametrosSeleccionados.length === 0) {
+              alert("⚠️ Selecciona al menos un diámetro para calcular.");
+              return;
+          }
+
+          // Obtener configuración
+          const densidad = parseFloat(document.getElementById('cil_densidad_concreto')?.value || 2400);
+          const desperdicio = parseFloat(document.getElementById('cil_desperdicio')?.value || 1.05);
+          const cantVert = parseInt(document.getElementById('cil_cant_vert')?.value || 4);
+          const tipoVert = document.getElementById('cil_tipo_vert')?.value || '#4';
+          const tipoAnillo = document.getElementById('cil_tipo_anillo')?.value || '#3';
+          const modoAnillos = document.getElementById('cil_modo_anillos')?.value || 'fijo';
+          const datoAnillos = parseFloat(document.getElementById('cil_dato_anillos')?.value || 3);
+
+          const containerTablas = document.getElementById('containerTablasCilindrico');
+          if (!containerTablas) {
+              console.error('❌ No se encontró #containerTablasCilindrico');
+              return;
+          }
+          containerTablas.innerHTML = '';
+
+          // Objeto para acumular totales por diámetro
+          const totalesPorDiametro = {};
+
+          // Crear una tabla por cada diámetro seleccionado
+          diametrosSeleccionados.forEach(diametro => {
+              // Inicializar acumuladores para este diámetro
+              totalesPorDiametro[diametro] = {
+                  concreto: 0,
+                  varillas: 0,
+                  anillos: 0,
+                  alambre: 0
+              };
+
+              // Crear contenedor para esta tabla
+              const divTabla = document.createElement('div');
+              divTabla.className = 'cilindrico-detail';
+              divTabla.style.marginBottom = '30px';
+              
+              window.toggleCalculationDetail = toggleCalculationDetail;
+              
+              // Título con el diámetro
+              const titulo = document.createElement('div');
+              titulo.className = 'cilindrico-detail-header';
+              titulo.setAttribute('onclick', 'toggleCalculationDetail(this)');
+              titulo.style.cssText = 'background: #2c3e50; color: white; padding: 10px; margin: 0; border-radius: 8px 8px 0 0;';
+              titulo.innerHTML = `🕳️ Ø ${diametro} mm`;
+              divTabla.appendChild(titulo);
+
+              const toggle = document.createElement('span');
+              toggle.innerHTML = '▼';
+              titulo.appendChild(toggle);
+
+              const tablaContent = document.createElement('div');
+              tablaContent.className = 'cilindrico-detail-content';
+              divTabla.appendChild(tablaContent);
+              
+              // Crear tabla
+              const tabla = document.createElement('table');
+              tabla.className = 'results-table';
+              tabla.style.marginTop = '0';
+              
+              // Header
+              tabla.innerHTML = `
+                  <thead>
+                      <tr>
+                          <th>Muro</th>
+                          <th>X (mm)</th>
+                          <th>Cantidad M.</th>
+                          <th>Altura (mm)</th>
+                          <th>Concreto (ton)</th>
+                          <th>Acero Varillas (kg)</th>
+                          <th>Acero anillos (kg)</th>
+                      </tr>
+                  </thead>
+                  <tbody></tbody>
+              `;
+              
+              const tbody = tabla.querySelector('tbody');
+              
+              // Para cada muro, calcular con este diámetro
+              window.lastResultadosMuertos.forEach((muro, index) => {
+                  const muroId = muro.id_muro || muro.pid || `M${index+1}`;
+                  
+                  // Obtener FB: prioridad a fb/FB, fallback a fuerza_kN
+                  const fbTotal = parseFloat(muro.fb || muro.FB || muro.fuerza_kN || 0);
+                  const numBraces = parseInt(muro.total_braces || 1);
+                  const cargaPorMuerto = fbTotal / numBraces;
+
+                  // DEBUG: Ver valores de FB y carga
+                  console.log(`[CILINDRICO-DEBUG] Muro ${muroId}: FB = ${fbTotal.toFixed(2)} kN (fuerza_kN: ${muro.fuerza_kN}), Braces = ${numBraces}, Carga/muerto = ${cargaPorMuerto.toFixed(2)} kN`);
+
+                  // Calcular profundidad recomendada
+                  const profundidad = obtenerProfundidadRecomendada(cargaPorMuerto, diametro);
+                  console.log(`[CILINDRICO-DEBUG] Muro ${muroId}: Diámetro ${diametro} mm → Profundidad ${profundidad} mm`);
+
+                  // Calcular materiales para este muerto específico
+                  const resultado = calcularMacizosCilindricos([{
+                      id: muroId,
+                      fuerza_total: fbTotal,
+                      cantidad_muertos: numBraces,
+                      diametro_mm: diametro,
+                      profundidad_mm: profundidad
+                  }])[0];
+
+                  // Acumular totales
+                  totalesPorDiametro[diametro].concreto += resultado.total_muro.peso_concreto_ton;
+                  totalesPorDiametro[diametro].varillas += resultado.unitario.acero_long_kg;
+                  totalesPorDiametro[diametro].anillos += resultado.unitario.acero_trans_kg;
+                  totalesPorDiametro[diametro].alambre += resultado.unitario.alambre_kg || 0;
+
+                  // Crear fila con los datos calculados
+                  const tr = document.createElement('tr');
+                  tr.innerHTML = `
+                      <td class="text-center align-middle fw-bold">${muroId}</td>
+                      <td class="text-center align-middle">${diametro}</td>
+                      <td class="text-center align-middle">${numBraces}</td>
+                      <td class="text-center align-middle">${profundidad}</td>
+                      <td class="text-center align-middle">${resultado.total_muro.peso_concreto_ton.toFixed(3)}</td>
+                      <td class="text-center align-middle">${resultado.unitario.acero_long_kg.toFixed(2)}</td>
+                      <td class="text-center align-middle">${resultado.unitario.acero_trans_kg.toFixed(2)}</td>
+                  `;
+                  tbody.appendChild(tr);
+              });
+              
+              tablaContent.appendChild(tabla);
+              containerTablas.appendChild(divTabla);
+          });
+
+          // Generar tabla resumen (transpuesta: opciones arriba, materiales a la izquierda)
+          const resumenContainer = document.getElementById('resumenCilindricoContainer');
+          const tablaResumen = document.getElementById('tablaResumenCilindrico');
+          
+          if (resumenContainer && tablaResumen) {
+              const thead = tablaResumen.querySelector('thead');
+              const tbody = tablaResumen.querySelector('tbody');
+              
+              // Limpiar tabla
+              thead.innerHTML = '';
+              tbody.innerHTML = '';
+              
+              // Fila 1: "Opción" + números
+              const trOpcion = document.createElement('tr');
+              trOpcion.innerHTML = '<th></th>'; // Celda vacía superior izquierda
+              diametrosSeleccionados.forEach((diametro, idx) => {
+                  trOpcion.innerHTML += `<th class="text-center" style="background: #34495e; color: white;">${idx + 1}</th>`;
+              });
+              thead.appendChild(trOpcion);
+              
+              // Fila 2: "Diámetro (mm)" + valores
+              const trDiametro = document.createElement('tr');
+              trDiametro.innerHTML = '<th style="background: #34495e; color: white;">Diámetro (mm)</th>';
+              diametrosSeleccionados.forEach(diametro => {
+                  trDiametro.innerHTML += `<th class="text-center" style="background: #34495e; color: white;">${diametro}</th>`;
+              });
+              thead.appendChild(trDiametro);
+              
+              // Filas de materiales
+              const materiales = [
+                  { label: 'Total Concreto (ton)', key: 'concreto', decimales: 3 },
+                  { label: 'Total Acero (#4) (kg)', key: 'varillas', decimales: 2 },
+                  { label: 'Total Acero (#3) (kg)', key: 'anillos', decimales: 2 },
+                  { label: 'Total alambre (kg)', key: 'alambre', decimales: 2 }
+              ];
+              
+              materiales.forEach(material => {
+                  const tr = document.createElement('tr');
+                  tr.innerHTML = `<td class="fw-bold" style="background: #ecf0f1;">${material.label}</td>`;
+                  diametrosSeleccionados.forEach(diametro => {
+                      const valor = totalesPorDiametro[diametro][material.key];
+                      tr.innerHTML += `<td class="text-center align-middle" style="padding:0.85rem 2rem;">${valor.toFixed(material.decimales)}</td>`;
+                  });
+                  tbody.appendChild(tr);
+              });
+              
+              resumenContainer.style.display = 'block';
+          }
+      });
+  }
+
+  // ==========================================
+  // 🔺 LÓGICA DE MUERTOS TRIANGULARES (CORREGIDA)
+  // ==========================================
+  const btnTri = document.getElementById('btnCalcularTriangular');
+  if (btnTri) {
+    btnTri.addEventListener('click', () => {
+      
+      // 1. Validaciones
+      if (!window.gruposMuertosGlobal || Object.keys(window.gruposMuertosGlobal).length === 0) {
+          alert("⚠️ No hay grupos generados. Primero realiza el cálculo de Viento/Braces.");
+          return;
+      }
+
+      if (typeof prepararGruposParaMuertos !== 'function') {
+          console.error("Falta la función 'prepararGruposParaMuertos'. Verifica los imports.");
+          return;
+      }
+
+      // 2. Preparar los grupos
+      const grupos = prepararGruposParaMuertos(window.gruposMuertosGlobal);
+      
+      // 3. RECOLECCIÓN DE DATOS DEL FORMULARIO (IMAGEN)
+      // Aquí "robamos" los datos que el usuario llenó en la sección Rectangular
+      const inputsUI = {
+        construccion: {
+          // Lee: Resistencia del Concreto (kg/m3)
+          resistenciaConcreto: parseFloat(document.getElementById('tipoConcreto')?.value) || 2400,
+          // Lee: Factor desperdicio
+          factorDesperdicio: parseFloat(document.getElementById('factorDesperdicio')?.value) || 1
+        },
+        longitudinal: {
+          // Lee: Tipo de varilla
+          tipoVarilla: document.getElementById('tipoVarillaLongitudinal')?.value,
+          // Lee: Recubrimiento (cm)
+          recubrimiento: parseFloat(document.getElementById('recubrimientoLongitudinal')?.value) || 4
+        },
+        transversal: {
+          // Lee: Tipo de varilla (Estribos)
+          tipoVarilla: document.getElementById('tipoVarillaTransversal')?.value,
+          // Lee: Recubrimiento (cm)
+          recubrimiento: parseFloat(document.getElementById('recubrimientoTransversal')?.value) || 4,
+          // Lee: Longitud ganchos (m) -> ESTE ES CLAVE
+          longitudGanchos: parseFloat(document.getElementById('longGanchoEstribo')?.value) || 0.20,
+          
+          // Nota: La separación en triangular suele ser específica, intentamos leer el input específico triangular
+          // Si no existe, usamos el del rectangular por defecto.
+          separacion: parseFloat(document.getElementById('tri_sep_estribos')?.value) || parseFloat(document.getElementById('separacionTransversal')?.value) || 20
+        },
+        alambre: {
+          // Lee: Diámetro alambre (mm)
+          diametroAlambre: parseFloat(document.getElementById('diametroAlambre')?.value) || 1.22,
+          // Lee: Longitud por vuelta (cm)
+          longitudPorVuelta: parseFloat(document.getElementById('longitudVuelta')?.value) || 35,
+          // Lee: Factor desperdicio alambre
+          factorDesperdicioAlambre: parseFloat(document.getElementById('factorDesperdicioAlambre')?.value) || 1
+        },
+        triangular: {
+          // Estos son los únicos inputs "nuevos" específicos para la forma triangular
+          base: parseFloat(document.getElementById('tri_base')?.value) || 0.80,
+          cantVarillas: parseInt(document.getElementById('tri_cant_long')?.value) || 3
+        }
+      };
+
+      try {
+          // 4. Calcular
+          const resultados = calcularMacizosTriangulares(grupos, inputsUI);
+          
+          // 5. Renderizar Tabla
+          const tabla = document.getElementById('tablaTriangular');
+          if (tabla) {
+            const thead = tabla.querySelector('thead');
+            tabla.innerHTML = ''; 
+            if(thead) tabla.appendChild(thead);
+            
+            tabla.insertAdjacentHTML('beforeend', generarTablaResultadosTriangulares(resultados));
+          }
+
+          // 6. Actualizar Totales
+          window.ultimosResultadosMacizos = resultados; 
+          actualizarTotalesCards(resultados);
+          
+          alert("✅ Cálculo Triangular completado usando los datos del formulario.");
+
+      } catch (e) {
+          console.error(e);
+          alert("Error al calcular triangulares: " + e.message);
+      }
+    });
+  }
+  }) ;
+
+function actualizarTotalesCards(resultados) {
+    let tVol = 0, tPesoConc = 0, tAcero = 0;
+    resultados.forEach(r => {
+        tVol += r.volumen_m3 || r.volumenConcreto_m3 || 0;
+        tPesoConc += r.peso_concreto_kg || r.pesoConcreto_kg || 0;
+        // Sumar aceros (la estructura de propiedad puede variar ligeramente entre módulos, aseguramos fallback)
+        let acero = (r.acero_long?.peso_kg || r.pesoLongitudinal_kg || 0) + 
+                    (r.acero_trans?.peso_kg || r.pesoEstribos_kg || 0);
+        tAcero += acero;
+    });
+
+    const elTotalConcreto = document.getElementById('totalConcreto');
+    const elTotalAcero = document.getElementById('totalAcero');
+    
+    if (elTotalConcreto) elTotalConcreto.textContent = `${tVol.toFixed(2)} m³ / ${(tPesoConc/1000).toFixed(2)} T`;
+    if (elTotalAcero) elTotalAcero.textContent = `${tAcero.toFixed(1)} kg`;
+}
 
 const API_BASE =
   window.location.hostname === "localhost"
@@ -141,12 +573,41 @@ export async function loadProjectInfo() {
         const project = JSON.parse(projectConfig);
         
         // Actualizar elementos del DOM con la información del proyecto
+        document.getElementById('projectNameHeader').textContent = `Información de "${project.nombre}"` || '-';
+        document.getElementById('projectVersionHeader').textContent = project.version_proyecto > 1 ? `Versión ${project.version_proyecto || '-'}` : '';
         document.getElementById('proyectoNombre').value = project.nombre || '-';
         document.getElementById('proyectoEmpresa').value = project.empresa || '-';
         document.getElementById('proyectoTipoMuerto').value = project.tipo_muerto || '-';
         document.getElementById('proyectoVelViento').value = project.vel_viento || '-';
         document.getElementById('proyectoTempPromedio').value = project.temp_promedio || '-';
         document.getElementById('proyectoPresionAtm').value = project.presion_atmo || '-';
+        document.getElementById('proyectoUbicacion').value = project.ubicacion || '-';
+        document.getElementById('proyectoVersion').value = project.version_proyecto || '-';
+
+        // Mostrar seccion de armado de muertos según tipo
+        const tipoMuerto = project.tipo_muerto || 'Corrido';
+        document.getElementById('section-armado-deadman').style.display = tipoMuerto === 'Corrido' ? '' : 'none';
+        document.getElementById('section-armado-cilindrico').style.display = tipoMuerto === 'Cilindrico' ? '' : 'none';
+        document.getElementById('section-armado-triangular').style.display = tipoMuerto === 'Triangular' ? '' : 'none';
+
+        // Mostrar boton de dock según tipo
+        document.getElementById('dock-rect').style.display = tipoMuerto === 'Corrido' ? '' : 'none';
+        document.getElementById('dock-cil').style.display = tipoMuerto === 'Cilindrico' ? '' : 'none';
+        document.getElementById('dock-tri').style.display = tipoMuerto === 'Triangular' ? '' : 'none';
+
+        // Mostrar tabla de agrupación por muertos según tipo
+        document.getElementById('tablaMuertosAccordion').style.display = tipoMuerto === 'Corrido' || tipoMuerto === 'Triangular' ? '' : 'none';
+
+        // Sincronizar valores del proyecto con los campos de cálculo de viento
+        const velViento = parseFloat(project.vel_viento) || 128;
+        const temperatura = parseFloat(project.temp_promedio) || 30;
+        const presion = parseFloat(project.presion_atmo) || 760;
+        
+        document.getElementById('VR_kmh').value = velViento;
+        document.getElementById('temperatura_C').value = temperatura;
+        document.getElementById('presion_barometrica_mmHg').value = presion;
+        
+        console.log('[DASHBOARD] Valores sincronizados - VR:', velViento, 'Temp:', temperatura, 'Presión:', presion);
 
         if (project.texto_entrada != null && project.texto_entrada !== undefined) {
             console.log('[FRONTEND] Cargando paneles guardados...');
@@ -201,6 +662,7 @@ export async function loadProjectInfo() {
                 console.log('[FRONTEND] Mostrando resultados de viento desde datos guardados...');
                 console.log(tablaCalculada);
                 await mostrarResultadosViento(tablaCalculada);
+                globalVars.resultadosTomoIII = tablaCalculada;
                 console.log('[FRONTEND] Resultados de viento mostrados desde datos guardados');
             }
         }
@@ -232,12 +694,14 @@ export function editarProyecto(elements) {
   document.getElementById('proyectoVelViento').disabled = false;
   document.getElementById('proyectoTempPromedio').disabled = false;
   document.getElementById('proyectoPresionAtm').disabled = false;
+  document.getElementById('proyectoUbicacion').disabled = false;
 
   document.getElementById('proyectoEmpresa').classList.replace('project-value-dim', 'project-value');
   document.getElementById('proyectoTipoMuerto').classList.replace('project-value-dim', 'project-value');
   document.getElementById('proyectoVelViento').classList.replace('project-value-dim', 'project-value');
   document.getElementById('proyectoTempPromedio').classList.replace('project-value-dim', 'project-value');
   document.getElementById('proyectoPresionAtm').classList.replace('project-value-dim', 'project-value');
+  document.getElementById('proyectoUbicacion').classList.replace('project-value-dim', 'project-value');
 }
 
 export async function guardarCambiosProyecto() {
@@ -261,8 +725,23 @@ export async function guardarCambiosProyecto() {
           tipo_muerto: document.getElementById('proyectoTipoMuerto').value,
           vel_viento: parseFloat(document.getElementById('proyectoVelViento').value),
           temp_promedio: parseFloat(document.getElementById('proyectoTempPromedio').value),
-          presion_atmo: parseFloat(document.getElementById('proyectoPresionAtm').value)
+          presion_atmo: parseFloat(document.getElementById('proyectoPresionAtm').value),
+          ubicacion: document.getElementById('proyectoUbicacion').value
       };
+
+      // Mostrar seccion de armado de muertos según tipo
+        const tipoMuerto = document.getElementById('proyectoTipoMuerto').value || 'Corrido';
+        document.getElementById('section-armado-deadman').style.display = tipoMuerto === 'Corrido' ? '' : 'none';
+        document.getElementById('section-armado-cilindrico').style.display = tipoMuerto === 'Cilindrico' ? '' : 'none';
+        document.getElementById('section-armado-triangular').style.display = tipoMuerto === 'Triangular' ? '' : 'none';
+
+        // Mostrar boton de dock según tipo
+        document.getElementById('dock-rect').style.display = tipoMuerto === 'Corrido' ? '' : 'none';
+        document.getElementById('dock-cil').style.display = tipoMuerto === 'Cilindrico' ? '' : 'none';
+        document.getElementById('dock-tri').style.display = tipoMuerto === 'Triangular' ? '' : 'none';
+
+        // Mostrar tabla de agrupación por muertos según tipo
+        document.getElementById('tablaMuertosAccordion').style.display = tipoMuerto === 'Corrido' || tipoMuerto === 'Triangular' ? '' : 'none';
 
       await fetch(`${API_BASE}/api/proyecto/actualizar`, {
           method: 'PUT',
@@ -298,12 +777,57 @@ function endEditarProyecto() {
   document.getElementById('proyectoVelViento').disabled = true;
   document.getElementById('proyectoTempPromedio').disabled = true;
   document.getElementById('proyectoPresionAtm').disabled = true;
+  document.getElementById('proyectoUbicacion').disabled = true;
 
   document.getElementById('proyectoEmpresa').classList.replace('project-value', 'project-value-dim');
   document.getElementById('proyectoTipoMuerto').classList.replace('project-value', 'project-value-dim');
   document.getElementById('proyectoVelViento').classList.replace('project-value', 'project-value-dim');
   document.getElementById('proyectoTempPromedio').classList.replace('project-value', 'project-value-dim');
   document.getElementById('proyectoPresionAtm').classList.replace('project-value', 'project-value-dim');
+  document.getElementById('proyectoUbicacion').classList.replace('project-value', 'project-value-dim');
+}
+
+export async function guardarNuevaVersionProyecto() {
+
+  try {
+      const projectConfigJson = JSON.parse(localStorage.getItem('projectConfig'));
+
+      // Pedir input para guardar notas de la versión
+      const notasVersion = prompt("Ingrese notas o descripción para la nueva versión del proyecto:", "Actualización de datos");
+      if (notasVersion === null) {
+          console.log('[FRONTEND] Usuario canceló la entrada de notas de versión. Operación abortada.');
+          return;
+      }
+      projectConfigJson.notas_version = notasVersion;
+
+      const projectConfig = JSON.stringify(projectConfigJson);
+
+      await fetch(`${API_BASE}/api/proyecto/guardar-version`, {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json'
+          },
+          body: projectConfig
+      })
+      .then(res => res.json())
+      .then(data => {
+          console.log("[FRONTEND] Full response:", data);
+          window.location.href = 'index.html';
+      })
+
+  } catch (error) {
+        console.error('[FRONTEND] Error al guardar nueva versión del proyecto:', error);
+        alert('Error al guardar la nueva versión del proyecto. Por favor, inténtelo de nuevo.');
+      return;
+  }
+}
+
+const btnSaveProjectNewVersion = document.getElementById('btnSaveProjectNewVersion');
+
+if (btnSaveProjectNewVersion) {
+  btnSaveProjectNewVersion.addEventListener('click', async () => {
+      await guardarNuevaVersionProyecto();
+  });
 }
 
 // ===== FUNCIONES DE UI =====
@@ -350,6 +874,12 @@ export function updatePanelesDisplay(panelesActuales, elements, callbacks) {
       btnCalcular.style.display = '';
     }
     openSection('results-section');
+
+    // Habilitar otros desplegables del menú
+    const menuAccordions = document.getElementsByClassName("accordion-item");
+    for (const item of menuAccordions) {
+      item.classList.remove("disabled");
+    }
   } else if (tablaPaneles.innerHTML !== '') {
     tablaAccordion.style.display = '';
     tablaAccordion.classList.add('active');
@@ -496,6 +1026,16 @@ export async function handleUploadTxt(file, elements, callbacks, globalVars) {
     if (murosCompletos.length > 0) {
       globalVars.panelesActuales = murosCompletos;
       console.log('[DASHBOARD] Muros completos obtenidos desde BD:', globalVars.panelesActuales.length);
+      
+      // Notificación de éxito
+      if (window.showNotification) {
+        window.showNotification(
+          'success',
+          '✅ Muros Procesados',
+          `Se importaron exitosamente ${murosCompletos.length} muros del archivo TXT.`,
+          5000
+        );
+      }
       console.log('[DASHBOARD] Primer muro con overall_height:', globalVars.panelesActuales[0]);
     } else {
       // Fallback: usar los paneles del response de importación
@@ -661,364 +1201,219 @@ export async function handleGenerarPDF(elements, globalVars) {
   console.log('[DASHBOARD] Botón generar informe clickeado');
   const { btnInforme } = elements;
   
-  // Declarar la variable en el scope de la función para que esté disponible en todo el proceso
+  // 1. Declaramos las variables AQUÍ ARRIBA para que existan en toda la función
   let murosConBraces = [];
+  let projectInfo = null; // <--- [CORRECCIÓN 1] Declarar variable vacía fuera del try
   
-  // Verificar si hay resultados de viento (ya no usamos paneles)
   if (!globalVars.resultadosTomoIII || globalVars.resultadosTomoIII.length === 0) {
     alert('No hay resultados de cálculos. Por favor calcula las cargas de viento primero.');
-    console.log('[DASHBOARD] No hay resultados de viento para generar informe');
     return;
   }
 
-  // Guardar automáticamente todos los cambios antes de generar el PDF
+  // Guardar cambios pendientes
   console.log('[DASHBOARD] Guardando todos los cambios antes de generar PDF...');
   try {
-    // Ejecutar el botón de guardar si existe (simular click)
     const btnGuardarTop = document.getElementById('btnGuardarTodosBracesTop');
     const btnGuardarBottom = document.getElementById('btnGuardarTodosBraces');
     
     if (btnGuardarTop && btnGuardarTop.onclick) {
-      console.log('[DASHBOARD] Ejecutando guardar cambios automáticamente...');
       await btnGuardarTop.onclick();
-      console.log('[DASHBOARD] Cambios guardados exitosamente');
     } else if (btnGuardarBottom && btnGuardarBottom.onclick) {
-      console.log('[DASHBOARD] Ejecutando guardar cambios automáticamente (botón inferior)...');
       await btnGuardarBottom.onclick();
-      console.log('[DASHBOARD] Cambios guardados exitosamente');
-    } else {
-      console.log('[DASHBOARD] No se encontró botón de guardar, intentando función directa...');
-      // Intentar llamar la función directamente desde el scope global
-      if (window.guardarTodosBraces && typeof window.guardarTodosBraces === 'function') {
-        await window.guardarTodosBraces();
-        console.log('[DASHBOARD] Cambios guardados con función global');
-      }
+    } else if (window.guardarTodosBraces && typeof window.guardarTodosBraces === 'function') {
+      await window.guardarTodosBraces();
     }
     
-    // Pausa para asegurar que los cambios se han procesado en la BD
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
-    // RECARGAR los datos desde la base de datos para asegurar que tenemos la información más reciente
-    console.log('[DASHBOARD] Recargando datos actualizados desde la base de datos...');
+    // RECARGAR datos
+    const projectConfig = localStorage.getItem('projectConfig');
+    if (!projectConfig) throw new Error('No hay proyecto seleccionado');
     
-    try {
-      // Obtener el proyecto actual
-      const projectConfig = localStorage.getItem('projectConfig');
-      if (!projectConfig) {
-        alert('No hay proyecto seleccionado');
-        return;
+    // <--- [CORRECCIÓN 2] Asignar valor a la variable externa (sin 'const' ni 'let')
+    projectInfo = JSON.parse(projectConfig);
+    
+    // Usar projectInfo.pid o projectInfo.id según corresponda
+    const pid = projectInfo.pid || projectInfo.id;
+    
+    const response = await fetch(`${API_BASE}/api/importar-muros/muros?pk_proyecto=${pid}`);
+    if (!response.ok) throw new Error('Error al recargar datos de muros');
+    
+    const responseData = await response.json();
+    const murosActualizados = responseData.muros || responseData;
+    
+    // Fusionar datos
+    murosConBraces = murosActualizados.map(muro => {
+      const muroViento = globalVars.resultadosTomoIII.find(m => m.pid === muro.pid);
+      if (muroViento) {
+        return {
+          ...muroViento,
+          ...muro,
+          angulo_brace: muro.angulo_brace || muro.angulo || 55,
+          npt: muro.npt || 0.350,
+          tipo_brace_seleccionado: muro.tipo_brace_seleccionado || muro.tipo_brace || 'B12',
+          x_braces: muro.x_braces || 2,
+          x_inserto: muro.x_inserto || 0,
+          eje: muro.eje || '',
+          grosor: muro.grosor || 0,
+          overall_height: muro.overall_height || 0,
+          fbx: parseFloat(muro.fbx || 0),
+          fby: parseFloat(muro.fby || 0),
+          fb: parseFloat(muro.fb || 0)
+        };
       }
-      
-      const project = JSON.parse(projectConfig);
-      console.log('[DASHBOARD] Proyecto actual:', project);
-      
-      // Usar project.pid si existe, o project.id como fallback
-      const pid = project.pid || project.id;
-      console.log('[DASHBOARD] PID para cargar muros:', pid);
-      
-      if (!pid) {
-        throw new Error('No se encontró ID del proyecto en la configuración');
-      }
-      
-      // Recargar datos de muros desde la BD
-      const response = await fetch(`${API_BASE}/api/importar-muros/muros?pk_proyecto=${pid}`);
-      if (!response.ok) {
-        throw new Error('Error al recargar datos de muros');
-      }
-      
-      const responseData = await response.json();
-      const murosActualizados = responseData.muros || responseData;
-      console.log('[DASHBOARD] Datos recargados desde BD:', murosActualizados.length, 'muros');
-      console.log('[DASHBOARD] Primer muro de BD (debug):', murosActualizados[0]); // DEBUG
-      
-      // Usar los datos recargados en lugar de los de la interfaz
-      murosConBraces = murosActualizados.map(muro => {
-        // Buscar el muro original en resultadosTomoIII para obtener datos de viento
-        const muroViento = globalVars.resultadosTomoIII.find(m => m.pid === muro.pid);
-        
-        if (muroViento) {
-          const muroCompleto = {
-            ...muroViento, // Datos de viento
-            ...muro,       // Datos actualizados de la BD (braces, ejes, grosor, overall_height, etc.)
-            // Asegurar que los campos de braces estén presentes
-            angulo_brace: muro.angulo || 55,
-            npt: muro.npt || 0.350,
-            tipo_brace_seleccionado: muro.tipo_brace,
-            x_braces: muro.x_braces || 2,
-            eje: muro.eje || '',
-            // Valores del TXT (IMPORTANTE para macizos)
-            grosor: muro.grosor || 0,        // Ancho del muro (del TXT)
-            overall_height: muro.overall_height || 0,  // Alto del muro (del TXT)
-            // Valores calculados (si existen en la BD)
-            fbx: muro.fbx || 0,
-            fby: muro.fby || 0,
-            fb: muro.fb || 0,
-            x_inserto: muro.x_inserto || 0,
-            y_inserto: muro.y_inserto || 0,
-            cant_b14: muro.cant_b14 || 0,
-            cant_b12: muro.cant_b12 || 0,
-            cant_b04: muro.cant_b04 || 0,
-            cant_b15: muro.cant_b15 || 0
-          };
-          console.log(`[DASHBOARD] Muro ${muro.id_muro} completo (debug):`, muroCompleto); // DEBUG
-          return muroCompleto;
-        }
-        return null;
-      }).filter(Boolean);
-      
-      console.log('[DASHBOARD] Muros con datos combinados (BD + viento):', murosConBraces.length);
-      
-    } catch (reloadError) {
-      console.error('[DASHBOARD] Error al recargar datos desde BD:', reloadError);
-      // Fallback: usar datos de la interfaz como antes
-      console.log('[DASHBOARD] Usando datos de interfaz como fallback...');
-      murosConBraces = []; // Resetear la variable
-      
-      const filas = document.querySelectorAll('tr[data-pid]');
-      console.log('[DASHBOARD] Procesando', filas.length, 'filas de la interfaz como fallback');
-      
-      filas.forEach(row => {
-        const pid = row.dataset.pid;
-        
-        // Datos de viento (read-only)
-        const nombreMuro = row.querySelector('td:first-child').textContent.trim();
-        
-        // Datos editables de braces
-        const angulo = parseFloat(row.querySelector('[data-field="angulo_brace"]')?.value) || 55;
-        const npt = parseFloat(row.querySelector('[data-field="npt"]')?.value) || 0.350;
-        const tipoBraceInput = row.querySelector('[data-field="tipo_brace_seleccionado"]')?.value;
-        const tipoBrace = tipoBraceInput && tipoBraceInput !== '' ? tipoBraceInput : undefined;
-        const xBraces = parseInt(row.querySelector('[data-field="x_braces"]')?.value) || 2;
-        
-        // Valores calculados
-        const fbx = parseFloat(row.querySelector(`.valor-fbx[data-pid="${pid}"]`)?.textContent) || 0;
-        const fby = parseFloat(row.querySelector(`.valor-fby[data-pid="${pid}"]`)?.textContent) || 0;
-        const fb = parseFloat(row.querySelector(`.valor-fb[data-pid="${pid}"]`)?.textContent) || 0;
-        const xInserto = parseFloat(row.querySelector(`.valor-x-inserto[data-pid="${pid}"]`)?.textContent) || 0;
-        const yInserto = parseFloat(row.querySelector(`.valor-y-inserto[data-pid="${pid}"]`)?.textContent) || 0;
-        
-        // Cantidades de braces
-        const cantB14 = parseInt(row.querySelector(`.cant-b14[data-pid="${pid}"]`)?.textContent) || 0;
-        const cantB12 = parseInt(row.querySelector(`.cant-b12[data-pid="${pid}"]`)?.textContent) || 0;
-        const cantB04 = parseInt(row.querySelector(`.cant-b04[data-pid="${pid}"]`)?.textContent) || 0;
-        const cantB15 = parseInt(row.querySelector(`.cant-b15[data-pid="${pid}"]`)?.textContent) || 0;
-        
-        // Buscar el muro original en resultadosTomoIII para obtener datos de viento
-        const muroOriginal = globalVars.resultadosTomoIII.find(m => m.pid === parseInt(pid));
-        
-        if (muroOriginal) {
-          murosConBraces.push({
-            ...muroOriginal,
-            angulo_brace: angulo,
-            npt: npt,
-            tipo_brace_seleccionado: tipoBrace,
-            x_braces: xBraces,
-            fbx: fbx,
-            fby: fby,
-            fb: fb,
-            x_inserto: xInserto,
-            y_inserto: yInserto,
-            cant_b14: cantB14,
-            cant_b12: cantB12,
-            cant_b04: cantB04,
-            cant_b15: cantB15
-          });
-        }
-      });
-      
-      console.log('[DASHBOARD] Fallback completado:', murosConBraces.length, 'muros procesados desde la interfaz');
-    }
+      return null;
+    }).filter(Boolean);
     
   } catch (error) {
-    console.error('[DASHBOARD] Error al guardar cambios automáticamente:', error);
-    
-    // Asegurar que murosConBraces esté inicializada en caso de error
-    if (!murosConBraces || !Array.isArray(murosConBraces)) {
-      console.log('[DASHBOARD] Inicializando murosConBraces como array vacío debido al error');
-      murosConBraces = [];
-    }
-    
-    const continuar = confirm('Hubo un problema al guardar los cambios automáticamente. ¿Deseas continuar con la generación del PDF?');
-    if (!continuar) {
-      return;
-    }
-  }
-  
-  console.log('[DASHBOARD] Datos recopilados:', murosConBraces ? murosConBraces.length : 'undefined', 'muros con datos actualizados');
-  
-  // Verificar que murosConBraces esté definido antes de generar tabla de muertos
-  if (!murosConBraces || !Array.isArray(murosConBraces)) {
-    console.error('[DASHBOARD] murosConBraces no está definido o no es un array:', murosConBraces);
-    alert('Error: No se pudieron cargar los datos de muros. Verifica que el proyecto esté cargado correctamente.');
+    console.error('[DASHBOARD] Error preparando datos:', error);
+    alert('Error preparando datos para PDF: ' + error.message);
     return;
   }
   
-  if (murosConBraces.length === 0) {
-    console.error('[DASHBOARD] murosConBraces está vacío - no hay datos para generar la tabla de muertos');
-    alert('Error: No hay datos de muros para generar el PDF. Asegúrate de que el proyecto tenga muros cargados.');
-    return;
-  }
+  // USAR LOS GRUPOS YA CALCULADOS DE script.js en lugar de regenerarlos
+  let gruposMuertos, tablaMuertos;
   
-  // Generar tabla de muertos desde los datos actualizados
-  let tablaMuertos = [];
-  console.log('[DASHBOARD] Generando tabla de muertos desde datos actualizados...');
-  
-  // Agrupar muros por combinación de x_braces, angulo_brace y eje
-  const gruposMuertos = {};
-  
-  murosConBraces.forEach(muro => {
-    // Obtener valores actualizados
-    const xBraces = muro.x_braces || 2;
-    const angulo = Math.round(muro.angulo_brace || 55); // Redondear para agrupar
-    const eje = muro.eje || 1;
+  if (window.gruposMuertosGlobal && Object.keys(window.gruposMuertosGlobal).length > 0) {
+    console.log('[DASHBOARD] ✅ Usando grupos pre-calculados de script.js:', Object.keys(window.gruposMuertosGlobal).length, 'grupos');
+    gruposMuertos = window.gruposMuertosGlobal;
     
-    // Crear clave única para agrupar
-    const clave = `${xBraces}_${angulo}_${eje}`;
+    // Generar tablaMuertos desde los grupos pre-calculados
+    tablaMuertos = [];
+    let numeroMuerto = 1;
+    Object.keys(gruposMuertos).forEach(clave => {
+      const grupo = gruposMuertos[clave];
+      tablaMuertos.push({
+        numero: numeroMuerto.toString(),
+        muerto: `M${numeroMuerto}`,
+        x_inserto: typeof grupo.xInserto === 'number' ? `${grupo.xInserto.toFixed(2)}m` : `${grupo.x_inserto?.toFixed(2) || '0.00'}m`,
+        tipo_brace: grupo.tipo || grupo.tipo_brace || 'B12',
+        angulo: `${grupo.ang || grupo.angulo || 55}°`,
+        eje: (grupo.eje || 1).toString(),
+        cantidad_muros: (grupo.cantidadMuros || grupo.muros?.length || 0).toString(),
+        muros_incluidos: grupo.muros?.join?.(', ') || ''
+      });
+      numeroMuerto++;
+    });
+    
+    console.log('[DASHBOARD] 📊 tablaMuertos generada con', tablaMuertos.length, 'muertos');
+  } else {
+    console.log('[DASHBOARD] ⚠️ No hay grupos pre-calculados, generando desde murosConBraces...');
+    // Fallback: Generar grupos desde cero (código original)
+    gruposMuertos = {};
+    tablaMuertos = [];
+  
+    murosConBraces.forEach(muro => {
+    const xInserto = parseFloat(muro.x_inserto || 0).toFixed(2); // Distancia X redondeada a 2 decimales
+    const tipoBrace = muro.tipo_brace_seleccionado || 'B12';
+    const anguloVal = Math.round(muro.angulo_brace || 55);
+    const ejeVal = muro.eje || 1;
+    const clave = `${xInserto}|${tipoBrace}|${anguloVal}|${ejeVal}`;
+    
+    console.log(`[GRUPOS] Muro ${muro.id_muro}: x_inserto=${muro.x_inserto}, xInserto=${xInserto}, tipo=${tipoBrace}, angulo=${anguloVal}, eje=${ejeVal}, clave=${clave}`);
     
     if (!gruposMuertos[clave]) {
       gruposMuertos[clave] = {
-        x_braces: xBraces,
-        angulo: angulo,
-        eje: eje,
+        x_inserto: parseFloat(xInserto),
+        tipo_brace: tipoBrace,
+        angulo: anguloVal,
+        eje: ejeVal,
         muros: []
       };
     }
-    
     gruposMuertos[clave].muros.push(muro);
   });
-  
-  // Convertir grupos a formato de tabla de muertos
-  let numeroMuerto = 1;
+
+  window.gruposMuertosGlobal = gruposMuertos;
+  console.log('[DASHBOARD] Grupos actualizados:', Object.keys(gruposMuertos));
+  console.log('[DASHBOARD] 📊 Total de grupos (muertos únicos):', Object.keys(gruposMuertos).length);
+  Object.keys(gruposMuertos).forEach(clave => {
+    console.log(`[DASHBOARD]   - Grupo "${clave}": ${gruposMuertos[clave].muros.length} muros`);
+  });
+
+  // Tabla resumen
+  numeroMuerto = 1;
   Object.keys(gruposMuertos).forEach(clave => {
     const grupo = gruposMuertos[clave];
-    
-    // Determinar tipo de construcción basado en cantidad de braces
-    let tipoConstruccion = 'Estándar';
-    if (grupo.x_braces >= 3) {
-      tipoConstruccion = 'Reforzado';
-    }
-    
-    // Crear lista de muros incluidos
-    const murosIncluidos = grupo.muros.map(m => m.id_muro).join(', ');
-    
+    const primerMuro = grupo.muros[0]; // Tomar x_braces del primer muro
     tablaMuertos.push({
       numero: numeroMuerto.toString(),
       muerto: `M${numeroMuerto}`,
-      x_braces: grupo.x_braces.toString(),
+      x_braces: (primerMuro.x_braces || 2).toString(),
+      tipo_brace: grupo.tipo_brace,
       angulo: `${grupo.angulo}°`,
+      x_inserto: `${grupo.x_inserto.toFixed(2)}m`,
       eje: grupo.eje.toString(),
       profundidad: '2.0',
-      tipo_construccion: tipoConstruccion,
+      tipo_construccion: (primerMuro.x_braces || 2) >= 3 ? 'Reforzado' : 'Estándar',
       cantidad_muros: grupo.muros.length.toString(),
-      muros_incluidos: murosIncluidos
+      muros_incluidos: grupo.muros.map(m => m.id_muro).join(', ')
     });
-    
     numeroMuerto++;
   });
-  
-  console.log('[DASHBOARD] Tabla de muertos generada desde datos actualizados:', tablaMuertos.length, 'grupos');
-  
-  // Exponer gruposMuertos globalmente para que pueda usarse en calcular macizos de anclaje
-  window.gruposMuertosGlobal = gruposMuertos;
-  console.log('[DASHBOARD] gruposMuertos expuesto globalmente para macizos de anclaje');
-  console.log('[DASHBOARD] Claves de grupos generados:', Object.keys(gruposMuertos));
-  console.log('[DASHBOARD] Objeto gruposMuertos completo:', JSON.stringify(gruposMuertos, null, 2));
-  
-  // ===== Mostrar configuración de grupos después de generar PDF =====
+  } // Cierre del else
+
   mostrarConfigGrupos(gruposMuertos);
-  console.log('[DASHBOARD] Formulario de configuración de grupos mostrado');
-  
-  // NOTA: window.lastGruposMuertos se eliminó porque los cálculos cilíndricos
-  // deben ser completamente independientes y NO usar la agrupación de braces
-  
-  // Habilitar acordeón después de agrupar muros
-  if (window.enableAccordionAfterGrouping && typeof window.enableAccordionAfterGrouping === 'function') {
-    window.enableAccordionAfterGrouping();
+
+  // Recalcular macizos para asegurar sincronización
+  console.log('[DASHBOARD] Recalculando macizos antes de enviar PDF...');
+  if (typeof window.ejecutarCalculosArmado === 'function') {
+     await window.ejecutarCalculosArmado();
   }
-  
-  // Obtener información del proyecto desde localStorage
-  const projectConfig = localStorage.getItem('projectConfig');
-  let projectInfo = null;
-  
-  if (projectConfig) {
-    try {
-      projectInfo = JSON.parse(projectConfig);
-      console.log('[DASHBOARD] Información del proyecto obtenida:', projectInfo);
-    } catch (error) {
-      console.log('[DASHBOARD] Error parseando información del proyecto:', error);
+
+  // Configuración UI
+  const configArmadoActual = {
+    construccion: {
+        resistenciaConcreto: document.getElementById('tipoConcreto')?.value || 2400,
+        factorDesperdicio: document.getElementById('factorDesperdicio')?.value || 1.0
+    },
+    longitudinal: {
+        tipoVarilla: document.getElementById('tipoVarillaLongitudinal')?.value,
+        recubrimiento: document.getElementById('recubrimientoLongitudinal')?.value,
+        separacion: document.getElementById('separacionLongitudinal')?.value,
+        varillasSuperiores: document.getElementById('cantVarillasSuperior')?.value,
+        varillasMedias: document.getElementById('cantVarillasMedias')?.value,
+        varillasInferiores: document.getElementById('cantVarillasInferior')?.value
+    },
+    transversal: {
+        tipoVarilla: document.getElementById('tipoVarillaTransversal')?.value,
+        recubrimiento: document.getElementById('recubrimientoTransversal')?.value,
+        separacion: document.getElementById('separacionTransversal')?.value,
+        longitudGanchos: document.getElementById('longGanchoEstribo')?.value
+    },
+    alambre: {
+        diametroAlambre: document.getElementById('diametroAlambre')?.value,
+        longitudPorVuelta: document.getElementById('longitudVuelta')?.value,
+        factorDesperdicioAlambre: document.getElementById('factorDesperdicioAlambre')?.value
     }
-  }
-  
-  console.log('[DASHBOARD] Generando PDF para', murosConBraces.length, 'muros con viento y braces');
-  
-  // Mostrar indicador de progreso
+  };
+
+  // Enviar PDF
   const progressIndicator = document.createElement('div');
-  progressIndicator.id = 'pdf-progress';
-  progressIndicator.style.cssText = `
-    position: fixed; 
-    top: 20px; 
-    right: 20px; 
-    background: #007acc; 
-    color: white; 
-    padding: 15px 20px; 
-    border-radius: 8px; 
-    z-index: 10000;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    font-size: 14px;
-    max-width: 300px;
-  `;
-  progressIndicator.innerHTML = `
-    <div style="display: flex; align-items: center; gap: 10px;">
-      <div style="width: 20px; height: 20px; border: 2px solid #ffffff; border-top: 2px solid transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-      <div>
-        <div style="font-weight: bold;">Generando PDF...</div>
-        <div style="font-size: 12px; opacity: 0.9;">Los cambios se han guardado automáticamente</div>
-      </div>
-    </div>
-  `;
-  
-  // Agregar animación CSS
-  if (!document.querySelector('#spin-animation')) {
-    const style = document.createElement('style');
-    style.id = 'spin-animation';
-    style.textContent = `
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-    `;
-    document.head.appendChild(style);
-  }
-  
+  progressIndicator.style.cssText = "position: fixed; top: 20px; right: 20px; background: #007acc; color: white; padding: 15px; border-radius: 8px; z-index: 10000;";
+  progressIndicator.textContent = "Generando PDF...";
   document.body.appendChild(progressIndicator);
   btnInforme.disabled = true;
-  
+
   try {
-    console.log('[DASHBOARD] Enviando petición POST a /api/paneles/pdf');
-    console.log('[DASHBOARD] Payload:', { 
-      paneles: murosConBraces,
-      projectInfo: projectInfo,
-      tablaMuertos: tablaMuertos
-    });
+    console.log('[DASHBOARD] Enviando reporteMacizos:', window.ultimosResultadosMacizos);
+    
+    const payload = { 
+        paneles: murosConBraces,
+        projectInfo: projectInfo, // <--- [CORRECCIÓN 3] Ahora esta variable SI existe y tiene datos
+        tablaMuertos: tablaMuertos,
+        reporteMacizos: window.ultimosResultadosMacizos, 
+        configArmado: configArmadoActual
+    };
+
     const resp = await fetch(`${API_BASE}/api/paneles/pdf`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        paneles: murosConBraces,  // Datos completos de la tabla unificada
-        projectInfo: projectInfo,
-        tablaMuertos: tablaMuertos // Nueva: tabla de resumen por muertos
-      })
+      body: JSON.stringify(payload)
     });
-    console.log('[DASHBOARD] Respuesta de PDF recibida:', resp.status);
     
-    if (!resp.ok) {
-      console.log('[DASHBOARD] Error generando PDF');
-      alert('Error generando el informe.');
-      return;
-    }
+    if (!resp.ok) throw new Error('Error en respuesta del servidor');
     
-    console.log('[DASHBOARD] PDF generado exitosamente, iniciando descarga');
     const blob = await resp.blob();
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1028,19 +1423,13 @@ export async function handleGenerarPDF(elements, globalVars) {
     a.click();
     a.remove();
     window.URL.revokeObjectURL(url);
-    console.log('[DASHBOARD] Descarga de PDF completada');
-  } catch (err) {
-    console.log('[DASHBOARD] Error generando PDF:', err.message);
-    alert('Error generando el informe: ' + err.message);
-  } finally {
-    // Limpiar indicador de progreso
-    const progressIndicator = document.getElementById('pdf-progress');
-    if (progressIndicator) {
-      progressIndicator.remove();
-    }
     
+  } catch (err) {
+    console.error(err);
+    alert('Error generando PDF: ' + err.message);
+  } finally {
+    progressIndicator.remove();
     btnInforme.disabled = false;
-    console.log('[DASHBOARD] Botón PDF rehabilitado');
   }
 }
 
@@ -1568,16 +1957,6 @@ export function cancelarEliminacion() {
 
 // ===== ARMADO RECTANGULAR =====
 
-// Cargar el módulo de armado rectangular
-import { 
-  calcularReporteMuerto
-} from './muertoRectangular.js';
-
-// Cargar el módulo de armado cilíndrico
-import { 
-  calcularReporteCilindrico,
-  calcularResumenProyectoCilindrico 
-} from './muertoCilindrico.js';
 
 // Configuración global del armado rectangular
 let configArmado = {
@@ -1616,8 +1995,12 @@ function initArmadoRectangular() {
   // Cargar configuración inicial en los inputs
   document.getElementById('tipoVarillaLongitudinal').value = configArmado.tipoVarillaLongitudinal;
   document.getElementById('recubrimientoLongitudinal').value = configArmado.recubrimientoLongitudinal;
-  document.getElementById('separacionLongitudinal').value = configArmado.separacionLongitudinal;
-  document.getElementById('cantVarillasSuperior').value = configArmado.cantVarillasSuperior;
+  // Ocultar inputs globales de separación, ya que ahora se configuran por grupo
+  const sepLongInput = document.getElementById('separacionLongitudinal');
+  if (sepLongInput) sepLongInput.closest('.form-group, .mb-3, .col, div').style.display = 'none';
+  const sepTransInput = document.getElementById('separacionTransversal');
+  if (sepTransInput) sepTransInput.closest('.form-group, .mb-3, .col, div').style.display = 'none';
+
   document.getElementById('cantVarillasSuperior').value = configArmado.cantVarillasSuperior;
   if (configArmado.cantVarillasMedias !== null) {
     document.getElementById('cantVarillasMedias').value = configArmado.cantVarillasMedias;
@@ -1625,7 +2008,6 @@ function initArmadoRectangular() {
   document.getElementById('cantVarillasInferior').value = configArmado.cantVarillasInferior;
   document.getElementById('tipoVarillaTransversal').value = configArmado.tipoVarillaTransversal;
   document.getElementById('recubrimientoTransversal').value = configArmado.recubrimientoTransversal;
-  document.getElementById('separacionTransversal').value = configArmado.separacionTransversal;
   document.getElementById('longGanchoEstribo').value = configArmado.longGanchoEstribo;
   document.getElementById('tipoConcreto').value = configArmado.tipoConcreto;
   document.getElementById('factorDesperdicio').value = configArmado.factorDesperdicio;
@@ -1653,22 +2035,54 @@ function initArmadoRectangular() {
 
 // Función para actualizar la configuración desde los inputs
 function actualizarConfiguracion() {
-  configArmado.tipoVarillaLongitudinal = parseInt(document.getElementById('tipoVarillaLongitudinal').value);
-  configArmado.recubrimientoLongitudinal = parseFloat(document.getElementById('recubrimientoLongitudinal').value);
-  configArmado.separacionLongitudinal = parseFloat(document.getElementById('separacionLongitudinal').value);
-  configArmado.cantVarillasSuperior = parseInt(document.getElementById('cantVarillasSuperior').value);
-  const mediasValue = document.getElementById('cantVarillasMedias').value;
-  configArmado.cantVarillasMedias = mediasValue ? parseInt(mediasValue) : null; // null = usar regla automática
-  configArmado.cantVarillasInferior = parseInt(document.getElementById('cantVarillasInferior').value);
-  configArmado.tipoVarillaTransversal = parseInt(document.getElementById('tipoVarillaTransversal').value);
-  configArmado.recubrimientoTransversal = parseFloat(document.getElementById('recubrimientoTransversal').value);
-  configArmado.separacionTransversal = parseFloat(document.getElementById('separacionTransversal').value);
-  configArmado.longGanchoEstribo = parseFloat(document.getElementById('longGanchoEstribo').value);
-  configArmado.tipoConcreto = parseFloat(document.getElementById('tipoConcreto').value);
-  configArmado.factorDesperdicio = parseFloat(document.getElementById('factorDesperdicio').value);
-  configArmado.diametroAlambre = parseFloat(document.getElementById('diametroAlambre').value);
-  configArmado.longitudVuelta = parseFloat(document.getElementById('longitudVuelta').value);
-  configArmado.factorDesperdicioAlambre = parseFloat(document.getElementById('factorDesperdicioAlambre').value);
+  // Usar valores del formulario si existen, si no mantener los defaults
+  const tipoVarLong = document.getElementById('tipoVarillaLongitudinal');
+  if (tipoVarLong) configArmado.tipoVarillaLongitudinal = parseInt(tipoVarLong.value);
+  
+  const recubLong = document.getElementById('recubrimientoLongitudinal');
+  if (recubLong) configArmado.recubrimientoLongitudinal = parseFloat(recubLong.value);
+  
+  const sepLong = document.getElementById('separacionLongitudinal');
+  if (sepLong) configArmado.separacionLongitudinal = parseFloat(sepLong.value);
+  
+  const varSup = document.getElementById('cantVarillasSuperior');
+  if (varSup) configArmado.cantVarillasSuperior = parseInt(varSup.value);
+  
+  const varMed = document.getElementById('cantVarillasMedias');
+  if (varMed) {
+    const mediasValue = varMed.value;
+    configArmado.cantVarillasMedias = mediasValue ? parseInt(mediasValue) : null;
+  }
+  
+  const varInf = document.getElementById('cantVarillasInferior');
+  if (varInf) configArmado.cantVarillasInferior = parseInt(varInf.value);
+  
+  const tipoVarTrans = document.getElementById('tipoVarillaTransversal');
+  if (tipoVarTrans) configArmado.tipoVarillaTransversal = parseInt(tipoVarTrans.value);
+  
+  const recubTrans = document.getElementById('recubrimientoTransversal');
+  if (recubTrans) configArmado.recubrimientoTransversal = parseFloat(recubTrans.value);
+  
+  const sepTrans = document.getElementById('separacionTransversal');
+  if (sepTrans) configArmado.separacionTransversal = parseFloat(sepTrans.value);
+  
+  const gancho = document.getElementById('longGanchoEstribo');
+  if (gancho) configArmado.longGanchoEstribo = parseFloat(gancho.value);
+  
+  const tipoConc = document.getElementById('tipoConcreto');
+  if (tipoConc) configArmado.tipoConcreto = parseFloat(tipoConc.value);
+  
+  const factDesp = document.getElementById('factorDesperdicio');
+  if (factDesp) configArmado.factorDesperdicio = parseFloat(factDesp.value);
+  
+  const diamAlamb = document.getElementById('diametroAlambre');
+  if (diamAlamb) configArmado.diametroAlambre = parseFloat(diamAlamb.value);
+  
+  const longVuelta = document.getElementById('longitudVuelta');
+  if (longVuelta) configArmado.longitudVuelta = parseFloat(longVuelta.value);
+  
+  const factDespAlamb = document.getElementById('factorDesperdicioAlambre');
+  if (factDespAlamb) configArmado.factorDesperdicioAlambre = parseFloat(factDespAlamb.value);
 }
 
 // ===== FUNCIONES PARA CONFIGURACIÓN DE GRUPOS DE MUERTOS =====
@@ -1700,24 +2114,39 @@ function mostrarConfigGrupos(gruposMuertos) {
     <div style="background: var(--card); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border);">
       <h3 style="margin-top: 0; color: var(--primary); display: flex; align-items: center; gap: 0.5rem;">
         <span style="font-size: 1.5rem;">⚙️</span>
-        Configuración de Profundidad por Muerto
+        Configuración de Grupo por Muerto
       </h3>
       
+      <p style="color: var(--muted); margin-bottom: 1rem; font-size: 0.9rem;">
+        💡 <strong>Tip:</strong> El ancho del macizo se calcula automáticamente según: <code style="background: var(--bg); padding: 0.2rem 0.4rem; border-radius: 3px;">ancho = volumen / (largo × profundidad)</code><br>
+        ⚠️ <strong>Importante:</strong> Cuando el <strong>Ancho (A<sub>n</sub>) &gt; 0.80 m</strong>, las columnas <strong style="color: #dc3545;">V<sub>N</sub></strong> (Volumen Nuevo) y <strong style="color: #dc3545;">P<sub>N</sub></strong> (Peso Nuevo) se activan y <strong>reemplazan los valores tabulados anteriores</strong> usando las fórmulas:<br>
+        <code style="background: var(--bg); padding: 0.2rem 0.4rem; border-radius: 3px; margin-left: 1rem;">V<sub>N</sub> = ΣF<sub>By</sub> / 2400 kg/m³</code> (basado en fuerzas, no en geometría) y 
+        <code style="background: var(--bg); padding: 0.2rem 0.4rem; border-radius: 3px;">P<sub>N</sub> = V<sub>N</sub> × 2400 kg/m³</code>
+      </p>
+      
       <p style="color: var(--text-dim); margin-bottom: 1.5rem;">
-        Ingresa la profundidad deseada para cada grupo de muertos. 
-        Este valor se usará en los cálculos de macizos de anclaje.
-        <br><strong>Total de grupos: ${Object.keys(gruposMuertos).length}</strong>
+        Ingresa la <b>profundidad</b> y las <b>separaciones de acero</b> (longitudinal y transversal) para cada grupo de muertos.<br>
+        Estos valores se usarán en los cálculos de macizos de anclaje y armado.<br>
+        <strong>Total de grupos: ${Object.keys(gruposMuertos).length}</strong>
       </p>
       
       <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 6px; overflow: hidden;">
         <thead>
           <tr style="background: var(--primary); color: white;">
             <th style="padding: 0.75rem; text-align: left;">Muerto</th>
+            <th style="padding: 0.75rem; text-align: center;">Distancia X (m)</th>
             <th style="padding: 0.75rem; text-align: center;">X Braces</th>
             <th style="padding: 0.75rem; text-align: center;">Ángulo</th>
             <th style="padding: 0.75rem; text-align: center;">Eje</th>
             <th style="padding: 0.75rem; text-align: center;">Cant. Muros</th>
-            <th style="padding: 0.75rem; text-align: center; min-width: 150px;">Profundidad (m)</th>
+            <th style="padding: 0.75rem; text-align: center; min-width: 100px;">Largo Total (m)</th>
+            <th style="padding: 0.75rem; text-align: center; min-width: 120px; background: rgba(255,193,7,0.2);">Profundidad (m)</th>
+            <th style="padding: 0.75rem; text-align: center; min-width: 100px; background: rgba(40,167,69,0.2);">Ancho Calc. (m)</th>
+            <th style="padding: 0.75rem; text-align: center; min-width: 100px; background: rgba(13,110,253,0.2);">Largo Actualizado L<sub>a</sub> (m)</th>
+            <th style="padding: 0.75rem; text-align: center; min-width: 100px; background: rgba(220,53,69,0.2);">Volumen Nuevo V<sub>N</sub> (m³)</th>
+            <th style="padding: 0.75rem; text-align: center; min-width: 100px; background: rgba(220,53,69,0.2);">Peso Nuevo P<sub>N</sub> (kg)</th>
+            <th style="padding: 0.75rem; text-align: center; min-width: 120px;">Sep. Long. (m)</th>
+            <th style="padding: 0.75rem; text-align: center; min-width: 120px;">Sep. Trans. (m)</th>
           </tr>
         </thead>
         <tbody>`;
@@ -1727,36 +2156,243 @@ function mostrarConfigGrupos(gruposMuertos) {
     Object.keys(gruposMuertos).forEach(clave => {
       const grupo = gruposMuertos[clave];
       const numeroMuerto = grupo.muerto || parseInt(clave.replace('M', ''));
-      
-      // Construir clave en formato backend: "x_angulo_eje"
-      const xBraces = grupo.x || grupo.x_braces || 0;
+      const distanciaX = grupo.xInserto || grupo.x_inserto || grupo.x || 0;
       const angulo = Math.round(grupo.ang || grupo.angulo || 0);
       const eje = grupo.eje || 0;
-      const claveBackend = `${xBraces}_${angulo}_${eje}`;
+      // Usar la clave del grupo muerto directamente para config y para el input
+      const valorActual = window.configGruposMuertos[clave]?.profundo || 2.0;
+      const sepLong = window.configGruposMuertos[clave]?.separacionLongitudinal || 25;
+      const sepTrans = window.configGruposMuertos[clave]?.separacionTransversal || 25;
+      const sepLongM = (sepLong / 100).toFixed(2);
+      const sepTransM = (sepTrans / 100).toFixed(2);
       
-      const valorActual = window.configGruposMuertos[claveBackend]?.profundo || 2.0;
+      // Calcular largo total, FBy y x_braces reales desde los muros
+      let largoTotal = 0;
+      let sumaFBy = 0;
+      let xBracesArray = [];
+      let xBracesTotal = 0;
+
+      console.group(`[DEBUG SUMA] Grupo ${clave}`);
+
+      if (grupo.muros && Array.isArray(grupo.muros)) {
+        grupo.muros.forEach(muroId => {
+          const muroObj = window.lastResultadosMuertos?.find(m => m.id_muro === muroId || m.id === muroId);
+          if (muroObj) {
+
+            let anchoRaw = parseFloat(muroObj.overall_width) || 0;
+            
+            console.log(`👉 Muro ${muroId}: Valor en memoria = ${muroObj.overall_width} -> Parseado = ${anchoRaw}`);
+            
+            
+            largoTotal += anchoRaw;
+
+            // ✅ Obtener x_braces FINAL desde la tabla (valor editado por usuario)
+            const pid = muroObj.pid || muroObj.id_muro;
+            const xBracesInput = document.querySelector(`[data-field="x_braces"][data-pid="${pid}"]`);
+            const muroXBraces = xBracesInput ? (parseInt(xBracesInput.value) || 2) : (parseInt(muroObj.x_braces) || 2);
+            xBracesArray.push(muroXBraces);
+            xBracesTotal += muroXBraces;
+
+            let fby = parseFloat(muroObj.fby) || parseFloat(muroObj.FBy) || 0;
+            
+            // ✅ Si fby es 0, intentar obtenerlo desde la tabla de cálculos
+            if (fby === 0) {
+              const pid = muroObj.pid;
+              const tablaCalculo = document.querySelector('.wind-results-table, .tabla-braces, #tablaBraces, #tablaResultados');
+              if (tablaCalculo && pid) {
+                const fbyCell = tablaCalculo.querySelector(`.valor-fby[data-pid="${pid}"]`);
+                if (fbyCell) {
+                  const fbyTabla = parseFloat(fbyCell.textContent);
+                  if (!isNaN(fbyTabla) && fbyTabla > 0) {
+                    fby = fbyTabla;
+                    muroObj.fby = fby;
+                    console.log(`[DASHBOARD-INIT-1] ✅ FBy recuperado de tabla para ${muroId}: ${fby.toFixed(2)} kN`);
+                  }
+                }
+              }
+            }
+            
+            sumaFBy += fby;
+          }
+        });
+      }
       
-      console.log(`[DASHBOARD] Generando fila para ${clave} -> clave backend: ${claveBackend}`, grupo);
+
+      console.log(`💰 Suma Bruta Total: ${largoTotal}`);
+
+
+      // ✅ FORZAR redondeo correcto: 8.816 → 8.82 (no 8.81)
+      largoTotal = Math.round((largoTotal + 0.0001) * 100) / 100;
+      console.log(`🏁 Suma Final Redondeada: ${largoTotal}`);
+      console.groupEnd();
+
+      // ✅ Calcular display de x_braces (total si más de un muro, individual si uno solo)
+      const xBracesDisplay = xBracesArray.length > 1 
+        ? `${xBracesTotal} (${xBracesArray.join('+')})` 
+        : xBracesTotal.toString();
+
+      const volumenRequerido = sumaFBy / 2400; // Densidad del concreto
+      const ANCHO_EFECTIVO_MAX = 0.80; // m - Tope definido por cliente
+      let anchoCalculado = 0;
+      let anchoParaMostrar = 0; // Ancho con tope aplicado para display
       
+      if (largoTotal > 0 && valorActual > 0) {
+        const valorBase = volumenRequerido / (largoTotal * valorActual);
+        anchoCalculado = Math.ceil(valorBase * 20) / 20; // Redondeo a 0.05m
+        // ⚠️ APLICAR TOPE: Si >= 0.80m, mostrar 0.80m
+        anchoParaMostrar = anchoCalculado >= ANCHO_EFECTIVO_MAX ? ANCHO_EFECTIVO_MAX : anchoCalculado;
+      }
+      
+      // ✅ LÓGICA CONDICIONAL HÍBRIDA según Excel con REGLA DEL TOPE
+      // REGLA DEL TOPE: Ancho efectivo máximo = 0.80m para cálculos de volumen
+      const DENSIDAD_CONCRETO = 2400; // kg/m³
+      let largoNuevo = 0;     // Columna N: Nuevo Largo
+      let volumenNuevo = 0;   // Columna P: Nuevo Volumen
+      let pesoNuevo = 0;      // Columna O: Nuevo Peso
+      let mostrarCalculosNuevos = false;
+      
+      // COLUMNA N: Nuevo Largo - Lógica Dual
+      // Condición A: SI Ancho >= 0.80 → usar largo geométrico real (K7)
+      if (anchoCalculado >= ANCHO_EFECTIVO_MAX) {
+        largoNuevo = largoTotal;
+        mostrarCalculosNuevos = true;
+        console.log(`[DASHBOARD] Condición A: Ancho >= 0.80m para ${clave} → Usar largo geométrico`);
+      } 
+      // Condición B: SI Ancho = 0.40 → calcular largo teórico con fórmula J7/(M7*L7)*1.1
+      else if (Math.abs(anchoCalculado - 0.40) < 0.01) { // Tolerancia de 0.01m
+        largoNuevo = (volumenRequerido / (anchoCalculado * valorActual)) * 1.1;
+        mostrarCalculosNuevos = true;
+        console.log(`[DASHBOARD] Condición B: Ancho = 0.40m para ${clave} → Calcular largo teórico`);
+      }
+      // Condición C: Cualquier otro caso → vacío
+      else {
+        largoNuevo = 0;
+        mostrarCalculosNuevos = false;
+      }
+      
+      // COLUMNA P: Nuevo Volumen - Cálculo Resultante con TOPE
+      // ⚠️ REGLA: Si ancho >= 0.80, usar 0.80 fijo en volumen
+      if (largoNuevo > 0) {
+        const anchoEfectivo = anchoCalculado >= ANCHO_EFECTIVO_MAX ? ANCHO_EFECTIVO_MAX : anchoCalculado;
+        volumenNuevo = largoNuevo * anchoEfectivo * valorActual;
+      } else {
+        volumenNuevo = 0;
+      }
+      
+      // COLUMNA O: Nuevo Peso - Actualización
+      if (volumenNuevo > 0) {
+        pesoNuevo = volumenNuevo * DENSIDAD_CONCRETO;
+      } else {
+        pesoNuevo = 0;
+      }
+      
+      // ✅ Guardar valores nuevos en config para uso en armado
+      if (largoNuevo > 0) {
+        window.configGruposMuertos[clave].volumenNuevo = volumenNuevo;
+        window.configGruposMuertos[clave].pesoNuevo = pesoNuevo;
+        window.configGruposMuertos[clave].largoNuevo = largoNuevo;
+        console.log(`[DASHBOARD] ✅ Valores NUEVOS guardados para armado inicial:`, {
+          grupo: clave,
+          volumenNuevo: volumenNuevo.toFixed(3),
+          pesoNuevo: pesoNuevo.toFixed(1),
+          largoNuevo: largoNuevo.toFixed(2)
+        });
+      }
+      
+      console.log(`[DASHBOARD] Cálculos híbridos para ${clave}:`, {
+        anchoCalculadoOriginal: anchoCalculado,
+        anchoParaMostrar: anchoParaMostrar,
+        anchoEfectivo: anchoCalculado >= ANCHO_EFECTIVO_MAX ? ANCHO_EFECTIVO_MAX : anchoCalculado,
+        reglaTope: anchoCalculado >= ANCHO_EFECTIVO_MAX ? '✅ Aplicado 0.80m máximo' : 'N/A',
+        largoOriginal: largoTotal,
+        profundidad: valorActual,
+        volumenRequerido,
+        largoNuevo,
+        volumenNuevo,
+        pesoNuevo,
+        mostrarCalculosNuevos
+      });
+      
+      console.log(`[DASHBOARD] Generando fila para grupo muerto:`, {
+        claveGrupo: clave,
+        valorActual,
+        largoTotal,
+        anchoCalculado,
+        mostrarCalculosNuevos,
+        config: window.configGruposMuertos[clave],
+        grupo
+      });
       html += `
-        <tr style="border-bottom: 1px solid var(--border);">
+        <tr style="border-bottom: 1px solid var(--border);" data-grupo="${clave}">
           <td style="padding: 0.75rem; font-weight: bold; color: var(--primary);">${clave}</td>
-          <td style="padding: 0.75rem; text-align: center;">${xBraces}</td>
+          <td style="padding: 0.75rem; text-align: center; font-weight: bold; color: #0066cc;">${parseFloat(distanciaX).toFixed(2)}m</td>
+          <td style="padding: 0.75rem; text-align: center; font-weight: bold; color: #ff6b35;" title="Total braces: ${xBracesTotal}">${xBracesDisplay}</td>
           <td style="padding: 0.75rem; text-align: center;">${angulo}°</td>
           <td style="padding: 0.75rem; text-align: center; font-weight: bold; color: #28a745;">${eje}</td>
           <td style="padding: 0.75rem; text-align: center; color: #6f42c1; font-weight: bold;">${grupo.muros?.length || 0}</td>
+          <td style="padding: 0.75rem; text-align: center; font-weight: bold; color: #007bff;" data-largo-total="${largoTotal}">
+            ${largoTotal.toFixed(2)}
+          </td>
           <td style="padding: 0.75rem; text-align: center;">
             <input 
               type="number" 
               class="input-profundidad-muerto" 
               data-muerto="${clave}"
-              data-grupo-clave="${claveBackend}"
+              data-grupo-clave="${clave}"
               value="${valorActual}"
               step="0.1" 
               min="0.5"
               max="10"
-              style="width: 100px; padding: 0.5rem; text-align: center; border: 2px solid var(--border); border-radius: 4px; font-size: 1rem; font-weight: bold;"
+              style="width: 90px; padding: 0.5rem; text-align: center; border: 2px solid #ffc107; border-radius: 4px; font-size: 1rem; font-weight: bold; background: rgba(255,193,7,0.1);"
               placeholder="2.0"
+            >
+          </td>
+          <td style="padding: 0.75rem; text-align: center;">
+            <span class="ancho-calculado-display" data-grupo="${clave}" style="display: inline-block; padding: 0.5rem 1rem; background: rgba(40,167,69,0.15); border: 2px solid #28a745; border-radius: 4px; font-weight: bold; color: #000000ff; min-width: 80px;" title="${anchoCalculado > anchoParaMostrar ? `Ancho calculado: ${anchoCalculado.toFixed(2)}m (limitado a ${ANCHO_EFECTIVO_MAX}m)` : ''}">
+              ${anchoParaMostrar.toFixed(2)} m
+            </span>
+          </td>
+          <td style="padding: 0.75rem; text-align: center;" data-largo-nuevo="${largoNuevo}">
+            <span class="largo-actualizado-display" data-grupo="${clave}" style="display: inline-block; padding: 0.4rem 0.8rem; ${mostrarCalculosNuevos ? 'background: rgba(13,110,253,0.15); border: 2px solid #0d6efd; color: #0d6efd;' : 'background: rgba(108,117,125,0.1); border: 1px solid #6c757d; color: #6c757d;'} border-radius: 4px; font-weight: ${mostrarCalculosNuevos ? 'bold' : 'normal'}; min-width: 70px;">
+              ${largoNuevo > 0 ? largoNuevo.toFixed(2) : (Math.round(largoTotal * 100) / 100).toFixed(2)} m
+            </span>
+          </td>
+          <td style="padding: 0.75rem; text-align: center;" data-volumen-nuevo="${volumenNuevo}">
+            <span class="volumen-nuevo-display" data-grupo="${clave}" style="display: inline-block; padding: 0.4rem 0.8rem; ${mostrarCalculosNuevos ? 'background: rgba(220,53,69,0.15); border: 2px solid #dc3545; color: #dc3545;' : 'background: rgba(108,117,125,0.1); border: 1px dashed #6c757d; color: #adb5bd;'} border-radius: 4px; font-weight: ${mostrarCalculosNuevos ? 'bold' : 'normal'}; min-width: 70px;">
+              ${mostrarCalculosNuevos ? volumenNuevo.toFixed(3) + ' m³' : '—'}
+            </span>
+          </td>
+          <td style="padding: 0.75rem; text-align: center;" data-peso-nuevo="${pesoNuevo}">
+            <span class="peso-nuevo-display" data-grupo="${clave}" style="display: inline-block; padding: 0.4rem 0.8rem; ${mostrarCalculosNuevos ? 'background: rgba(220,53,69,0.15); border: 2px solid #dc3545; color: #dc3545;' : 'background: rgba(108,117,125,0.1); border: 1px dashed #6c757d; color: #adb5bd;'} border-radius: 4px; font-weight: ${mostrarCalculosNuevos ? 'bold' : 'normal'}; min-width: 70px;">
+              ${mostrarCalculosNuevos ? pesoNuevo.toFixed(1) + ' kg' : '—'}
+            </span>
+          </td>
+          <td style="padding: 0.75rem; text-align: center;">
+            <input 
+              type="number" 
+              class="input-sep-long-muerto" 
+              data-muerto="${clave}"
+              data-grupo-clave="${clave}"
+              value="${sepLongM}"
+              step="0.01" 
+              min="0.10"
+              max="0.50"
+              style="width: 70px; padding: 0.5rem; text-align: center; border: 2px solid var(--border); border-radius: 4px; font-size: 1rem; font-weight: bold;"
+              placeholder="0.25"
+            >
+          </td>
+          <td style="padding: 0.75rem; text-align: center;">
+            <input 
+              type="number" 
+              class="input-sep-trans-muerto" 
+              data-muerto="${clave}"
+              data-grupo-clave="${clave}"
+              value="${sepTransM}"
+              step="0.01" 
+              min="0.10"
+              max="0.50"
+              style="width: 70px; padding: 0.5rem; text-align: center; border: 2px solid var(--border); border-radius: 4px; font-size: 1rem; font-weight: bold;"
+              placeholder="0.25"
             >
           </td>
         </tr>`;
@@ -1766,17 +2402,118 @@ function mostrarConfigGrupos(gruposMuertos) {
     let indice = 1;
     Object.keys(gruposMuertos).forEach(clave => {
       const grupo = gruposMuertos[clave];
+      const distanciaX = grupo.xInserto || grupo.x_inserto || 0;
       const valorActual = window.configGruposMuertos[clave]?.profundo || 2.0;
+      const sepLong = window.configGruposMuertos[clave]?.separacionLongitudinal || 25;
+      const sepTrans = window.configGruposMuertos[clave]?.separacionTransversal || 25;
+      const sepLongM = (sepLong / 100).toFixed(2);
+      const sepTransM = (sepTrans / 100).toFixed(2);
+      
+      // Calcular largo total y ancho del macizo
+      let largoTotal = 0;
+      let sumaFBy = 0;
+      if (grupo.muros && Array.isArray(grupo.muros)) {
+        grupo.muros.forEach(muroId => {
+          const muroObj = window.lastResultadosMuertos?.find(m => m.id_muro === muroId || m.id === muroId);
+          if (muroObj) {
+            largoTotal += parseFloat(muroObj.overall_width) || 0;
+            let fby = parseFloat(muroObj.fby) || parseFloat(muroObj.FBy) || 0;
+            
+            // ✅ Si fby es 0, intentar obtenerlo desde la tabla de cálculos
+            if (fby === 0) {
+              const pid = muroObj.pid;
+              const tablaCalculo = document.querySelector('.wind-results-table, .tabla-braces, #tablaBraces, #tablaResultados');
+              if (tablaCalculo && pid) {
+                const fbyCell = tablaCalculo.querySelector(`.valor-fby[data-pid="${pid}"]`);
+                if (fbyCell) {
+                  const fbyTabla = parseFloat(fbyCell.textContent);
+                  if (!isNaN(fbyTabla) && fbyTabla > 0) {
+                    fby = fbyTabla;
+                    muroObj.fby = fby;
+                    console.log(`[DASHBOARD-INIT-2] ✅ FBy recuperado de tabla para ${muroId}: ${fby.toFixed(2)} kN`);
+                  }
+                }
+              }
+            }
+            
+            sumaFBy += fby;
+          }
+        });
+      }
+      
+      // ✅ FORZAR redondeo correcto: 8.816 → 8.82 (no 8.81)
+      largoTotal = parseFloat(largoTotal.toFixed(2));
+      
+      const volumenRequerido = sumaFBy / 2400; // Densidad del concreto
+      const ANCHO_EFECTIVO_MAX = 0.80; // m - Tope definido por cliente
+      let anchoCalculado = 0;
+      let anchoParaMostrar = 0; // Ancho con tope aplicado para display
+      
+      if (largoTotal > 0 && valorActual > 0) {
+        const valorBase = volumenRequerido / (largoTotal * valorActual);
+        anchoCalculado = Math.ceil(valorBase * 20) / 20; // Redondeo a 0.05m
+        // ⚠️ APLICAR TOPE: Si >= 0.80m, mostrar 0.80m
+        anchoParaMostrar = anchoCalculado >= ANCHO_EFECTIVO_MAX ? ANCHO_EFECTIVO_MAX : anchoCalculado;
+      }
+      
+      // ✅ CÁLCULO CONDICIONAL HÍBRIDO (3 condiciones basadas en Excel N7, P7, O7)
+      // REGLA DEL TOPE: Ancho efectivo máximo = 0.80m para cálculos de volumen
+      const DENSIDAD_CONCRETO = 2400; // kg/m³
+      let largoNuevo = 0;
+      let volumenNuevo = 0;
+      let pesoNuevo = 0;
+      let mostrarCalculosNuevos = false;
+      
+      // Condición A: Si A_n >= 0.80m → usar largo real + ancho fijo 0.80m
+      if (anchoCalculado >= ANCHO_EFECTIVO_MAX) {
+        largoNuevo = largoTotal;
+        mostrarCalculosNuevos = true;
+      }
+      // Condición B: Si A_n = 0.40m (±0.01) → calcular largo teórico con factor 1.1
+      else if (Math.abs(anchoCalculado - 0.40) < 0.01) {
+        largoNuevo = (volumenRequerido / (anchoCalculado * valorActual)) * 1.1;
+        mostrarCalculosNuevos = true;
+      }
+      // Condición C: Otros valores → no mostrar cálculos nuevos
+      else {
+        largoNuevo = 0;
+        mostrarCalculosNuevos = false;
+      }
+      
+      // Calcular volumen y peso solo si tenemos largoNuevo válido
+      if (largoNuevo > 0) {
+        // ⚠️ REGLA DEL TOPE: Si ancho >= 0.80, usar 0.80 fijo en volumen
+        const anchoEfectivo = anchoCalculado >= ANCHO_EFECTIVO_MAX ? ANCHO_EFECTIVO_MAX : anchoCalculado;
+        volumenNuevo = largoNuevo * anchoEfectivo * valorActual;
+        pesoNuevo = volumenNuevo * DENSIDAD_CONCRETO;
+        console.log(`[DASHBOARD-2] ✅ Cálculos híbridos para M${indice}:`, {
+          condicion: anchoCalculado >= 0.80 ? 'A (>=0.80)' : 'B (=0.40)',
+          sumaFBy,
+          volumenRequerido,
+          anchoCalculado: anchoCalculado,
+          anchoEfectivo: anchoEfectivo,
+          reglaTope: anchoCalculado >= 0.80 ? '✅ Aplicado 0.80m máximo' : 'N/A',
+          largoTotal,
+          profundidad: valorActual,
+          largoNuevo,
+          volumenNuevo,
+          pesoNuevo
+        });
+      }
       
       console.log(`[DASHBOARD] Generando fila para M${indice}, clave: ${clave}`, grupo);
       
       html += `
-        <tr style="border-bottom: 1px solid var(--border);">
+        <tr style="border-bottom: 1px solid var(--border);" data-grupo="${clave}">
           <td style="padding: 0.75rem; font-weight: bold; color: var(--primary);">M${indice}</td>
+          <td style="padding: 0.75rem; text-align: center; font-weight: bold; color: #0066cc;">${parseFloat(distanciaX).toFixed(2)}m</td>
           <td style="padding: 0.75rem; text-align: center;">${grupo.x_braces}</td>
           <td style="padding: 0.75rem; text-align: center;">${grupo.angulo}°</td>
           <td style="padding: 0.75rem; text-align: center; font-weight: bold; color: #28a745;">${grupo.eje || 'N/A'}</td>
           <td style="padding: 0.75rem; text-align: center; color: #6f42c1; font-weight: bold;">${grupo.muros.length}</td>
+          <td style="padding: 0.75rem; text-align: center; font-weight: bold; color: #007bff;" data-largo-total="${largoTotal}">
+            ${largoTotal.toFixed(2)}
+          </td>
           <td style="padding: 0.75rem; text-align: center;">
             <input 
               type="number" 
@@ -1787,8 +2524,56 @@ function mostrarConfigGrupos(gruposMuertos) {
               step="0.1" 
               min="0.5"
               max="10"
-              style="width: 100px; padding: 0.5rem; text-align: center; border: 2px solid var(--border); border-radius: 4px; font-size: 1rem; font-weight: bold;"
+              style="width: 90px; padding: 0.5rem; text-align: center; border: 2px solid #ffc107; border-radius: 4px; font-size: 1rem; font-weight: bold; background: rgba(255,193,7,0.1);"
               placeholder="2.0"
+            >
+          </td>
+          <td style="padding: 0.75rem; text-align: center;">
+            <span class="ancho-calculado-display" data-grupo="${clave}" style="display: inline-block; padding: 0.5rem 1rem; background: rgba(40,167,69,0.15); border: 2px solid #28a745; border-radius: 4px; font-weight: bold; color: #28a745; min-width: 80px;" title="${anchoCalculado > anchoParaMostrar ? `Ancho calculado: ${anchoCalculado.toFixed(2)}m (limitado a ${ANCHO_EFECTIVO_MAX}m)` : ''}">
+              ${anchoParaMostrar.toFixed(2)} m
+            </span>
+          </td>
+          <td style="padding: 0.75rem; text-align: center;" data-largo-nuevo="${largoNuevo}">
+            <span class="largo-actualizado-display" data-grupo="${clave}" style="display: inline-block; padding: 0.4rem 0.8rem; ${mostrarCalculosNuevos ? 'background: rgba(13,110,253,0.15); border: 2px solid #0d6efd; color: #0d6efd;' : 'background: rgba(108,117,125,0.1); border: 1px solid #6c757d; color: #6c757d;'} border-radius: 4px; font-weight: ${mostrarCalculosNuevos ? 'bold' : 'normal'}; min-width: 70px;">
+              ${largoNuevo > 0 ? largoNuevo.toFixed(2) : largoTotal.toFixed(2)} m
+            </span>
+          </td>
+          <td style="padding: 0.75rem; text-align: center;" data-volumen-nuevo="${volumenNuevo}">
+            <span class="volumen-nuevo-display" data-grupo="${clave}" style="display: inline-block; padding: 0.4rem 0.8rem; ${mostrarCalculosNuevos ? 'background: rgba(220,53,69,0.15); border: 2px solid #dc3545; color: #dc3545;' : 'background: rgba(108,117,125,0.1); border: 1px dashed #6c757d; color: #adb5bd;'} border-radius: 4px; font-weight: ${mostrarCalculosNuevos ? 'bold' : 'normal'}; min-width: 70px;">
+              ${mostrarCalculosNuevos ? volumenNuevo.toFixed(3) + ' m³' : '—'}
+            </span>
+          </td>
+          <td style="padding: 0.75rem; text-align: center;" data-peso-nuevo="${pesoNuevo}">
+            <span class="peso-nuevo-display" data-grupo="${clave}" style="display: inline-block; padding: 0.4rem 0.8rem; ${mostrarCalculosNuevos ? 'background: rgba(220,53,69,0.15); border: 2px solid #dc3545; color: #dc3545;' : 'background: rgba(108,117,125,0.1); border: 1px dashed #6c757d; color: #adb5bd;'} border-radius: 4px; font-weight: ${mostrarCalculosNuevos ? 'bold' : 'normal'}; min-width: 70px;">
+              ${mostrarCalculosNuevos ? pesoNuevo.toFixed(1) + ' kg' : '—'}
+            </span>
+          </td>
+          <td style="padding: 0.75rem; text-align: center;">
+            <input 
+              type="number" 
+              class="input-sep-long-muerto" 
+              data-muerto="M${indice}"
+              data-grupo-clave="${clave}"
+              value="${sepLongM}"
+              step="0.01" 
+              min="0.10"
+              max="0.50"
+              style="width: 70px; padding: 0.5rem; text-align: center; border: 2px solid var(--border); border-radius: 4px; font-size: 1rem; font-weight: bold;"
+              placeholder="0.25"
+            >
+          </td>
+          <td style="padding: 0.75rem; text-align: center;">
+            <input 
+              type="number" 
+              class="input-sep-trans-muerto" 
+              data-muerto="M${indice}"
+              data-grupo-clave="${clave}"
+              value="${sepTransM}"
+              step="0.01" 
+              min="0.10"
+              max="0.50"
+              style="width: 70px; padding: 0.5rem; text-align: center; border: 2px solid var(--border); border-radius: 4px; font-size: 1rem; font-weight: bold;"
+              placeholder="0.25"
             >
           </td>
         </tr>`;
@@ -1807,12 +2592,12 @@ function mostrarConfigGrupos(gruposMuertos) {
           class="btn btn-primary"
           style="padding: 0.75rem 1.5rem; font-size: 1rem; font-weight: bold;"
         >
-          💾 Guardar Profundidades
+          💾 Guardar Configuración
         </button>
       </div>
       
       <div id="mensajeGuardado" style="display: none; margin-top: 1rem; padding: 1rem; background: #d4edda; color: #155724; border-radius: 6px; border: 1px solid #c3e6cb;">
-        ✅ Profundidades guardadas correctamente
+        ✅ Configuración guardada correctamente
       </div>
     </div>`;
   
@@ -1822,6 +2607,251 @@ function mostrarConfigGrupos(gruposMuertos) {
   // Event listener para el botón de guardar
   document.getElementById('btnGuardarProfundidades').addEventListener('click', guardarProfundidadesMuertos);
   
+  // Event listener para recalcular ancho en tiempo real al cambiar profundidad
+  document.querySelectorAll('.input-profundidad-muerto').forEach(input => {
+    input.addEventListener('input', function() {
+      const grupoClave = this.getAttribute('data-grupo-clave');
+      const row = this.closest('tr[data-grupo]');
+      
+      console.log('[ANCHO-RT] Input detectado:', {
+        grupoClave,
+        valor: this.value,
+        rowEncontrado: !!row
+      });
+      
+      if (!row) {
+        console.error('[ANCHO-RT] No se encontró la fila');
+        return;
+      }
+      
+      const largoTotal = parseFloat(row.querySelector('[data-largo-total]').getAttribute('data-largo-total')) || 0;
+      const profundidad = parseFloat(this.value) || 0;
+      
+      // ✅ GUARDAR AUTOMÁTICAMENTE en configGruposMuertos cuando cambia el valor
+      if (!window.configGruposMuertos) {
+        window.configGruposMuertos = {};
+      }
+      if (!window.configGruposMuertos[grupoClave]) {
+        window.configGruposMuertos[grupoClave] = {};
+      }
+      window.configGruposMuertos[grupoClave].profundo = profundidad;
+      window.configGruposMuertos[grupoClave].profundidad = profundidad; // Ambos nombres por compatibilidad
+      console.log(`[ANCHO-RT] ✅ Profundidad guardada en config: ${profundidad}m para ${grupoClave}`);
+      
+      console.log('[ANCHO-RT] Valores iniciales:', { largoTotal, profundidad });
+      
+      // Obtener suma de FBy del grupo
+      let sumaFBy = 0;
+      const grupo = window.gruposMuertosGlobal?.[grupoClave];
+      
+      console.log('[ANCHO-RT] Grupo encontrado:', !!grupo, 'Muros:', grupo?.muros?.length);
+      console.log('[ANCHO-RT] window.lastResultadosMuertos disponible:', !!window.lastResultadosMuertos, 'Cantidad:', window.lastResultadosMuertos?.length);
+      
+      if (grupo && grupo.muros && Array.isArray(grupo.muros)) {
+        grupo.muros.forEach(muroId => {
+          const muroObj = window.lastResultadosMuertos?.find(m => m.id_muro === muroId || m.id === muroId);
+          if (muroObj) {
+            let fby = parseFloat(muroObj.fby) || parseFloat(muroObj.FBy) || 0;
+            
+            // ✅ Si fby es 0, intentar obtenerlo desde la tabla de cálculos
+            if (fby === 0) {
+              const pid = muroObj.pid;
+              const tablaCalculo = document.querySelector('.wind-results-table, .tabla-braces, #tablaBraces, #tablaResultados');
+              if (tablaCalculo && pid) {
+                const fbyCell = tablaCalculo.querySelector(`.valor-fby[data-pid="${pid}"]`);
+                if (fbyCell) {
+                  const fbyTabla = parseFloat(fbyCell.textContent);
+                  if (!isNaN(fbyTabla) && fbyTabla > 0) {
+                    fby = fbyTabla;
+                    // Actualizar el objeto en memoria para futuros cálculos
+                    muroObj.fby = fby;
+                    console.log(`[ANCHO-RT] ✅ FBy recuperado de tabla para ${muroId}: ${fby.toFixed(2)} kN`);
+                  }
+                }
+              }
+            }
+            
+            sumaFBy += fby;
+            console.log(`[ANCHO-RT] Muro ${muroId}: FBy = ${fby.toFixed(2)} kN`);
+          } else {
+            console.warn(`[ANCHO-RT] ⚠️ Muro ${muroId} NO encontrado en lastResultadosMuertos`);
+          }
+        });
+      }
+      
+      console.log('[ANCHO-RT] Suma FBy total:', sumaFBy);
+      
+      // ⚠️ ADVERTENCIA: Si la suma es 0, significa que no se han calculado las fuerzas
+      if (sumaFBy === 0 && grupo.muros && grupo.muros.length > 0) {
+        console.warn('[ANCHO-RT] ⚠️ ADVERTENCIA: FBy = 0. Necesitas calcular las fuerzas de viento primero.');
+        console.warn('[ANCHO-RT] Ve a la tabla de Braces y modifica algún parámetro (ángulo, tipo, NPT) para disparar el cálculo.');
+      }
+      
+      // Calcular ancho del macizo
+      const volumenRequerido = sumaFBy / 2400;
+      const ANCHO_EFECTIVO_MAX = 0.80;
+      let anchoCalculado = 0;
+      let anchoParaMostrar = 0;
+      
+      if (largoTotal > 0 && profundidad > 0) {
+        const valorBase = volumenRequerido / (largoTotal * profundidad);
+        anchoCalculado = Math.ceil(valorBase * 20) / 20; // Redondeo a 0.05m
+        // ⚠️ APLICAR TOPE: Si >= 0.80m, mostrar 0.80m
+        anchoParaMostrar = anchoCalculado >= ANCHO_EFECTIVO_MAX ? ANCHO_EFECTIVO_MAX : anchoCalculado;
+      }
+      
+      console.log('[ANCHO-RT] Ancho calculado:', anchoCalculado, '→ Mostrar:', anchoParaMostrar);
+      
+      // ✅ GUARDAR el ancho calculado en configGruposMuertos
+      // ⚠️ APLICAR TOPE: Si ancho >= 0.80m, guardar 0.80m para uso en armado rectangular
+      if (anchoCalculado > 0) {
+        window.configGruposMuertos[grupoClave].ancho = anchoParaMostrar; // Ya tiene tope aplicado
+        console.log(`[ANCHO-RT] ✅ Ancho guardado en config: ${anchoParaMostrar}m para ${grupoClave}`, 
+          anchoCalculado > anchoParaMostrar ? `(tope aplicado desde ${anchoCalculado.toFixed(2)}m)` : '');
+      }
+      
+      // ✅ CALCULAR VALORES CONDICIONALES HÍBRIDOS (3 condiciones)
+      // REGLA DEL TOPE: Ancho efectivo máximo = 0.80m para cálculos de volumen
+      const DENSIDAD_CONCRETO = 2400; // kg/m³
+      let largoNuevo = 0;
+      let volumenNuevo = 0;
+      let pesoNuevo = 0;
+      let mostrarCalculosNuevos = false;
+      
+      // Condición A: Si A_n >= 0.80m → usar largo real + ancho fijo 0.80m
+      if (anchoCalculado >= ANCHO_EFECTIVO_MAX) {
+        largoNuevo = largoTotal;
+        mostrarCalculosNuevos = true;
+      }
+      // Condición B: Si A_n = 0.40m (±0.01) → calcular largo teórico con factor 1.1
+      else if (Math.abs(anchoCalculado - 0.40) < 0.01) {
+        largoNuevo = (volumenRequerido / (anchoCalculado * profundidad)) * 1.1;
+        mostrarCalculosNuevos = true;
+      }
+      // Condición C: Otros valores → no mostrar cálculos nuevos
+      else {
+        largoNuevo = 0;
+        mostrarCalculosNuevos = false;
+      }
+      
+      // Calcular volumen y peso solo si tenemos largoNuevo válido
+      if (largoNuevo > 0) {
+        // ⚠️ REGLA DEL TOPE: Si ancho >= 0.80, usar 0.80 fijo en volumen
+        const anchoEfectivo = anchoCalculado >= ANCHO_EFECTIVO_MAX ? ANCHO_EFECTIVO_MAX : anchoCalculado;
+        volumenNuevo = largoNuevo * anchoEfectivo * profundidad;
+        pesoNuevo = volumenNuevo * DENSIDAD_CONCRETO;
+        console.log(`[ANCHO-RT] ✅ Cálculos híbridos en tiempo real:`, {
+          condicion: anchoCalculado >= 0.80 ? 'A (>=0.80)' : 'B (=0.40)',
+          sumaFBy,
+          volumenRequerido,
+          anchoCalculado: anchoCalculado,
+          anchoEfectivo: anchoEfectivo,
+          reglaTope: anchoCalculado >= 0.80 ? '✅ Aplicado 0.80m máximo' : 'N/A',
+          largoTotal,
+          profundidad,
+          largoNuevo,
+          volumenNuevo,
+          pesoNuevo
+        });
+        
+        // Guardar en config para uso posterior
+        window.configGruposMuertos[grupoClave].volumenNuevo = volumenNuevo;
+        window.configGruposMuertos[grupoClave].pesoNuevo = pesoNuevo;
+        window.configGruposMuertos[grupoClave].largoNuevo = largoNuevo;
+        console.log(`[ANCHO-RT] ✅ Valores NUEVOS guardados para armado:`, {
+          grupo: grupoClave,
+          volumenNuevo: volumenNuevo.toFixed(3),
+          pesoNuevo: pesoNuevo.toFixed(1),
+          largoNuevo: largoNuevo.toFixed(2)
+        });
+      }
+      
+      // Actualizar display del ancho
+      const anchoDisplay = row.querySelector(`.ancho-calculado-display[data-grupo="${grupoClave}"]`);
+      if (anchoDisplay) {
+        if (sumaFBy === 0) {
+          anchoDisplay.textContent = '⚠️ Sin calcular';
+          anchoDisplay.style.background = 'rgba(255,193,7,0.2)';
+          anchoDisplay.style.color = '#856404';
+          anchoDisplay.title = 'Las fuerzas de viento no están calculadas. Ve a la tabla de Braces y modifica algún parámetro.';
+        } else {
+          anchoDisplay.textContent = `${anchoParaMostrar.toFixed(2)} m`;
+          anchoDisplay.title = anchoCalculado > anchoParaMostrar ? `Ancho calculado: ${anchoCalculado.toFixed(2)}m (limitado a ${ANCHO_EFECTIVO_MAX}m)` : '';
+          anchoDisplay.style.color = '#155724';
+          anchoDisplay.title = '';
+          // Animación de actualización
+          anchoDisplay.style.transform = 'scale(1.1)';
+          anchoDisplay.style.background = 'rgba(40,167,69,0.3)';
+          setTimeout(() => {
+            anchoDisplay.style.transform = 'scale(1)';
+            anchoDisplay.style.background = 'rgba(40,167,69,0.15)';
+          }, 200);
+        }
+        console.log('[ANCHO-RT] ✅ Display actualizado');
+      } else {
+        console.error('[ANCHO-RT] ❌ No se encontró el display del ancho');
+      }
+      
+      // ✅ ACTUALIZAR DISPLAYS de L_a, V_N, P_N
+      const largoDisplay = row.querySelector(`.largo-actualizado-display[data-grupo="${grupoClave}"]`);
+      const volumenDisplay = row.querySelector(`.volumen-nuevo-display[data-grupo="${grupoClave}"]`);
+      const pesoDisplay = row.querySelector(`.peso-nuevo-display[data-grupo="${grupoClave}"]`);
+      
+      if (largoDisplay) {
+        largoDisplay.textContent = `${largoNuevo > 0 ? largoNuevo.toFixed(2) : largoTotal.toFixed(2)} m`;
+        if (mostrarCalculosNuevos) {
+          largoDisplay.style.background = 'rgba(13,110,253,0.15)';
+          largoDisplay.style.border = '2px solid #0d6efd';
+          largoDisplay.style.color = '#0d6efd';
+          largoDisplay.style.fontWeight = 'bold';
+        } else {
+          largoDisplay.style.background = 'rgba(108,117,125,0.1)';
+          largoDisplay.style.border = '1px solid #6c757d';
+          largoDisplay.style.color = '#6c757d';
+          largoDisplay.style.fontWeight = 'normal';
+        }
+      }
+      
+      if (volumenDisplay) {
+        if (mostrarCalculosNuevos) {
+          volumenDisplay.textContent = `${volumenNuevo.toFixed(3)} m³`;
+          volumenDisplay.style.background = 'rgba(220,53,69,0.15)';
+          volumenDisplay.style.border = '2px solid #dc3545';
+          volumenDisplay.style.color = '#dc3545';
+          volumenDisplay.style.fontWeight = 'bold';
+          // Animación
+          volumenDisplay.style.transform = 'scale(1.1)';
+          setTimeout(() => volumenDisplay.style.transform = 'scale(1)', 200);
+        } else {
+          volumenDisplay.textContent = '—';
+          volumenDisplay.style.background = 'rgba(108,117,125,0.1)';
+          volumenDisplay.style.border = '1px dashed #6c757d';
+          volumenDisplay.style.color = '#adb5bd';
+          volumenDisplay.style.fontWeight = 'normal';
+        }
+      }
+      
+      if (pesoDisplay) {
+        if (mostrarCalculosNuevos) {
+          pesoDisplay.textContent = `${pesoNuevo.toFixed(1)} kg`;
+          pesoDisplay.style.background = 'rgba(220,53,69,0.15)';
+          pesoDisplay.style.border = '2px solid #dc3545';
+          pesoDisplay.style.color = '#dc3545';
+          pesoDisplay.style.fontWeight = 'bold';
+          // Animación
+          pesoDisplay.style.transform = 'scale(1.1)';
+          setTimeout(() => pesoDisplay.style.transform = 'scale(1)', 200);
+        } else {
+          pesoDisplay.textContent = '—';
+          pesoDisplay.style.background = 'rgba(108,117,125,0.1)';
+          pesoDisplay.style.border = '1px dashed #6c757d';
+          pesoDisplay.style.color = '#adb5bd';
+          pesoDisplay.style.fontWeight = 'normal';
+        }
+      }
+    });
+  });
+  
   console.log('[DASHBOARD] Listado de muertos mostrado:', Object.keys(gruposMuertos).length, 'grupos');
 }
 
@@ -1829,67 +2859,129 @@ function mostrarConfigGrupos(gruposMuertos) {
 function guardarProfundidadesMuertos() {
   console.log('[DASHBOARD] guardarProfundidadesMuertos - Guardando profundidades individuales');
   
+  // Función auxiliar para guardar profundidades con PUT
+  function guardarProfundidadesConPUT(pidProyecto, inputs, profundidadesValidas) {
+    let guardados = 0;
+    const promises = [];
+    inputs.forEach(input => {
+      const clave = input.getAttribute('data-grupo-clave');
+      const valor = parseFloat(input.value);
+      if (!clave || isNaN(valor) || valor <= 0) return;
+      const grupo = window.gruposMuertosGlobal[clave];
+      if (!grupo || !grupo.pid) return;
+      promises.push(
+        fetch(`${API_BASE}/api/grupos-muertos/${grupo.pid}/profundidad`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ profundidad: valor })
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) guardados++;
+        })
+        .catch(error => {
+          console.error(`[DASHBOARD] Error guardando profundidad para grupo ${clave}:`, error);
+        })
+      );
+    });
+    Promise.all(promises).then(() => {
+      // Resetear bordes a normal
+      inputs.forEach(input => {
+        input.style.borderColor = 'var(--border)';
+      });
+      alert(`✅ Profundidades guardadas exitosamente!\n\n` +
+            `📊 Resumen:\n` +
+            `• Total muertos: ${profundidadesValidas}\n` +
+            `• Guardados en BD: ${guardados}\n\n` +
+            `✨ Ahora puedes hacer clic en 'Calcular Armado Rectangular'`);
+    });
+  }
+  
   // Limpiar configuración anterior de profundidades
   if (!window.configGruposMuertos) {
     window.configGruposMuertos = {};
   }
   
-  // Obtener todos los inputs de profundidad
-  const inputs = document.querySelectorAll('.input-profundidad-muerto');
-  
-  console.log('[DASHBOARD] Inputs encontrados:', inputs.length);
-  
-  if (inputs.length === 0) {
-    alert('⚠️ No se encontraron inputs de profundidad');
+  // Obtener todos los inputs de profundidad y separaciones
+  const inputsProf = document.querySelectorAll('.input-profundidad-muerto');
+  const inputsSepLong = document.querySelectorAll('.input-sep-long-muerto');
+  const inputsSepTrans = document.querySelectorAll('.input-sep-trans-muerto');
+
+  console.log('[DASHBOARD] Inputs encontrados:', inputsProf.length, 'profundidad,', inputsSepLong.length, 'sepLong,', inputsSepTrans.length, 'sepTrans');
+
+  if (inputsProf.length === 0) {
+    alert('⚠️ No se encontraron inputs de configuración');
     return;
   }
-  
-  let profundidadesValidas = 0;
-  
-  inputs.forEach((input, index) => {
+
+  let configuracionesValidas = 0;
+
+  // Mapear inputs de separaciones por clave y convertir de metros a cm
+  const mapSepLong = {};
+  const mapSepTrans = {};
+  inputsSepLong.forEach(input => {
+    const clave = input.getAttribute('data-grupo-clave');
+    mapSepLong[clave] = parseFloat(input.value) * 100; // m → cm
+  });
+  inputsSepTrans.forEach(input => {
+    const clave = input.getAttribute('data-grupo-clave');
+    mapSepTrans[clave] = parseFloat(input.value) * 100; // m → cm
+  });
+
+  inputsProf.forEach((input, index) => {
     const clave = input.getAttribute('data-grupo-clave');
     const muerto = input.getAttribute('data-muerto');
     const valor = parseFloat(input.value);
-    
-    console.log(`[DASHBOARD] Input ${index + 1}:`, { clave, muerto, valor });
-    
+    const sepLong = mapSepLong[clave] || 25;
+    const sepTrans = mapSepTrans[clave] || 25;
+
+    console.log(`[DASHBOARD] Input ${index + 1}:`, { clave, muerto, valor, sepLong, sepTrans });
+
     if (!clave) {
       console.warn('[DASHBOARD] Input sin clave:', input);
       return;
     }
-    
+
     if (isNaN(valor) || valor <= 0) {
       console.warn(`[DASHBOARD] Valor inválido para ${muerto}: ${input.value}`);
       input.style.borderColor = 'red';
       return;
     }
-    
+    if (isNaN(sepLong) || sepLong < 10 || sepLong > 50) {
+      console.warn(`[DASHBOARD] Sep. Longitudinal inválido para ${muerto}: ${sepLong}`);
+      return;
+    }
+    if (isNaN(sepTrans) || sepTrans < 10 || sepTrans > 50) {
+      console.warn(`[DASHBOARD] Sep. Transversal inválido para ${muerto}: ${sepTrans}`);
+      return;
+    }
+
     // Inicializar objeto de configuración para este grupo si no existe
     if (!window.configGruposMuertos[clave]) {
       window.configGruposMuertos[clave] = {
-        espaciadoLong: 25,
-        espaciadoTrans: 25,
         factorSeguridad: 1.0,
         friccion: 0.3
       };
     }
-    
-    // Guardar profundidad
+
+    // Guardar configuración bajo la clave del grupo muerto
     window.configGruposMuertos[clave].profundo = valor;
+    window.configGruposMuertos[clave].separacionLongitudinal = sepLong;
+    window.configGruposMuertos[clave].separacionTransversal = sepTrans;
     input.style.borderColor = '#28a745'; // Verde para indicar guardado
-    profundidadesValidas++;
-    
-    console.log(`[DASHBOARD] ✓ ${muerto} (${clave}): ${valor}m`);
+    configuracionesValidas++;
+
+    console.log(`[DASHBOARD] ✓ ${muerto} (${clave}): Profundidad=${valor}m, SepLong=${(sepLong/100).toFixed(2)}m (${sepLong}cm), SepTrans=${(sepTrans/100).toFixed(2)}m (${sepTrans}cm)`);
   });
-  
-  console.log('[DASHBOARD] Total profundidades guardadas:', profundidadesValidas);
+
+  console.log('[DASHBOARD] Total configuraciones guardadas:', configuracionesValidas);
   console.log('[DASHBOARD] Configuración completa:', window.configGruposMuertos);
-  
-  if (profundidadesValidas === 0) {
-    alert('⚠️ No se pudo guardar ninguna profundidad. Verifica los valores ingresados.');
+
+  if (configuracionesValidas === 0) {
+    alert('⚠️ No se pudo guardar ninguna configuración. Verifica los valores ingresados.');
     return;
   }
-  
+
   // Mostrar mensaje de éxito
   const mensaje = document.getElementById('mensajeGuardado');
   if (mensaje) {
@@ -1898,58 +2990,89 @@ function guardarProfundidadesMuertos() {
       mensaje.style.display = 'none';
     }, 3000);
   }
-  
-  // Guardar en backend
+
+  const configParaBackend = {};
+  Object.keys(window.configGruposMuertos).forEach(clave => { // 👈 Iteramos sobre la configuración completa
+    // 1. OMITIR CLAVES "M1", "M2", etc.
+    if (clave.startsWith('M') && clave.length <= 3) {
+        return; // No incluir claves de frontend (M1, M2, etc.) en el payload del backend
+    }
+    
+    // 2. Incluir y parsear solo claves de backend (ej: "7.31|PUNTALES|55|M01")
+    const partes = clave.split('|');
+
+    // Solo procesar claves que se vean como x_inserto|tipo|angulo|eje (4 partes)
+    if (partes.length >= 4) {
+        const x_inserto_clave = parseFloat(partes[0]);
+        const tipo_brace_clave = partes[1];
+        const angulo_clave = parseFloat(partes[2]);
+        const eje_clave = partes[3]; 
+
+        if (!isNaN(x_inserto_clave) && !isNaN(angulo_clave)) {
+            // Creamos un nuevo objeto de configuración limpio
+            configParaBackend[clave] = {
+                profundo: window.configGruposMuertos[clave].profundo,
+                x_inserto: x_inserto_clave,
+                tipo_brace_seleccionado: tipo_brace_clave,
+                angulo_brace: angulo_clave,
+                eje: eje_clave,
+                // Puedes añadir aquí otras propiedades de configuración que necesites guardar
+            };
+        }
+    }
+});
+
+  // Guardar en backend usando PUT por grupo
   const projectConfig = localStorage.getItem('projectConfig');
   if (projectConfig) {
     const proyecto = JSON.parse(projectConfig);
-    
-    console.log('[DASHBOARD] Proyecto en localStorage:', proyecto);
-    console.log('[DASHBOARD] PID del proyecto:', proyecto.pid);
-    console.log('[DASHBOARD] Enviando al backend:', {
-      url: `${API_BASE}/api/grupos-muertos/${proyecto.pid}`,
-      proyecto: proyecto.pid,
-      config: window.configGruposMuertos
-    });
-    
-    fetch(`${API_BASE}/api/grupos-muertos/${proyecto.pid}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(window.configGruposMuertos)
-    })
-    .then(response => {
-      console.log('[DASHBOARD] Respuesta HTTP status:', response.status);
-      console.log('[DASHBOARD] Respuesta HTTP OK:', response.ok);
-      return response.json();
-    })
-    .then(data => {
-      console.log('[DASHBOARD] Datos recibidos del servidor:', data);
-      if (data.success) {
-        console.log('[DASHBOARD] ✅ Guardado en BD:', data);
-        
-        // Resetear bordes a normal
-        inputs.forEach(input => {
-          input.style.borderColor = 'var(--border)';
-        });
-        
-        alert(`✅ Profundidades guardadas exitosamente!\n\n` +
-              `📊 Resumen:\n` +
-              `• Total muertos: ${profundidadesValidas}\n` +
-              `• Guardados en BD: ${data.grupos?.length || profundidadesValidas}\n\n` +
-              `Los datos están disponibles para cálculos.`);
-      } else {
-        console.error('[DASHBOARD] Error guardando:', data.error);
-        alert('⚠️ Error al guardar en la base de datos:\n' + data.error + '\n\nLa configuración se guardó en memoria local.');
-      }
-    })
-    .catch(error => {
-      console.error('[DASHBOARD] Error en petición:', error);
-      alert('⚠️ Error de conexión con el servidor.\n\nLa configuración se guardó en memoria local y podrás usarla en esta sesión.');
-    });
+    // Verificar si existen grupos en BD
+    fetch(`${API_BASE}/api/grupos-muertos/${proyecto.pid}`)
+      .then(response => response.json())
+      .then(data => {
+        if (!data.success || !data.grupos || data.grupos.length === 0) {
+          // Si no existen, crear los grupos primero
+          console.log('[DASHBOARD] No existen grupos en BD, creando...');
+          fetch(`${API_BASE}/api/grupos-muertos/${proyecto.pid}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(configParaBackend)
+          })
+          .then(res => res.json())
+          .then(postData => {
+            if (postData.success) {
+              // Actualizar window.gruposMuertosGlobal con los nuevos grupos
+              postData.grupos.forEach(grupo => {
+                const xInserto = parseFloat(grupo.x_inserto || 0).toFixed(2);
+                const tipoBrace = grupo.tipo_brace_seleccionado || 'PUNTALES';
+                const angulo = Math.round(grupo.angulo_brace);
+                const eje = grupo.eje || '';
+                const clave = `${xInserto}|${tipoBrace}|${angulo}|${eje}`;
+                window.gruposMuertosGlobal[clave] = grupo;
+              });
+              console.log('[DASHBOARD] ✅ Grupos creados en BD');
+            } else {
+              alert('Error creando grupos en BD: ' + postData.error);
+            }
+          });
+        } else {
+          // Los grupos existen, actualizar profundidades directamente
+          data.grupos.forEach(grupo => {
+            const xInserto = parseFloat(grupo.x_inserto || 0).toFixed(2);
+            const tipoBrace = grupo.tipo_brace_seleccionado || 'PUNTALES';
+            const angulo = Math.round(grupo.angulo_brace);
+            const eje = grupo.eje || '';
+            const clave = `${xInserto}|${tipoBrace}|${angulo}|${eje}`;
+            window.gruposMuertosGlobal[clave] = grupo;
+          });
+          console.log('[DASHBOARD] ✅ Grupos ya existen en BD');
+        }
+      });
   } else {
     alert(`✅ Profundidades guardadas en memoria!\n\n` +
           `📊 Total: ${profundidadesValidas} muertos configurados\n\n` +
-          `⚠️ No hay proyecto seleccionado para guardar en BD.`);
+          `⚠️ No hay proyecto seleccionado para guardar en BD.\n` +
+          `✨ Ahora puedes hacer clic en 'Calcular Armado Rectangular'`);
   }
 }
 
@@ -1975,7 +3098,11 @@ async function cargarGruposMuertosDesdeBackend(pk_proyecto) {
       window.configGruposMuertos = {};
       
       data.grupos.forEach(grupo => {
-        const clave = `${grupo.x_braces}_${Math.round(grupo.angulo_brace)}_${grupo.eje || ''}`;
+        const xInserto = parseFloat(grupo.x_inserto || 0).toFixed(2);
+        const tipoBrace = grupo.tipo_brace_seleccionado || 'PUNTALES';
+        const angulo = Math.round(grupo.angulo_brace);
+        const eje = grupo.eje || '';
+        const clave = `${xInserto}|${tipoBrace}|${angulo}|${eje}`;
         window.configGruposMuertos[clave] = {
           profundo: parseFloat(grupo.profundidad) || 2.0,
           espaciadoLong: 25, // Valores por defecto si no están en BD
@@ -2092,25 +3219,24 @@ async function reagruparMuertos() {
     gruposMuertos = window.gruposMuertosGlobal;
   } else {
     console.log('[DASHBOARD] ⚠️ window.gruposMuertosGlobal no disponible, creando grupos por eje');
-    // Fallback: crear grupos por eje si no existe window.gruposMuertosGlobal
+    // Fallback: crear grupos por x_inserto, tipo, angulo, eje si no existe window.gruposMuertosGlobal
     gruposMuertos = {};
     
     murosConBraces.forEach(muro => {
-      const xBraces = muro.x_braces || 2;
+      const xInserto = parseFloat(muro.x_inserto || 0).toFixed(2);
+      const tipoBrace = muro.tipo_brace_seleccionado || 'PUNTALES';
       const angulo = Math.round(muro.angulo_brace || 55);
       const eje = muro.eje || '1';
       
-      // Crear clave única por EJE (no solo por x, ang, eje combinados)
-      const clave = `M${eje}`;
+      // Crear clave única por X_INSERTO|TIPO|ANGULO|EJE
+      const clave = `${xInserto}|${tipoBrace}|${angulo}|${eje}`;
       
       if (!gruposMuertos[clave]) {
         gruposMuertos[clave] = {
-          muerto: parseInt(eje),
-          x: xBraces,
-          ang: angulo,
-          eje: eje,
-          x_braces: xBraces,
+          xInserto: xInserto,
+          tipo: tipoBrace,
           angulo: angulo,
+          eje: eje,
           muros: []
         };
       }
@@ -2138,237 +3264,281 @@ async function reagruparMuertos() {
   // NOTA: No mostramos alert aquí para evitar confusión. El alert se mostrará desde el listener del evento.
 }
 
-// Función principal para ejecutar los cálculos de armado
-async function ejecutarCalculosArmado() {
-  try {
-    console.log('[DASHBOARD] ejecutarCalculosArmado - Iniciando cálculos de macizos de anclaje');
+// ============================================
+// FUNCIÓN: Generar Tabla Informativa de Muertos
+// ============================================
+function generarTablaInfoMuertos(gruposMuertos) {
+  const tbody = document.getElementById('tablaInfoMuertosBody');
+  if (!tbody) {
+    console.warn('[DASHBOARD] No se encontró tbody #tablaInfoMuertosBody');
+    return;
+  }
+
+  let html = '';
+
+  Object.keys(gruposMuertos).forEach((clave, index) => {
+    const grupo = gruposMuertos[clave];
+    const eje = grupo.eje || '-';
+    const distanciaX = grupo.xInserto || grupo.x_inserto || grupo.x || 0;
     
-    // PASO 0: Guardar todos los cambios en la BD antes de calcular
+    // Obtener configuración
+    const sepLong = window.configGruposMuertos?.[clave]?.separacionLongitudinal || 25;
+    const sepTrans = window.configGruposMuertos?.[clave]?.separacionTransversal || 25;
+    const sepLongM = (sepLong / 100).toFixed(2);
+    const sepTransM = (sepTrans / 100).toFixed(2);
+    
+    // Obtener lista de muros
+    let murosLista = '-';
+    if (grupo.muros && Array.isArray(grupo.muros)) {
+      murosLista = grupo.muros.map(muroId => {
+        const muroObj = window.lastResultadosMuertos?.find(m => m.id_muro === muroId || m.id === muroId);
+        return muroObj?.id_muro || muroId;
+      }).join(', ');
+    }
+    
+    html += `
+      <tr>
+        <td style="font-weight: bold;">${clave}</td>
+        <td style="text-align: center; font-weight: 600;">${eje}</td>
+        <td class="text-left">${murosLista}</td>
+        <td style="text-align: center;">${sepLongM}</td>
+        <td style="text-align: center;">${sepTransM}</td>
+        <td style="text-align: center; font-weight: bold;">${parseFloat(distanciaX).toFixed(2)}</td>
+      </tr>`;
+  });
+
+  tbody.innerHTML = html;
+  console.log('[DASHBOARD] ✅ Tabla informativa de muertos generada');
+}
+
+// Función principal para ejecutar los cálculos de armado
+// Función principal para ejecutar los cálculos de armado (RECTANGULAR)
+async function ejecutarCalculosArmado() {
+  console.log('[DEPURACIÓN] Iniciando ejecutarCalculosArmado (Rectangular)');
+
+  // 🔥 CRÍTICO: Actualizar configuración desde UI ANTES de calcular
+  actualizarConfiguracion();
+  console.log('[DASHBOARD] ✅ Configuración actualizada desde UI:', {
+    superior: configArmado.cantVarillasSuperior,
+    inferior: configArmado.cantVarillasInferior,
+    medias: configArmado.cantVarillasMedias,
+    sepLong: configArmado.separacionLongitudinal
+  });
+
+  try {
+    // =================================================================
+    // PASO 0: GUARDADO Y SINCRONIZACIÓN CON BASE DE DATOS
+    // =================================================================
     console.log('[DASHBOARD] Guardando todos los cambios en la BD antes de calcular armado...');
+    
     try {
-      // Ejecutar el botón de guardar si existe (simular click)
+      // 1. Intentar guardar cambios pendientes en la UI
       const btnGuardarTop = document.getElementById('btnGuardarTodosBracesTop');
       const btnGuardarBottom = document.getElementById('btnGuardarTodosBraces');
-      
+
       if (btnGuardarTop && btnGuardarTop.onclick) {
         console.log('[DASHBOARD] Ejecutando guardar cambios automáticamente...');
         await btnGuardarTop.onclick();
-        console.log('[DASHBOARD] Cambios guardados exitosamente');
       } else if (btnGuardarBottom && btnGuardarBottom.onclick) {
         console.log('[DASHBOARD] Ejecutando guardar cambios automáticamente (botón inferior)...');
         await btnGuardarBottom.onclick();
-        console.log('[DASHBOARD] Cambios guardados exitosamente');
-      } else {
-        console.log('[DASHBOARD] No se encontró botón de guardar, intentando función directa...');
-        // Intentar llamar la función directamente desde el scope global
-        if (window.guardarTodosBraces && typeof window.guardarTodosBraces === 'function') {
-          await window.guardarTodosBraces();
-          console.log('[DASHBOARD] Cambios guardados con función global');
-        }
+      } else if (window.guardarTodosBraces && typeof window.guardarTodosBraces === 'function') {
+        // Fallback a función global
+        await window.guardarTodosBraces();
       }
-      
-      // Pausa para asegurar que los cambios se han procesado en la BD
-      console.log('[DASHBOARD] Esperando 1 segundo para que la BD procese los cambios...');
+
+      // 2. Esperar propagación en BD
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // RECARGAR datos desde la BD para tener los valores actualizados
+
+      // 3. Recargar datos frescos desde el Backend
       console.log('[DASHBOARD] Recargando datos actualizados desde la base de datos...');
-      
       const projectConfig = localStorage.getItem('projectConfig');
-      if (!projectConfig) {
-        throw new Error('No hay proyecto seleccionado');
-      }
+      
+      if (!projectConfig) throw new Error('No hay proyecto seleccionado');
       
       const project = JSON.parse(projectConfig);
       const pid = project.pid || project.id;
-      console.log('[DASHBOARD] PID para cargar muros:', pid);
-      
-      if (!pid) {
-        throw new Error('No se encontró ID del proyecto');
-      }
-      
-      // Recargar datos de muros desde la BD
+
+      if (!pid) throw new Error('No se encontró ID del proyecto');
+
       const response = await fetch(`${API_BASE}/api/importar-muros/muros?pk_proyecto=${pid}`);
-      if (!response.ok) {
-        throw new Error('Error al recargar datos de muros');
-      }
-      
+      if (!response.ok) throw new Error('Error al recargar datos de muros');
+
       const responseData = await response.json();
       const murosActualizados = responseData.muros || responseData;
-      console.log('[DASHBOARD] Datos recargados desde BD:', murosActualizados.length, 'muros');
-      console.log('[DASHBOARD] Primer muro de BD (con fb):', murosActualizados[0]);
+
+      // 4. SOLO regenerar si no hay grupos válidos en memoria
+      // Si script.js ya hizo la agrupación secuencial, NO la sobreescribimos
+      const gruposExistentes = window.gruposMuertosGlobal || {};
+      const tieneGruposSecuenciales = Object.keys(gruposExistentes).some(k => k.startsWith('M'));
       
-      // Regenerar gruposMuertosGlobal con los datos actualizados
-      console.log('[DASHBOARD] Regenerando gruposMuertosGlobal con datos actualizados...');
-      const gruposMuertosActualizados = {};
-      
-      murosActualizados.forEach(muro => {
-        const xBraces = muro.x_braces || 2;
-        const angulo = Math.round(muro.angulo_brace || muro.angulo || 55);
-        const eje = muro.eje || 1;
-        
-        // Usar formato script.js (clave: x_ang_eje)
-        const clave = `${xBraces}_${angulo}_${eje}`;
-        
-        if (!gruposMuertosActualizados[clave]) {
-          gruposMuertosActualizados[clave] = {
-            x_braces: xBraces,
-            angulo: angulo,
-            eje: eje,
-            muros: []
-          };
-        }
-        
-        gruposMuertosActualizados[clave].muros.push(muro);
-      });
-      
-      // Actualizar global
-      window.gruposMuertosGlobal = gruposMuertosActualizados;
-      console.log('[DASHBOARD] gruposMuertosGlobal actualizado con datos de BD');
-      console.log('[DASHBOARD] Claves:', Object.keys(gruposMuertosActualizados));
-      console.log('[DASHBOARD] Primer grupo (debug):', Object.values(gruposMuertosActualizados)[0]);
-      
+      if (tieneGruposSecuenciales && Object.keys(gruposExistentes).length > 0) {
+        console.log('[DASHBOARD] ✅ Usando grupos secuenciales pre-calculados de script.js:', Object.keys(gruposExistentes).length, 'grupos');
+        // No regenerar, mantener los grupos secuenciales que ya están correctos
+      } else {
+        console.log('[DASHBOARD] ⚠️ No hay grupos secuenciales, regenerando desde BD...');
+        // Regenerar agrupación en memoria (window.gruposMuertosGlobal)
+        const gruposMuertosActualizados = {};
+
+        console.log('[DASHBOARD] Regenerando grupos desde BD. Total muros:', murosActualizados.length);
+        murosActualizados.forEach((muro, idx) => {
+          // Usar x_inserto (distancia) en lugar de x_braces (cantidad)
+          const xInserto = parseFloat(muro.x_inserto || 0).toFixed(2);
+          const tipoBrace = muro.tipo_brace_seleccionado || 'PUNTALES';
+          const angulo = Math.round(muro.angulo_brace || muro.angulo || 55);
+          const eje = muro.eje || '1';
+          
+          if (idx < 3) { // Log primeros 3 muros para debugging
+            console.log(`[DASHBOARD] Muro ${idx}: PID=${muro.pid}, eje="${muro.eje}", x_inserto=${muro.x_inserto}, tipo=${muro.tipo_brace_seleccionado}`);
+          }
+          
+          // Clave única de agrupación: X_INSERTO|TIPO|ANGULO|EJE
+          const clave = `${xInserto}|${tipoBrace}|${angulo}|${eje}`;
+
+          if (!gruposMuertosActualizados[clave]) {
+            gruposMuertosActualizados[clave] = {
+              xInserto: xInserto,
+              tipo: tipoBrace,
+              angulo: angulo,
+              eje: eje,
+              muros: []
+            };
+          }
+          gruposMuertosActualizados[clave].muros.push(muro);
+        });
+
+        window.gruposMuertosGlobal = gruposMuertosActualizados;
+        console.log('[DASHBOARD] Grupos sincronizados con BD:', Object.keys(gruposMuertosActualizados));
+      }
+
     } catch (errorGuardar) {
-      console.error('[DASHBOARD] Error al guardar/recargar cambios:', errorGuardar);
-      alert('⚠️ Advertencia: No se pudieron guardar los cambios automáticamente. Los cálculos pueden usar datos desactualizados.');
+      console.error('[DASHBOARD] Advertencia en sincronización:', errorGuardar);
+      // No detenemos el flujo, intentamos calcular con lo que hay en memoria
     }
-    
-    console.log('[DASHBOARD] window.gruposMuertosGlobal:', window.gruposMuertosGlobal);
-    console.log('[DASHBOARD] window.lastResultadosMuertos:', window.lastResultadosMuertos);
-    
-    // 1. Obtener datos de gruposMuertos desde el global (ya actualizado)
+
+    // =================================================================
+    // PASO 1: PREPARACIÓN DE DATOS
+    // =================================================================
     const gruposMuertos = window.gruposMuertosGlobal;
-    
+
     if (!gruposMuertos || Object.keys(gruposMuertos).length === 0) {
-      console.error('[DASHBOARD] No hay gruposMuertos disponibles');
-      alert('⚠️ Error: No hay datos de grupos de muros. Por favor:\n1. Importa un archivo TXT\n2. Calcula los braces\n3. Haz clic en "Reagrupar Muertos"\nLuego intenta de nuevo.');
+      alert('⚠️ Error: No hay datos de grupos. Por favor calcula las cargas de viento primero.');
       return;
     }
-    
-    console.log('[DASHBOARD] gruposMuertos disponible. Claves:', Object.keys(gruposMuertos));
-    
-    // 2. Preparar grupos (sumar dimensiones dentro de cada grupo)
-    console.log('[DASHBOARD] Preparando grupos para macizos...');
+
+    console.log('[DASHBOARD] Preparando grupos para macizos rectangulares...');
+
+    // Sincronización de profundidades manuales (Configuración específica por grupo)
+    if (window.configGruposMuertos) {
+      Object.keys(gruposMuertos).forEach(clave => {
+        let profundidadManual = null;
+        const grupo = gruposMuertos[clave];
+
+        // Prioridad 1: Configuración por clave exacta (ej: '2_55_A')
+        if (window.configGruposMuertos[clave]?.profundo) {
+          profundidadManual = window.configGruposMuertos[clave].profundo;
+        }
+        
+        // Prioridad 2: Configuración por Eje simple (ej: 'MA')
+        if (!profundidadManual && grupo.eje) {
+          const claveCorta = `M${grupo.eje}`; // Asumiendo eje es 'A', '1', etc.
+          if (window.configGruposMuertos[claveCorta]?.profundo) {
+            profundidadManual = window.configGruposMuertos[claveCorta].profundo;
+          }
+        }
+
+        // Aplicar si se encontró configuración manual
+        if (profundidadManual) {
+          gruposMuertos[clave].configGrupo = gruposMuertos[clave].configGrupo || {};
+          gruposMuertos[clave].configGrupo.profundo = profundidadManual;
+        }
+      });
+    }
+
+    // Preparar la estructura plana para el cálculo
     const gruposPreparados = prepararGruposParaMuertos(gruposMuertos);
-    console.log('[DASHBOARD] Grupos preparados:', gruposPreparados.length, gruposPreparados);
+
+    // =================================================================
+    // INSERTAR TABLA INFORMATIVA DE MUERTOS
+    // =================================================================
+    console.log('[DASHBOARD] Llamando generarTablaInfoMuertos con:', gruposMuertos);
+    generarTablaInfoMuertos(gruposMuertos);
+
+    // =================================================================
+    // PASO 2: CÁLCULO RECTANGULAR
+    // =================================================================
+    console.log('[DASHBOARD] Ejecutando cálculo rectangular...');
     
-    // 3. Calcular macizos rectangulares (usando imports directos)
-    console.log('[DASHBOARD] Calculando macizos rectangulares...');
+    // configArmado es la variable global definida en dashboard.js con los inputs del usuario
     const resultados = calcularMacizosRectangulares(gruposPreparados, configArmado);
-    console.log('[DASHBOARD] Macizos calculados:', resultados.length, resultados);
+
+    // =================================================================
+    // PASO 3: RENDERIZADO Y TOTALES
+    // =================================================================
     
-    // 4. Generar tabla HTML con resultados
-    console.log('[DASHBOARD] Generando tabla de resultados...');
+    // 3.1. Calcular Totales para las tarjetas
+    let totalVolumenConcreto = 0;
+    let totalPesoConcreto = 0;
+    let totalPesoAcero = 0;
+    let totalPesoAlambre = 0;
+
+    resultados.forEach(res => {
+      totalVolumenConcreto += res.volumenConcreto_m3 || 0;
+      totalPesoConcreto += res.pesoConcreto_kg || 0;
+      
+      const aceroLong = res.pesoLongitudinal_kg || 0;
+      const aceroTrans = res.pesoEstribos_kg || 0;
+      totalPesoAcero += (aceroLong + aceroTrans);
+      
+      totalPesoAlambre += res.pesoAlambre_kg || 0;
+    });
+
+    const totalMetal = totalPesoAcero + totalPesoAlambre;
+
+    // 3.2. Actualizar UI (Tarjetas de resumen)
+    const elTotalConcreto = document.getElementById('totalConcreto');
+    const elTotalAcero = document.getElementById('totalAcero');
+    const elTotalAlambre = document.getElementById('totalAlambre');
+    const elTotalMetal = document.getElementById('totalMetal');
+
+    if (elTotalConcreto) elTotalConcreto.textContent = `${totalVolumenConcreto.toFixed(2)} m³ / ${(totalPesoConcreto / 1000).toFixed(2)} ton`;
+    if (elTotalAcero) elTotalAcero.textContent = `${totalPesoAcero.toFixed(1)} kg / ${(totalPesoAcero / 1000).toFixed(3)} ton`;
+    if (elTotalAlambre) elTotalAlambre.textContent = `${totalPesoAlambre.toFixed(1)} kg / ${(totalPesoAlambre / 1000).toFixed(3)} ton`;
+    if (elTotalMetal) elTotalMetal.textContent = `${totalMetal.toFixed(1)} kg / ${(totalMetal / 1000).toFixed(3)} ton`;
+
+    // 3.3. Generar e inyectar Tabla HTML
     const tablaHTML = generarTablaResultadosMacizos(resultados);
-    console.log('[DASHBOARD] tablaHTML:', tablaHTML.substring(0, 200) + '...');
-    
-    // 5. Mostrar resultados en la tabla
     const tabla = document.getElementById('tablaArmadoResultados');
-    
-    console.log('[DASHBOARD] Buscando tabla #tablaArmadoResultados:', !!tabla);
-    
+
     if (tabla) {
-      console.log('[DASHBOARD] Tabla encontrada. Insertando tbody y tfoot...');
-      
-      // La función generarTablaResultadosMacizos() devuelve <tbody>...</tbody><tfoot>...</tfoot>
-      // Insertamos directamente en innerHTML de la tabla (mantiene thead intacto)
+      // Mantenemos el thead original y reemplazamos tbody/tfoot
       tabla.innerHTML = tabla.querySelector('thead').outerHTML + tablaHTML;
-      
-      console.log('[DASHBOARD] ✅ HTML (thead + tbody + tfoot) insertado en tabla');
-      
-      // Mostrar la tabla
-      tabla.style.display = '';
-      console.log('[DASHBOARD] ✅ Tabla visible');
-      
+      tabla.style.display = ''; // Asegurar visibilidad
+      console.log('[DASHBOARD] Tabla rectangular actualizada correctamente');
     } else {
-      console.error('[DASHBOARD] ❌ No se encontró #tablaArmadoResultados');
-      alert('Error: No se encontró la tabla para mostrar resultados');
+      console.error('[DASHBOARD] No se encontró la tabla #tablaArmadoResultados en el DOM');
     }
+
+    // =================================================================
+    // PASO 4: FINALIZACIÓN
+    // =================================================================
     
-    // 6. Guardar resultados globalmente
+    // Guardar en variable global para la generación de PDF
     window.ultimosResultadosMacizos = resultados;
-    console.log('[DASHBOARD] ✅ ejecutarCalculosArmado - Completado');
     
-    // 7. LOG DETALLADO: Verificar todos los valores de las tablas del proyecto
-    console.log('═══════════════════════════════════════════════════════════');
-    console.log('📊 VERIFICACIÓN COMPLETA DE DATOS DEL PROYECTO');
-    console.log('═══════════════════════════════════════════════════════════');
-    
-    // Obtener proyecto actual
-    const projectConfig = JSON.parse(localStorage.getItem('projectConfig') || '{}');
-    console.log('🔧 Proyecto:', projectConfig);
-    
-    // Verificar muros en la base de datos
-    try {
-      const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:4008' : '';
-      const murosResponse = await fetch(`${API_BASE}/api/importar-muros/muros?pk_proyecto=${projectConfig.pid}`);
-      const murosData = await murosResponse.json();
-      
-      console.log(`📋 TABLA MURO - Total registros: ${murosData.muros?.length || 0}`);
-      murosData.muros?.forEach((muro, index) => {
-        console.log(`   Muro ${index + 1} (PID: ${muro.pid}):`);
-        console.log(`      ID: ${muro.id_muro}`);
-        console.log(`      Eje: ${muro.eje || 'sin asignar'}`);
-        console.log(`      Ángulo: ${muro.angulo_brace}°`);
-        console.log(`      NPT: ${muro.npt}m`);
-        console.log(`      Tipo brace: ${muro.tipo_brace_seleccionado}`);
-        console.log(`      X braces: ${muro.x_braces}`);
-        console.log(`      FB: ${muro.fb} kN`);
-        console.log(`      FBX: ${muro.fbx} kN`);
-        console.log(`      FBY: ${muro.fby} kN`);
-        console.log(`      Cant B14: ${muro.cant_b14}`);
-        console.log(`      Cant B12: ${muro.cant_b12}`);
-        console.log(`      Cant B04: ${muro.cant_b04}`);
-        console.log(`      Cant B15: ${muro.cant_b15}`);
-        console.log(`      X inserto: ${muro.x_inserto}m`);
-        console.log(`      Y inserto: ${muro.y_inserto}m`);
-        console.log(`      Área: ${muro.area}m²`);
-        console.log(`      Peso: ${muro.peso} ton`);
-        console.log(`      Grosor: ${muro.grosor}m`);
-        console.log(`      Altura: ${muro.overall_height}m`);
-        console.log(`      FK grupo muerto: ${muro.fk_grupo_muerto || 'sin asignar'}`);
-        console.log(`   ───────────────────────────────────────`);
-      });
-      
-      // Verificar grupos de muertos
-      const gruposResponse = await fetch(`${API_BASE}/api/grupos-muertos/${projectConfig.pid}`);
-      const gruposData = await gruposResponse.json();
-      
-      console.log(`📦 TABLA GRUPO_MUERTO - Total registros: ${gruposData.grupos?.length || 0}`);
-      gruposData.grupos?.forEach((grupo, index) => {
-        console.log(`   Grupo ${index + 1} (PID: ${grupo.pid}):`);
-        console.log(`      Número muerto: M${grupo.numero_muerto}`);
-        console.log(`      Nombre: ${grupo.nombre || 'sin nombre'}`);
-        console.log(`      Eje: ${grupo.eje}`);
-        console.log(`      X braces: ${grupo.x_braces}`);
-        console.log(`      Ángulo: ${grupo.angulo_brace}°`);
-        console.log(`      Tipo construcción: ${grupo.tipo_construccion}`);
-        console.log(`      Cantidad muros: ${grupo.cantidad_muros}`);
-        console.log(`      Profundidad: ${grupo.profundidad}m`);
-        console.log(`      Largo: ${grupo.largo}m`);
-        console.log(`      Ancho: ${grupo.ancho}m`);
-        console.log(`      Fuerza total: ${grupo.fuerza_total} kN`);
-        console.log(`      Volumen concreto: ${grupo.volumen_concreto}m³`);
-        console.log(`      Peso muerto: ${grupo.peso_muerto} kN`);
-        console.log(`   ───────────────────────────────────────`);
-      });
-      
-      // Verificar datos en memoria
-      console.log(`💾 DATOS EN MEMORIA:`);
-      console.log(`   gruposMuertosGlobal:`, window.gruposMuertosGlobal);
-      console.log(`   ultimosResultadosMacizos:`, window.ultimosResultadosMacizos);
-      
-    } catch (error) {
-      console.error('❌ Error al verificar tablas:', error);
-    }
-    
-    console.log('═══════════════════════════════════════════════════════════');
-    
+    console.log('[DASHBOARD] ✅ Cálculo Rectangular completado exitosamente');
+
   } catch (error) {
-    console.error('❌ Error al calcular armado:', error);
-    alert('❌ Error al calcular armado rectangular: ' + error.message);
+    console.error('[DASHBOARD] ❌ Error crítico en cálculo rectangular:', error);
+    alert('Ocurrió un error al calcular el armado rectangular: ' + error.message);
   }
 }
+
+
+
+
+
+
 
 // Función para llenar la tabla de armado
 function llenarTablaArmado(reporte) {
@@ -2474,6 +3644,26 @@ document.addEventListener('DOMContentLoaded', function() {
     initArmadoRectangular();
   } else {
     console.warn('[ARMADO] ⚠️ Botón btnCalcularArmado no encontrado');
+  }
+  
+  // ===== ACTUALIZAR CATEGORÍA NSR-10 =====
+  function actualizarCategoriaNSR10() {
+    const selectorCategoria = document.getElementById('categoria_estructura_nsr10');
+    const display = document.getElementById('categoria_nsr10_display');
+    
+    if (selectorCategoria && display) {
+      const categoriaNSR = selectorCategoria.value;
+      display.textContent = categoriaNSR;
+      console.log('[DASHBOARD] Categoría NSR-10 actualizada:', categoriaNSR);
+    }
+  }
+  
+  // Event listener para actualizar categoría al cambiar selector
+  const selectorCategoriaNSR = document.getElementById('categoria_estructura_nsr10');
+  if (selectorCategoriaNSR) {
+    selectorCategoriaNSR.addEventListener('change', actualizarCategoriaNSR10);
+    // Actualizar al cargar
+    actualizarCategoriaNSR10();
   }
   
   // Listener para detectar cuando script.js actualiza window.gruposMuertosGlobal

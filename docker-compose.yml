@@ -1,5 +1,5 @@
 services:
-  db:
+  database:
     image: postgres:16
     restart: always
     environment:
@@ -20,7 +20,7 @@ services:
     ports:
       - "4008:4008"
     depends_on:
-      - db
+      - database
 
   frontend:
     build: ./frontend

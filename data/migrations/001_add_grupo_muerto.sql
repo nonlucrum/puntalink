@@ -30,8 +30,8 @@ BEGIN
             volumen_concreto DECIMAL(10,3),
             peso_muerto DECIMAL(10,2),
             
-            created_at TIMESTAMP DEFAULT NOW(),
-            updated_at TIMESTAMP DEFAULT NOW(),
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ DEFAULT NOW(),
             
             CONSTRAINT fk_grupo_muerto_proyecto FOREIGN KEY (pk_proyecto) 
                 REFERENCES proyecto (pid) ON DELETE CASCADE,
