@@ -84,7 +84,7 @@ Estos comandos y los del paso 4 se realizan desde la carpeta raíz del proyecto.
     ```
 
 ## Manual de usuario
-[Enlace al manual en Google Docs](https://docs.google.com/document/d/1SFRIbO5Gz7Ox665AXFnp1Tl14Uji9rCN0jzmqgrzed4/edit?tab=t.0#heading=h.y92z64m5mpwl)
+[Enlace al manual en Google Docs](https://drive.google.com/file/d/1zLXreBXLX6Niz4EJT39ZyNrOROOdcQHh/view?usp=drive_link)
 
 ## Contacto
 Equipo Nonlucrum
