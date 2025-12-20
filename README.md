@@ -1,4 +1,4 @@
-# PuntaLink v0.2b
+# PuntaLink v1.0
 
 **PuntaLink** es un sistema web para el análisis y gestión de proyectos estructurales, permitiendo importar archivos `.TXT`, procesar y visualizar datos de muros, realizar cálculos para braces y deadman, y generar reportes.
 
@@ -80,7 +80,7 @@ Estos comandos y los del paso 4 se realizan desde la carpeta raíz del proyecto.
 
 - Si está corriendo en background:
     ```cmd
-    docker compose down
+    docker compose stop
     ```
 
 ## Manual de usuario
