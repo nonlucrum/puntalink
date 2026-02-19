@@ -12,6 +12,7 @@ import panelesRoutes from './routes/panelesRoutes';
 import projectRoutes from './routes/projectRoutes';
 import authRoutes from './routes/authRoutes'; // 👈 NUEVO
 import grupoMuertoRoutes from './routes/grupoMuertoRoutes'; // 👈 NUEVO - Grupos de muertos
+import muroRoutes from './routes/muroRoutes';
 
 const app = express();
 
@@ -85,6 +86,9 @@ app.use('/api/paneles', panelesRoutes);
 
 // ===== Proyecto =====
 app.use('/api/proyecto', projectRoutes);
+
+// ===== Muros manuales =====
+app.use('/api/muros', muroRoutes);
 
 // ===== Grupos de Muertos (DEBE IR ANTES DEL 404) =====
 app.use('/api/grupos-muertos', grupoMuertoRoutes);

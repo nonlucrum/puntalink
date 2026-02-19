@@ -144,14 +144,14 @@ export async function duplicateProject(
       angulo_brace, npt, tipo_brace_seleccionado, factor_w2, eje,
       qz_kpa, presion_kpa, fuerza_viento,
       x_braces, fbx, fby, fb, x_inserto, y_inserto,
-        cant_b14, cant_b12, cant_b04, cant_b15, muertos, tipo_construccion
+        cant_b14, cant_b12, cant_b04, cant_b15, muertos, tipo_construccion, origen
     )
-    SELECT 
+    SELECT
       $2, num, id_muro, grosor, area, peso, volumen, overall_width, overall_height, cgx, cgy,
       angulo_brace, npt, tipo_brace_seleccionado, factor_w2, eje,
       qz_kpa, presion_kpa, fuerza_viento,
       x_braces, fbx, fby, fb, x_inserto, y_inserto,
-      cant_b14, cant_b12, cant_b04, cant_b15, muertos, tipo_construccion
+      cant_b14, cant_b12, cant_b04, cant_b15, muertos, tipo_construccion, origen
     FROM muro
     WHERE pk_proyecto = $1;
     `;

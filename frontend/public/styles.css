@@ -4569,3 +4569,75 @@ label {
 
 .dock-divider { height: 1px; background: rgba(0,0,0,0.08); margin: 6px 0; }
 .dock-spacer { flex: 1 1 auto; }
+
+/* ===== MUROS MANUALES ===== */
+
+/* Badge de origen */
+.badge-origen {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.badge-origen--txt {
+  background: rgba(31, 111, 235, 0.15);
+  color: #1f6feb;
+}
+.badge-origen--manual {
+  background: rgba(46, 160, 67, 0.15);
+  color: #2ea043;
+}
+
+/* Formulario de muro manual */
+.manual-muro-form .parameter-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+}
+
+/* Botones de mover */
+.btn-move {
+  background: none;
+  border: 1px solid var(--border, #ddd);
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 1px 5px;
+  font-size: 0.7rem;
+  line-height: 1;
+  color: var(--muted, #888);
+  transition: background 0.15s, color 0.15s;
+}
+.btn-move:hover:not(:disabled) {
+  background: var(--primary, #1f6feb);
+  color: #fff;
+  border-color: var(--primary, #1f6feb);
+}
+.btn-move:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Botón pequeño */
+.btn--sm {
+  padding: 4px 10px;
+  font-size: 0.8rem;
+}
+.btn--danger {
+  color: #e74c3c;
+  border-color: #e74c3c;
+}
+.btn--danger:hover {
+  background: #e74c3c;
+  color: #fff;
+}
+.btn--primary {
+  background: var(--primary, #1f6feb);
+  color: #fff;
+  border: 1px solid var(--primary, #1f6feb);
+}
+.btn--primary:hover {
+  opacity: 0.9;
+}

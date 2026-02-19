@@ -1127,16 +1127,16 @@ async function calcularCargasViento() {
     // Verificar que haya muros importados
     const panelesData = window.globalVars?.panelesActuales || [];
     if (!panelesData || panelesData.length === 0) {
-      console.error('[WIND] No hay muros importados');
+      console.error('[WIND] No hay muros en el proyecto');
       if (progress) progress.close();
       if (mostrarNotificacion) {
         mostrarNotificacion(
-          'Primero debes importar datos desde TXT. Ve a "Importar Datos desde TXT", selecciona tu archivo y haz clic en "Subir y procesar TXT".',
+          'No hay muros en el proyecto. Importe datos desde un archivo TXT o agregue muros manualmente en la sección "Agregar Muros Manualmente".',
           'warning',
           7000
         );
       } else {
-        alert('❌ Error: No hay muros importados.\n\n📋 PASOS CORRECTOS:\n1. Ve a "Importar Datos desde TXT"\n2. Selecciona tu archivo .TXT\n3. Haz clic en "Subir y procesar TXT"\n4. Verifica que aparezcan los muros\n5. Luego calcula cargas de viento');
+        alert('No hay muros en el proyecto.\n\nImporte datos desde un archivo TXT o agregue muros manualmente.');
       }
       return;
     }
@@ -1337,7 +1337,10 @@ export async function mostrarResultadosViento(data, progress = null, totalMuros 
     
     htmlTabla += `
       <tr data-pid="${pid}" data-alto="${resultado.altura_z_m}" data-presion="${resultado.presion_kPa}" data-fuerza="${resultado.fuerza_kN}">
-        <td style="border-left: 1px solid #dee2e6;"><strong>${idMuro}</strong></td>
+        <td style="border-left: 1px solid #dee2e6;">
+          <strong>${idMuro}</strong>
+          ${resultado.origen ? `<span class="badge-origen badge-origen--${resultado.origen === 'MANUAL' ? 'manual' : 'txt'}" style="margin-left: 4px; font-size: 0.65rem;">${resultado.origen === 'MANUAL' ? 'M' : 'T'}</span>` : ''}
+        </td>
         
         <!-- Datos del Muro -->
         <td>${resultado.area_m2}</td>
