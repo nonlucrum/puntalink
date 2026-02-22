@@ -881,9 +881,10 @@ export function updatePanelesDisplay(panelesActuales, elements, callbacks) {
     }
     openSection('results-section');
 
-    // Habilitar otros desplegables del menú
+    // Habilitar otros desplegables del menú (except report section which has its own state)
     const menuAccordions = document.getElementsByClassName("accordion-item");
     for (const item of menuAccordions) {
+      if (item.id === 'section-generar-informe') continue;
       item.classList.remove("disabled");
     }
   } else if (tablaPaneles.innerHTML !== '') {
@@ -1009,9 +1010,7 @@ export async function handleUploadTxt(file, elements, callbacks, globalVars) {
   if (btnCalcular) {
     btnCalcular.style.display = 'none';
   }
-  if (btnInforme) {
-    btnInforme.style.display = 'none';
-  }
+  updateReportSectionState(globalVars);
   console.log('[DASHBOARD] UI actualizada, enviando petición al servidor');
 
   try {
@@ -1107,15 +1106,15 @@ export async function handleCancelTxt(elements, globalVars) {
       resultadosCalculo.innerHTML = '<p class="muted">Los resultados de cálculo aparecerán aquí después de procesar los paneles.</p>';
     }
     if (btnCalcular) btnCalcular.style.display = 'none';
-    if (btnInforme) btnInforme.style.display = 'none';
     if (btnClearTxt) btnClearTxt.style.display = 'none';
     if (panelesInfo) {
       panelesInfo.innerHTML = '<p class="muted">Los paneles importados aparecerán aquí después de subir un archivo TXT.</p>';
     }
-    
+
     // Limpiar variables globales
     globalVars.panelesActuales = [];
     globalVars.resultadosActuales = [];
+    updateReportSectionState(globalVars);
     
     console.log('[DASHBOARD] UI limpiada exitosamente');
   } catch (err) {
@@ -1181,16 +1180,14 @@ export async function handleCalcularPaneles(elements, callbacks, globalVars) {
     if (!resp.ok || !json.ok) {
       console.log('[DASHBOARD] Error en cálculo:', json.error);
       resultadosCalculo.innerHTML = `<p class="error">${json.error || 'Error en cálculo.'}</p>`;
-      if (btnInforme) {
-        btnInforme.style.display = 'none';
-      }
+      updateReportSectionState(globalVars);
       return;
     }
-    
+
     console.log('[DASHBOARD] Cálculos completados exitosamente');
     globalVars.resultadosActuales = json.data;
     console.log('[DASHBOARD] Resultados obtenidos:', globalVars.resultadosActuales.length);
-    
+
     // Renderizar resultados
     let html = "<h3>Resultados de cálculo</h3>";
     html += "<div class='kpis'>";
@@ -1198,7 +1195,7 @@ export async function handleCalcularPaneles(elements, callbacks, globalVars) {
       // Buscar el número original del panel basado en el ID del muro
       const panelOriginal = globalVars.panelesActuales.find(p => p.id_muro === res.idMuro);
       const numeroPanel = panelOriginal ? panelOriginal.num : i + 1;
-      
+
       html += `<div class='kpi'><div class='kpi__label'>Panel #${numeroPanel} (${res.idMuro})</div>
         <div class='kpi__val'>Volumen: ${res.volumen_m3} m³</div>
         <div class='kpi__val'>Peso: ${res.peso_kN} kN</div>
@@ -1210,40 +1207,50 @@ export async function handleCalcularPaneles(elements, callbacks, globalVars) {
     html += "</div>";
     resultadosCalculo.innerHTML = html;
     console.log('[DASHBOARD] UI de resultados actualizada');
-    
-    if (btnInforme) {
-      btnInforme.style.display = globalVars.resultadosActuales.length ? '' : 'none';
-    }
-    console.log('[DASHBOARD] Botón informe mostrado:', globalVars.resultadosActuales.length > 0);
+
+    updateReportSectionState(globalVars);
+    console.log('[DASHBOARD] Report section state updated');
   } catch (err) {
     console.log('[DASHBOARD] Error de conexión en cálculo:', err.message);
     resultadosCalculo.innerHTML = `<p class="error">Error de conexión: ${err.message}</p>`;
-    if (btnInforme) {
-      btnInforme.style.display = 'none';
-    }
+    updateReportSectionState(globalVars);
   }
 }
 
-// ===== BOTÓN: GENERAR PDF =====
-export async function handleGenerarPDF(elements, globalVars) {
+// ===== BOTÓN: GENERAR INFORME (PDF / DOCX) =====
+// Backward compat alias
+export const handleGenerarPDF = handleGenerarInforme;
+
+export async function handleGenerarInforme(elements, globalVars) {
   console.log('[DASHBOARD] Botón generar informe clickeado');
-  const { btnInforme } = elements;
-  
+  const btnInforme = document.getElementById('btnInforme');
+
+  // Read selected format
+  const formatSelect = document.getElementById('reportFormat');
+  const format = formatSelect ? formatSelect.value : 'pdf';
+  const formatLabel = format === 'docx' ? 'DOCX' : 'PDF';
+
+  // Read selected image file (if any)
+  const imageInput = document.getElementById('reportImageInput');
+  const imageFile = imageInput && imageInput.files && imageInput.files.length > 0 ? imageInput.files[0] : null;
+
   // 1. Declaramos las variables AQUÍ ARRIBA para que existan en toda la función
   let murosConBraces = [];
-  let projectInfo = null; // <--- [CORRECCIÓN 1] Declarar variable vacía fuera del try
-  
-  if (!globalVars.resultadosTomoIII || globalVars.resultadosTomoIII.length === 0) {
-    alert('No hay resultados de cálculos. Por favor calcula las cargas de viento primero.');
+  let projectInfo = null;
+
+  // Validate project exists at minimum
+  const projectConfig = localStorage.getItem('projectConfig');
+  if (!projectConfig) {
+    alert('No hay proyecto seleccionado. Por favor selecciona un proyecto primero.');
     return;
   }
 
   // Guardar cambios pendientes
-  console.log('[DASHBOARD] Guardando todos los cambios antes de generar PDF...');
+  console.log('[DASHBOARD] Guardando todos los cambios antes de generar informe...');
   try {
     const btnGuardarTop = document.getElementById('btnGuardarTodosBracesTop');
     const btnGuardarBottom = document.getElementById('btnGuardarTodosBraces');
-    
+
     if (btnGuardarTop && btnGuardarTop.onclick) {
       await btnGuardarTop.onclick();
     } else if (btnGuardarBottom && btnGuardarBottom.onclick) {
@@ -1251,61 +1258,55 @@ export async function handleGenerarPDF(elements, globalVars) {
     } else if (window.guardarTodosBraces && typeof window.guardarTodosBraces === 'function') {
       await window.guardarTodosBraces();
     }
-    
+
     await new Promise(resolve => setTimeout(resolve, 1000));
-    
+
     // RECARGAR datos
-    const projectConfig = localStorage.getItem('projectConfig');
-    if (!projectConfig) throw new Error('No hay proyecto seleccionado');
-    
-    // <--- [CORRECCIÓN 2] Asignar valor a la variable externa (sin 'const' ni 'let')
     projectInfo = JSON.parse(projectConfig);
-    
+
     // Usar projectInfo.pid o projectInfo.id según corresponda
     const pid = projectInfo.pid || projectInfo.id;
-    
+
     const response = await fetch(`${API_BASE}/api/importar-muros/muros?pk_proyecto=${pid}`);
     if (!response.ok) throw new Error('Error al recargar datos de muros');
-    
+
     const responseData = await response.json();
     const murosActualizados = responseData.muros || responseData;
-    
-    // Fusionar datos
+
+    // Fusionar datos — si hay resultados de viento se fusionan, si no se usan los muros tal cual
+    const hasViento = globalVars.resultadosTomoIII && globalVars.resultadosTomoIII.length > 0;
     murosConBraces = murosActualizados.map(muro => {
-      const muroViento = globalVars.resultadosTomoIII.find(m => m.pid === muro.pid);
-      if (muroViento) {
-        return {
-          ...muroViento,
-          ...muro,
-          angulo_brace: muro.angulo_brace || muro.angulo || 55,
-          npt: muro.npt || 0.350,
-          tipo_brace_seleccionado: muro.tipo_brace_seleccionado || muro.tipo_brace || 'B12',
-          x_braces: muro.x_braces || 2,
-          x_inserto: muro.x_inserto || 0,
-          eje: muro.eje || '',
-          grosor: muro.grosor || 0,
-          overall_height: muro.overall_height || 0,
-          fbx: parseFloat(muro.fbx || 0),
-          fby: parseFloat(muro.fby || 0),
-          fb: parseFloat(muro.fb || 0)
-        };
-      }
-      return null;
-    }).filter(Boolean);
-    
+      const muroViento = hasViento ? globalVars.resultadosTomoIII.find(m => m.pid === muro.pid) : null;
+      return {
+        ...(muroViento || {}),
+        ...muro,
+        angulo_brace: muro.angulo_brace || muro.angulo || 55,
+        npt: muro.npt || 0.350,
+        tipo_brace_seleccionado: muro.tipo_brace_seleccionado || muro.tipo_brace || 'B12',
+        x_braces: muro.x_braces || 2,
+        x_inserto: muro.x_inserto || 0,
+        eje: muro.eje || '',
+        grosor: muro.grosor || 0,
+        overall_height: muro.overall_height || 0,
+        fbx: parseFloat(muro.fbx || 0),
+        fby: parseFloat(muro.fby || 0),
+        fb: parseFloat(muro.fb || 0)
+      };
+    });
+
   } catch (error) {
     console.error('[DASHBOARD] Error preparando datos:', error);
-    alert('Error preparando datos para PDF: ' + error.message);
+    alert('Error preparando datos para el informe: ' + error.message);
     return;
   }
-  
+
   // USAR LOS GRUPOS YA CALCULADOS DE script.js en lugar de regenerarlos
   let gruposMuertos, tablaMuertos;
-  
+
   if (window.gruposMuertosGlobal && Object.keys(window.gruposMuertosGlobal).length > 0) {
-    console.log('[DASHBOARD] ✅ Usando grupos pre-calculados de script.js:', Object.keys(window.gruposMuertosGlobal).length, 'grupos');
+    console.log('[DASHBOARD] Usando grupos pre-calculados de script.js:', Object.keys(window.gruposMuertosGlobal).length, 'grupos');
     gruposMuertos = window.gruposMuertosGlobal;
-    
+
     // Generar tablaMuertos desde los grupos pre-calculados
     tablaMuertos = [];
     let numeroMuerto = 1;
@@ -1323,23 +1324,23 @@ export async function handleGenerarPDF(elements, globalVars) {
       });
       numeroMuerto++;
     });
-    
-    console.log('[DASHBOARD] 📊 tablaMuertos generada con', tablaMuertos.length, 'muertos');
+
+    console.log('[DASHBOARD] tablaMuertos generada con', tablaMuertos.length, 'muertos');
   } else {
-    console.log('[DASHBOARD] ⚠️ No hay grupos pre-calculados, generando desde murosConBraces...');
+    console.log('[DASHBOARD] No hay grupos pre-calculados, generando desde murosConBraces...');
     // Fallback: Generar grupos desde cero (código original)
     gruposMuertos = {};
     tablaMuertos = [];
-  
+
     murosConBraces.forEach(muro => {
-    const xInserto = parseFloat(muro.x_inserto || 0).toFixed(2); // Distancia X redondeada a 2 decimales
+    const xInserto = parseFloat(muro.x_inserto || 0).toFixed(2);
     const tipoBrace = muro.tipo_brace_seleccionado || 'B12';
     const anguloVal = Math.round(muro.angulo_brace || 55);
     const ejeVal = muro.eje || 1;
     const clave = `${xInserto}|${tipoBrace}|${anguloVal}|${ejeVal}`;
-    
+
     console.log(`[GRUPOS] Muro ${muro.id_muro}: x_inserto=${muro.x_inserto}, xInserto=${xInserto}, tipo=${tipoBrace}, angulo=${anguloVal}, eje=${ejeVal}, clave=${clave}`);
-    
+
     if (!gruposMuertos[clave]) {
       gruposMuertos[clave] = {
         x_inserto: parseFloat(xInserto),
@@ -1354,16 +1355,16 @@ export async function handleGenerarPDF(elements, globalVars) {
 
   window.gruposMuertosGlobal = gruposMuertos;
   console.log('[DASHBOARD] Grupos actualizados:', Object.keys(gruposMuertos));
-  console.log('[DASHBOARD] 📊 Total de grupos (muertos únicos):', Object.keys(gruposMuertos).length);
+  console.log('[DASHBOARD] Total de grupos (muertos únicos):', Object.keys(gruposMuertos).length);
   Object.keys(gruposMuertos).forEach(clave => {
     console.log(`[DASHBOARD]   - Grupo "${clave}": ${gruposMuertos[clave].muros.length} muros`);
   });
 
   // Tabla resumen
-  numeroMuerto = 1;
+  let numeroMuerto = 1;
   Object.keys(gruposMuertos).forEach(clave => {
     const grupo = gruposMuertos[clave];
-    const primerMuro = grupo.muros[0]; // Tomar x_braces del primer muro
+    const primerMuro = grupo.muros[0];
     tablaMuertos.push({
       numero: numeroMuerto.toString(),
       muerto: `M${numeroMuerto}`,
@@ -1384,7 +1385,7 @@ export async function handleGenerarPDF(elements, globalVars) {
   mostrarConfigGrupos(gruposMuertos);
 
   // Recalcular macizos para asegurar sincronización
-  console.log('[DASHBOARD] Recalculando macizos antes de enviar PDF...');
+  console.log('[DASHBOARD] Recalculando macizos antes de enviar informe...');
   if (typeof window.ejecutarCalculosArmado === 'function') {
      await window.ejecutarCalculosArmado();
   }
@@ -1416,48 +1417,239 @@ export async function handleGenerarPDF(elements, globalVars) {
     }
   };
 
-  // Enviar PDF
+  // Enviar informe
   const progressIndicator = document.createElement('div');
   progressIndicator.style.cssText = "position: fixed; top: 20px; right: 20px; background: #007acc; color: white; padding: 15px; border-radius: 8px; z-index: 10000;";
-  progressIndicator.textContent = "Generando PDF...";
+  progressIndicator.textContent = `Generando ${formatLabel}...`;
   document.body.appendChild(progressIndicator);
   btnInforme.disabled = true;
 
   try {
     console.log('[DASHBOARD] Enviando reporteMacizos:', window.ultimosResultadosMacizos);
-    
-    const payload = { 
+
+    const payload = {
+        format: format,
         paneles: murosConBraces,
-        projectInfo: projectInfo, // <--- [CORRECCIÓN 3] Ahora esta variable SI existe y tiene datos
+        projectInfo: projectInfo,
         tablaMuertos: tablaMuertos,
-        reporteMacizos: window.ultimosResultadosMacizos, 
+        reporteMacizos: window.ultimosResultadosMacizos,
         configArmado: configArmadoActual
     };
 
-    const resp = await fetch(`${API_BASE}/api/paneles/pdf`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    
-    if (!resp.ok) throw new Error('Error en respuesta del servidor');
-    
+    let resp;
+    if (imageFile) {
+      // Use FormData for multipart upload
+      const formData = new FormData();
+      formData.append('data', JSON.stringify(payload));
+      formData.append('format', format);
+      formData.append('image', imageFile);
+      resp = await fetch(`${API_BASE}/api/informe/generar`, {
+        method: 'POST',
+        body: formData
+      });
+    } else {
+      resp = await fetch(`${API_BASE}/api/informe/generar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    }
+
+    if (!resp.ok) {
+      let errorMsg = 'Error en respuesta del servidor';
+      try {
+        const errBody = await resp.json();
+        if (errBody.errors) errorMsg = errBody.errors.join('\n');
+        else if (errBody.error) errorMsg = errBody.error;
+      } catch (_) { /* ignore parse error */ }
+      throw new Error(errorMsg);
+    }
+
     const blob = await resp.blob();
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'informe_muros_viento_braces.pdf';
+    a.download = format === 'docx' ? 'informe_proyecto.docx' : 'informe_proyecto.pdf';
     document.body.appendChild(a);
     a.click();
     a.remove();
     window.URL.revokeObjectURL(url);
-    
+
   } catch (err) {
     console.error(err);
-    alert('Error generando PDF: ' + err.message);
+    alert(`Error generando ${formatLabel}: ` + err.message);
   } finally {
     progressIndicator.remove();
     btnInforme.disabled = false;
+  }
+}
+
+// Client-side validation before sending
+function validateReportData(muros) {
+  const errors = [];
+  if (!muros || muros.length === 0) {
+    errors.push('- No hay muros con datos de cálculo.');
+  } else {
+    // Verify geometry and brace data
+    const badGeometry = muros.filter(m => {
+      const grosor = Number(m.grosor) || 0;
+      const area = Number(m.area) || 0;
+      return grosor <= 0 || area <= 0;
+    });
+    if (badGeometry.length > 0) {
+      errors.push(`- ${badGeometry.length} muro(s) con grosor o área inválidos.`);
+    }
+    const noFb = muros.filter(m => !m.fb || Number(m.fb) <= 0);
+    if (noFb.length > 0) {
+      errors.push(`- ${noFb.length} muro(s) sin fuerza de brace (fb) calculada.`);
+    }
+    const noXBraces = muros.filter(m => !m.x_braces || Number(m.x_braces) <= 0);
+    if (noXBraces.length > 0) {
+      errors.push(`- ${noXBraces.length} muro(s) sin cantidad de braces asignada.`);
+    }
+    const noId = muros.filter(m => !m.id_muro && !m.idMuro);
+    if (noId.length > 0) {
+      errors.push(`- ${noId.length} muro(s) sin identificador.`);
+    }
+  }
+  const projectConfig = localStorage.getItem('projectConfig');
+  if (projectConfig) {
+    try {
+      const pi = JSON.parse(projectConfig);
+      if (!pi.nombre) errors.push('- El proyecto no tiene nombre asignado.');
+    } catch (_) {
+      errors.push('- No se pudo leer la configuración del proyecto.');
+    }
+  } else {
+    errors.push('- No hay proyecto seleccionado.');
+  }
+  return errors;
+}
+
+// === Report section state management ===
+
+/**
+ * Updates the "Generar Informe" section readiness state.
+ * Checks prerequisites and enables/disables the section accordingly.
+ */
+export function updateReportSectionState(globalVars) {
+  const section = document.getElementById('section-generar-informe');
+  const btnInforme = document.getElementById('btnInforme');
+  const readyMuros = document.getElementById('ready-muros');
+  const readyViento = document.getElementById('ready-viento');
+  const readyBraces = document.getElementById('ready-braces');
+  const errorPanel = document.getElementById('reportErrorPanel');
+  const errorList = document.getElementById('reportErrorList');
+
+  if (!section) return;
+
+  // Check prerequisites
+  const hasMuros = globalVars.panelesActuales && globalVars.panelesActuales.length > 0;
+  const hasViento = globalVars.resultadosTomoIII && globalVars.resultadosTomoIII.length > 0;
+  const hasBraces = hasViento && globalVars.resultadosTomoIII.some(m => m.fb && Number(m.fb) > 0);
+
+  // Update checklist items
+  if (readyMuros) {
+    readyMuros.classList.toggle('ready', hasMuros);
+    readyMuros.classList.toggle('pending', !hasMuros);
+  }
+  if (readyViento) {
+    readyViento.classList.toggle('ready', hasViento);
+    readyViento.classList.toggle('pending', !hasViento);
+  }
+  if (readyBraces) {
+    readyBraces.classList.toggle('ready', hasBraces);
+    readyBraces.classList.toggle('pending', !hasBraces);
+  }
+
+  // Section and button are always enabled — report generates with whatever data is available
+  section.classList.remove('disabled');
+  if (btnInforme) {
+    btnInforme.disabled = false;
+  }
+
+  // Hide error panel when updating state (will be shown on generation attempt)
+  if (errorPanel) {
+    errorPanel.style.display = 'none';
+  }
+  if (errorList) {
+    errorList.innerHTML = '';
+  }
+}
+
+/**
+ * Shows validation errors in the report error panel.
+ */
+function showReportErrors(errors) {
+  const errorPanel = document.getElementById('reportErrorPanel');
+  const errorList = document.getElementById('reportErrorList');
+  if (!errorPanel || !errorList) return;
+  if (errors.length === 0) {
+    errorPanel.style.display = 'none';
+    errorList.innerHTML = '';
+    return;
+  }
+  errorList.innerHTML = errors.map(e => `<li>${e}</li>`).join('');
+  errorPanel.style.display = '';
+}
+
+// Expose for script.js
+window.updateReportSectionState = updateReportSectionState;
+
+// Image selection handlers (called from script.js setupImageSelector)
+export function setupReportImageSelector() {
+  const btnSelect = document.getElementById('btnSelectImage');
+  const btnRemove = document.getElementById('btnRemoveImage');
+  const imageInput = document.getElementById('reportImageInput');
+  const fileNameSpan = document.getElementById('imageFileName');
+  const previewDiv = document.getElementById('imagePreview');
+  const previewImg = document.getElementById('previewImg');
+
+  if (!btnSelect || !imageInput) return;
+
+  btnSelect.addEventListener('click', () => {
+    imageInput.click();
+  });
+
+  imageInput.addEventListener('change', () => {
+    const file = imageInput.files && imageInput.files[0];
+    if (!file) return;
+
+    // Validate type
+    if (!['image/png', 'image/jpeg'].includes(file.type)) {
+      alert('Solo se permiten imágenes PNG o JPEG.');
+      imageInput.value = '';
+      return;
+    }
+    // Validate size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('La imagen no debe superar 5MB.');
+      imageInput.value = '';
+      return;
+    }
+
+    if (fileNameSpan) fileNameSpan.textContent = file.name;
+    if (btnRemove) btnRemove.style.display = '';
+
+    // Show preview
+    if (previewDiv && previewImg) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        previewImg.src = e.target.result;
+        previewDiv.style.display = '';
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+
+  if (btnRemove) {
+    btnRemove.addEventListener('click', () => {
+      imageInput.value = '';
+      if (fileNameSpan) fileNameSpan.textContent = '';
+      btnRemove.style.display = 'none';
+      if (previewDiv) previewDiv.style.display = 'none';
+      if (previewImg) previewImg.src = '';
+    });
   }
 }
 

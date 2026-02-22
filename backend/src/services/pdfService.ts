@@ -5,6 +5,10 @@ import PDFDocument from 'pdfkit';
 import { PanelCalculado as PanelCalculadoPaneles } from './panelesService';
 import type { ParametrosProyecto } from './panelesService';
 import { Project } from '../models/Project';
+import {
+  ArmadoMuertoRow as ArmadoMuertoRowShared,
+  computeTotals as computeTotalsShared
+} from './reportDataBuilder';
 
 interface PanelCalculado {
   id_muro: string;
@@ -143,7 +147,8 @@ export function generarInformePaneles(
   tablaMuertos?: MuertoResumen[],
   tablaArmado?: ArmadoMuertoRow[],
   user?: UsuarioInfo,
-  reporteMacizos?: RawMacizoData[] // <--- ARGUMENTO IMPORTANTE
+  reporteMacizos?: RawMacizoData[], // <--- ARGUMENTO IMPORTANTE
+  reportImage?: Buffer
 ): Promise<Buffer> {
   console.log('[pdfService] Iniciando generación PDF...');
   
@@ -202,7 +207,7 @@ export function generarInformePaneles(
     });
 
     // Estructura del PDF (Original)
-    crearPortada(doc, projectInfo);
+    crearPortada(doc, projectInfo, reportImage);
     
     doc.addPage();
     crearPaginaProyecto(doc, projectInfo, user);
@@ -535,7 +540,7 @@ function fmt(n: number, d: number) {
 
 // --- PORTADA Y OTROS HELPERS (Mantener originales) ---
 
-function crearPortada(doc: any, projectInfo?: ProjectInfo) {
+function crearPortada(doc: any, projectInfo?: ProjectInfo, reportImage?: Buffer) {
   const pageW = doc.page.width;
   const pageH = doc.page.height;
 
@@ -614,6 +619,23 @@ function crearPortada(doc: any, projectInfo?: ProjectInfo) {
     doc.fontSize(16).fillColor('#2E86AB').text('CONSTRUCTORA:', 0, currentY, { align: 'center' });
     doc.fontSize(14).fillColor('#333333').text(projectInfo.empresa, 0, currentY + 20, { align: 'center' });
     currentY += 60;
+  }
+
+  // User report image
+  if (reportImage && reportImage.length > 0) {
+    try {
+      const maxImgW = pageW * 0.55;
+      const maxImgH = 180;
+      const img = (doc as any).openImage(reportImage);
+      const scale = Math.min(maxImgW / img.width, maxImgH / img.height);
+      const drawW = img.width * scale;
+      const drawH = img.height * scale;
+      const imgX = (pageW - drawW) / 2;
+      doc.image(reportImage, imgX, currentY, { width: drawW, height: drawH });
+      currentY += drawH + 20;
+    } catch (err) {
+      console.warn('[pdfService] Error al insertar imagen del usuario:', (err as any)?.message || err);
+    }
   }
 
   doc.fontSize(12)

@@ -13,6 +13,7 @@ import projectRoutes from './routes/projectRoutes';
 import authRoutes from './routes/authRoutes'; // 👈 NUEVO
 import grupoMuertoRoutes from './routes/grupoMuertoRoutes'; // 👈 NUEVO - Grupos de muertos
 import muroRoutes from './routes/muroRoutes';
+import reportRoutes from './routes/reportRoutes';
 
 const app = express();
 
@@ -92,6 +93,9 @@ app.use('/api/muros', muroRoutes);
 
 // ===== Grupos de Muertos (DEBE IR ANTES DEL 404) =====
 app.use('/api/grupos-muertos', grupoMuertoRoutes);
+
+// ===== Informe (PDF/DOCX) =====
+app.use('/api/informe', reportRoutes);
 
 // ===== 404 para APIs (SIEMPRE AL FINAL) =====
 app.use('/api', (_req: Request, res: Response) => {

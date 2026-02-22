@@ -22,13 +22,15 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 // ===== IMPORTACIÓN DE MÓDULOS =====
-import { 
+import {
   handleFileValidation,
   updatePanelesDisplay,
   handleUploadTxt,
   handleCancelTxt,
   handleCalcularPaneles,
   handleGenerarPDF,
+  handleGenerarInforme,
+  setupReportImageSelector,
   loadProjectInfo,
   editarProyecto,
   guardarCambiosProyecto,
@@ -808,13 +810,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Generar PDF
+  // Generar Informe (PDF/DOCX)
   if (btnInforme) {
     btnInforme.addEventListener('click', async () => {
       if (!requireAuthOrWarn()) return;
-      await handleGenerarPDF(uiElements, globalVars);
+      await handleGenerarInforme(uiElements, globalVars);
     });
   }
+
+  // Setup image selector for report
+  setupReportImageSelector();
 
   // Editar proyecto
   if (btnEditProject) {
@@ -1593,8 +1598,9 @@ export async function mostrarResultadosViento(data, progress = null, totalMuros 
   // Scroll hacia los resultados
   resultadosViento.scrollIntoView({ behavior: 'smooth' });
 
-  btnInforme.style.display = '';
-  btnInforme.disabled = false;
+  if (window.updateReportSectionState) {
+    window.updateReportSectionState(globalVars);
+  }
 
   // Cerrar progreso y mostrar éxito AL FINAL, después de renderizar todo
   if (progress) progress.close();
@@ -1686,8 +1692,14 @@ async function calcularBracesTiempoReal(input) {
   // Obtener valores actuales de la fila
   const altoText = row.dataset.alto || '15.15';
   const alto = parseFloat(altoText);
-  const angulo = parseFloat(row.querySelector('[data-field="angulo"]').value);
-  const npt = parseFloat(row.querySelector('[data-field="npt"]').value);
+  const anguloEl = row.querySelector('[data-field="angulo"]');
+  const nptEl = row.querySelector('[data-field="npt"]');
+  if (!anguloEl || !nptEl) {
+    console.warn(`[BRACES-RT] Inputs angulo/npt no encontrados en fila PID ${pid}`);
+    return;
+  }
+  const angulo = parseFloat(anguloEl.value);
+  const npt = parseFloat(nptEl.value);
   const factorW2 = 0.6; // Factor fijo
   
   // CALCULAR AUTOMÁTICAMENTE EL TIPO DE BRACE
