@@ -1,73 +1,89 @@
 "use strict";
+var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.informePaneles = informePaneles;
-const panelesService_1 = require("../services/panelesService");
+exports.PdfController = void 0;
+const reportValidator_1 = require("../validators/reportValidator");
+const reportDataBuilder_1 = require("../services/reportDataBuilder");
 const pdfService_1 = require("../services/pdfService");
-const Project_1 = require("../models/Project");
-async function informePaneles(req, res) {
-    try {
-        // 1. Extraer explícitamente reporteMacizos del body
-        const { paneles, projectId, userId, creadorProyecto, version, projectInfo: projectInfoBody, tablaMuertos, reporteMacizos // <--- ESTO ES LO QUE FALTABA O FALLABA
-         } = req.body;
-        console.log('[pdfController] Recibido request PDF.');
-        console.log(`[pdfController] Paneles: ${paneles?.length}`);
-        console.log(`[pdfController] Macizos recibidos: ${reporteMacizos ? reporteMacizos.length : 'UNDEFINED'}`);
-        if (!Array.isArray(paneles) || paneles.length === 0) {
-            return res.status(400).json({ ok: false, error: "Faltan los paneles." });
-        }
-        // Procesamiento de paneles
-        const resultados = (0, panelesService_1.calcularPaneles)(paneles);
-        const resultadosEnriquecidos = resultados.map((resultado, index) => ({
-            ...resultado,
-            ...paneles[index],
-            grosor_mm: paneles[index]?.grosor ? paneles[index].grosor * 1000 : undefined,
-            area_m2: paneles[index]?.area
-        }));
-        // Info del proyecto
-        let finalProjectInfo = undefined;
-        if (projectId && userId) {
-            try {
-                const project = await (0, Project_1.getProjectById)(projectId, userId);
-                if (project) {
-                    finalProjectInfo = {
-                        nombre: project.nombre,
-                        empresa: project.empresa,
-                        tipo_muerto: project.tipo_muerto,
-                        vel_viento: project.vel_viento,
-                        temp_promedio: project.temp_promedio,
-                        presion_atmo: project.presion_atmo,
-                        creadorProyecto: creadorProyecto || 'No especificado',
-                        version: version || '1.0'
-                    };
-                }
-            }
-            catch (error) {
-                console.log('[pdfController] Error obteniendo proyecto:', error);
-            }
-        }
-        // Merge info proyecto
-        if (projectInfoBody) {
-            finalProjectInfo = {
-                ...(finalProjectInfo || {}),
-                ...projectInfoBody,
-                creadorProyecto: creadorProyecto || projectInfoBody.creadorProyecto || finalProjectInfo?.creadorProyecto || 'No especificado',
-                version: version || projectInfoBody.version || finalProjectInfo?.version || '1.0'
-            };
-        }
-        const userInfo = {
-            name: creadorProyecto || 'Usuario',
-            email: ''
-        };
-        // 2. PASAR reporteMacizos AL SERVICIO (6to argumento)
-        const informeBuffer = await (0, pdfService_1.generarInformePaneles)(resultadosEnriquecidos, finalProjectInfo, tablaMuertos, undefined, userInfo, reporteMacizos // <--- AQUÍ SE PASAN LOS DATOS
-        );
-        console.log(`[pdfController] PDF generado exitosamente, tamaño: ${informeBuffer.length} bytes`);
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', 'attachment; filename="informe_paneles.pdf"');
-        res.send(informeBuffer);
-    }
-    catch (err) {
-        console.error('[pdfController] Error crítico:', err);
-        res.status(500).json({ ok: false, error: err.message });
-    }
+const docxService_1 = require("../services/docxService");
+class PdfController {
 }
+exports.PdfController = PdfController;
+_a = PdfController;
+PdfController.generarInforme = async (req, res) => {
+    try {
+        // Parse input: multipart (with image) or JSON
+        let rawData;
+        let imageBuffer;
+        if (req.is('multipart/form-data')) {
+            const dataField = req.body?.data;
+            if (!dataField) {
+                return res.status(400).json({ ok: false, error: 'Falta el campo "data" en la solicitud multipart.' });
+            }
+            try {
+                rawData = JSON.parse(dataField);
+            }
+            catch {
+                return res.status(400).json({ ok: false, error: 'El campo "data" no es JSON válido.' });
+            }
+            const file = req.file;
+            if (file?.buffer) {
+                imageBuffer = file.buffer;
+            }
+            // format may come as separate field or inside data
+            if (req.body?.format && !rawData.format) {
+                rawData.format = req.body.format;
+            }
+        }
+        else {
+            rawData = req.body;
+        }
+        // Validate with Zod
+        const parsed = reportValidator_1.GenerarInformeSchema.safeParse(rawData);
+        if (!parsed.success) {
+            const messages = parsed.error.issues.map((issue) => {
+                const path = issue.path.join('.');
+                return path ? `${path}: ${issue.message}` : issue.message;
+            });
+            return res.status(400).json({ ok: false, errors: messages });
+        }
+        const { format, paneles, projectInfo, tablaMuertos, reporteMacizos, configArmado } = parsed.data;
+        // Build ReportData
+        const reportData = (0, reportDataBuilder_1.buildReportData)({
+            paneles: paneles,
+            projectInfo: projectInfo,
+            tablaMuertos: tablaMuertos,
+            reporteMacizos: reporteMacizos,
+            reportImage: imageBuffer,
+        });
+        // Log completeness warnings (non-blocking)
+        const validation = (0, reportDataBuilder_1.validateReportCompleteness)(reportData);
+        if (!validation.valid) {
+            console.warn('[pdfController] Datos parciales:', validation.errors.join(', '));
+        }
+        // Generate document
+        let buffer;
+        let contentType;
+        let filename;
+        if (format === 'docx') {
+            console.log('[pdfController] Generando DOCX...');
+            buffer = await (0, docxService_1.generarInformeDocx)(reportData);
+            contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+            filename = 'informe_proyecto.docx';
+        }
+        else {
+            console.log('[pdfController] Generando PDF...');
+            buffer = await (0, pdfService_1.generarInformePDF)(reportData);
+            contentType = 'application/pdf';
+            filename = 'informe_proyecto.pdf';
+        }
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-Length', buffer.length);
+        res.end(buffer);
+    }
+    catch (error) {
+        console.error('[pdfController] Error generando informe:', error);
+        return res.status(500).json({ ok: false, error: 'Error interno al generar el informe.' });
+    }
+};

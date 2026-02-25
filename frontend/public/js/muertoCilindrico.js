@@ -114,7 +114,11 @@ function paso6_GenerarReporte(idMuro, inputs, p2, p3, p4, p5) {
             peso_concreto_kg: Math.round(p2.peso_kg),
             acero_long_kg: parseFloat(p3.peso_total_kg.toFixed(2)),
             acero_trans_kg: parseFloat(p4.peso_total_kg.toFixed(2)),
-            alambre_kg: parseFloat(p5.peso_kg.toFixed(2))
+            alambre_kg: parseFloat(p5.peso_kg.toFixed(2)),
+            cantBarrasLong: p3.cantidad,
+            cantEstribos: p4.cantidad,
+            espaciadoLong_cm: 0,
+            espaciadoTrans_cm: 25
         },
         total_muro: {
             volumen_total: parseFloat((p2.volumen_m3 * cant).toFixed(2)),

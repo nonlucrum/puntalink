@@ -314,7 +314,12 @@ function calcularReporteMuerto(dimensiones, inputsUI = {}) {
     pesoEstribos_kg: transversal.peso_kg,
     longAlambre_m: alambre.longitudTotal_m,
     pesoAlambre_kg: alambre.peso_kg,
-    pesoTotalArmado_kg: longitudinal.peso_kg + transversal.peso_kg + alambre.peso_kg
+    pesoTotalArmado_kg: longitudinal.peso_kg + transversal.peso_kg + alambre.peso_kg,
+
+    cantBarrasLong: longitudinal.totalBarrasLong,
+    cantEstribos: transversal.cantidad,
+    espaciadoLong_cm: longitudinal.detalles?.espaciadoReal_cm || 0,
+    espaciadoTrans_cm: transversal.espaciadoRealTrans_cm || 0
   };
 }
 
@@ -497,7 +502,12 @@ export function calcularMacizosRectangulares(gruposPreparados, configUI = {}) {
 
       longAlambre_m: reporte.longAlambre_m,
       pesoAlambre_kg: reporte.pesoAlambre_kg,
-      pesoTotal_kg: pesoReportar_kg + reporte.pesoTotalArmado_kg
+      pesoTotal_kg: pesoReportar_kg + reporte.pesoTotalArmado_kg,
+
+      cantBarrasLong: reporte.cantBarrasLong,
+      cantEstribos: reporte.cantEstribos,
+      espaciadoLong_cm: reporte.espaciadoLong_cm,
+      espaciadoTrans_cm: reporte.espaciadoTrans_cm
     });
   });
   return resultados;

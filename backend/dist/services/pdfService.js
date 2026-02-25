@@ -3,12 +3,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.generarInformePDF = generarInformePDF;
 exports.generarInformePaneles = generarInformePaneles;
 exports.generarInforme = generarInforme;
 const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
 const pdfkit_1 = __importDefault(require("pdfkit"));
-// Función para convertir entre formatos
 function convertirPanelParaPDF(panel) {
     return {
         id_muro: panel.idMuro,
@@ -21,19 +21,72 @@ function convertirPanelParaPDF(panel) {
         area: panel.area
     };
 }
-function generarInformePaneles(paneles, projectInfo, tablaMuertos, tablaArmado, user, reporteMacizos, // <--- ARGUMENTO IMPORTANTE
-reportImage) {
-    console.log('[pdfService] Iniciando generación PDF...');
-    // --- CAMBIO: Lógica de Mapeo para leer variables del frontend ---
+// ==================== CONSTANTS ====================
+const AZUL = '#2E86AB';
+const GRIS_BORDE = '#DDDDDD';
+const DISCLAIMER_TEXT = 'We disclaim any liability for any loss or damage, including without limitation, indirect or consequential loss or damage, or any loss or damage whatsoever arising from the use of this document. It is your responsibility to verify and independently assess the information provided and to ensure its suitability for your intended purpose. Nuestra empresa no se hace responsable por pérdidas o daños, incluyendo, sin limitación, pérdidas o daños indirectos o consecuentes, o cualquier pérdida o daño que surja de la utilización de este documento. Es su responsabilidad verificar y evaluar de forma independiente la información proporcionada y garantizar su idoneidad para su propósito previsto.';
+// ==================== MAIN EXPORT (ReportData signature) ====================
+function generarInformePDF(reportData) {
+    console.log('[pdfService] Iniciando generación PDF (nuevo formato)...');
+    const { paneles: rawPaneles, projectInfo, tablaMuertos, filasArmadoPairs, totals, user, reportImage, } = reportData;
+    const panelesConvertidos = rawPaneles.map(p => p);
+    return new Promise((resolve) => {
+        const doc = new pdfkit_1.default({ size: 'A4', margin: 40, bufferPages: true });
+        const buffers = [];
+        addBackgroundImage(doc);
+        doc.on('pageAdded', () => addBackgroundImage(doc));
+        doc.on('data', buffers.push.bind(buffers));
+        doc.on('end', () => {
+            console.log('[pdfService] Buffer finalizado.');
+            resolve(Buffer.concat(buffers));
+        });
+        // ===== PAGE STRUCTURE =====
+        // 1. Cover page
+        crearPortada(doc, projectInfo, reportImage);
+        // 2. Project info page
+        doc.addPage();
+        crearPaginaProyecto(doc, projectInfo, user);
+        // 3. Calculation results
+        doc.addPage();
+        crearPaginasCalculos(doc, panelesConvertidos);
+        // 4. Tabla 1: Armado por muerto (dos filas)
+        doc.addPage();
+        crearTablaArmadoPorMuertoPairs(doc, filasArmadoPairs, totals);
+        // 5. Tabla 2: Espaciamiento
+        doc.addPage();
+        crearTablaEspaciado(doc, filasArmadoPairs);
+        // 6. Esquema
+        doc.addPage();
+        crearEsquema(doc);
+        // 7. Resumen por muertos (optional)
+        if (tablaMuertos && tablaMuertos.length > 0) {
+            doc.addPage();
+            crearPaginaMuertos(doc, tablaMuertos);
+        }
+        // 8. Methodology + signature
+        doc.addPage();
+        crearDescripcionParametros(doc, projectInfo);
+        addSignatureSection(doc, user);
+        // ===== ADD HEADERS/FOOTERS TO ALL PAGES =====
+        const range = doc.bufferedPageRange();
+        const totalPages = range.count;
+        for (let i = 0; i < totalPages; i++) {
+            doc.switchToPage(i);
+            addHeaderFooter(doc, i + 1, totalPages);
+        }
+        doc.end();
+    });
+}
+// ==================== LEGACY EXPORT (backward compat) ====================
+function generarInformePaneles(paneles, projectInfo, tablaMuertos, tablaArmado, user, reporteMacizos, reportImage) {
+    console.log('[pdfService] Iniciando generación PDF (legacy)...');
     let filasArmadoFinales = tablaArmado || [];
     if (reporteMacizos && Array.isArray(reporteMacizos) && reporteMacizos.length > 0) {
-        console.log(`[pdfService] Transformando ${reporteMacizos.length} registros de macizos...`);
         filasArmadoFinales = reporteMacizos.map((m, i) => ({
             deadman: {
                 index: m.grupo_numero || (i + 1),
                 eje: String(m.eje || '-'),
                 muros: m.muros_list || (m.cantidadMuros ? `${m.cantidadMuros} muros` : ''),
-                // Usamos OR (||) para aceptar ambos nombres
                 largo_m: m.largo_total || m.profundidad || 0,
                 alto_m: m.alto_total || m.alto || 0,
                 ancho_m: m.espesor_bloque || m.ancho || 0
@@ -54,26 +107,20 @@ reportImage) {
             }
         }));
     }
-    else {
-        console.log('[pdfService] ⚠️ ADVERTENCIA: El array reporteMacizos llegó vacío o indefinido.');
-    }
-    // --------------------------------------------------------------
     const panelesConvertidos = paneles.map(panel => {
         if ('idMuro' in panel)
             return convertirPanelParaPDF(panel);
         return panel;
     });
     return new Promise((resolve) => {
-        const doc = new pdfkit_1.default({ size: 'A4', margin: 40 });
+        const doc = new pdfkit_1.default({ size: 'A4', margin: 40, bufferPages: true });
         const buffers = [];
         addBackgroundImage(doc);
         doc.on('pageAdded', () => addBackgroundImage(doc));
         doc.on('data', buffers.push.bind(buffers));
         doc.on('end', () => {
-            console.log('[pdfService] Buffer finalizado.');
             resolve(Buffer.concat(buffers));
         });
-        // Estructura del PDF (Original)
         crearPortada(doc, projectInfo, reportImage);
         doc.addPage();
         crearPaginaProyecto(doc, projectInfo, user);
@@ -85,268 +132,62 @@ reportImage) {
             doc.addPage();
             crearPaginaMuertos(doc, tablaMuertos);
         }
-        // TABLA DE ARMADO
         doc.addPage();
-        // Importante: usamos la variable procesada filasArmadoFinales
-        crearTablaArmadoPorMuerto(doc, filasArmadoFinales);
+        crearTablaArmadoLegacy(doc, filasArmadoFinales);
         doc.addPage();
         crearDescripcionParametros(doc, projectInfo);
         addSignatureSection(doc, user);
+        const range = doc.bufferedPageRange();
+        const totalPages = range.count;
+        for (let i = 0; i < totalPages; i++) {
+            doc.switchToPage(i);
+            addHeaderFooter(doc, i + 1, totalPages);
+        }
         doc.end();
     });
 }
-// ... (MANTENER TODAS LAS FUNCIONES AUXILIARES ORIGINALES ABAJO) ...
-// crearPortada, crearPaginaProyecto, etc.
-// NO CAMBIAR NADA DEL CÓDIGO VISUAL
-function crearTablaArmadoPorMuerto(doc, filas) {
-    const startX = 40;
-    const startY = 70;
-    const rowH = 22;
-    const bottomMargin = 60;
-    // === Columnas en el orden NUEVO: todo esto va dentro de DEADMAN ===
-    let cols = [
-        { key: 'index', w: 26, align: 'center' }, // #
-        { key: 'eje', w: 36, align: 'center' }, // Eje
-        { key: 'muros', w: 74, align: 'left' }, // Muros
-        { key: 'dm_largo', w: 50, align: 'center' }, // Largo (m)
-        { key: 'dm_alto', w: 50, align: 'center' }, // Alto (m)
-        { key: 'dm_ancho', w: 50, align: 'center' }, // Ancho (m)
-        // ACERO
-        { key: 'acero_cant', w: 32, align: 'center' }, // #
-        { key: 'acero_long', w: 64, align: 'center' }, // Longitud (m)
-        { key: 'acero_peso', w: 54, align: 'center' }, // Peso (kg)
-        { key: 'acero_dir', w: 68, align: 'center' }, // Dirección
-        // CONCRETO
-        { key: 'horm_vol', w: 54, align: 'center' }, // Vol (m³)
-        { key: 'horm_peso', w: 54, align: 'center' }, // Peso (ton)
-        // ALAMBRE
-        { key: 'alam_long', w: 68, align: 'center' }, // Longitud (m)
-        { key: 'alam_peso', w: 54, align: 'center' }, // Peso (kg)
-    ];
-    // --- Auto-scaling para no desbordar el ancho útil ---
-    const rightMargin = 40;
-    const available = doc.page.width - startX - rightMargin;
-    const rawTotal = cols.reduce((a, c) => a + c.w, 0);
-    const scale = Math.min(1, available / rawTotal);
-    if (scale < 1) {
-        const MIN_W = 22;
-        cols = cols.map(c => ({ ...c, w: Math.max(MIN_W, Math.floor(c.w * scale)) }));
-    }
-    // Índices de grupos
-    const idxDEADMAN = 0;
-    const lenDEADMAN = 6;
-    const idxACERO = 6;
-    const lenACERO = 4;
-    const idxHORM = 10;
-    const lenHORM = 2;
-    const idxALAMB = 12;
-    const lenALAMB = 2;
-    const azul = '#2E86AB';
-    const grisBorde = '#DDDDDD';
-    const groupWidth = (i, len) => cols.slice(i, i + len).reduce((a, c) => a + c.w, 0);
-    // === Helper: texto que se ajusta al ancho ===
-    function drawFittedText({ text, x, y, width, maxSize = 9, minSize = 7, align = 'center', abbr = {}, }) {
-        const original = text;
-        let t = (abbr[text] ?? text);
-        let size = maxSize;
-        const pad = 4;
-        while (size > minSize && doc.widthOfString(t, { size }) > (width - pad))
-            size -= 0.5;
-        if (doc.widthOfString(t, { size: Math.max(minSize, 6) }) > (width - pad)) {
-            const short = abbr[original];
-            if (short && short !== t) {
-                t = short;
-                size = Math.min(size, maxSize);
-                while (size > minSize && doc.widthOfString(t, { size }) > (width - pad))
-                    size -= 0.5;
-            }
-        }
-        while (doc.widthOfString(t, { size: Math.max(size, minSize) }) > (width - pad) && t.length > 1)
-            t = t.slice(0, -1);
-        if (t !== original && !t.endsWith('…') && !abbr[original])
-            t = t.slice(0, Math.max(0, t.length - 1)) + '…';
-        doc.fontSize(Math.max(size, minSize)).text(t, x, y, { width, align });
-    }
-    // === Encabezado grande ===
-    const drawBigHeader = (y) => {
-        doc.fontSize(18).fillColor(azul).text('Tabla de Armado por Muerto', startX, y - 38);
-        doc.strokeColor(azul).lineWidth(2)
-            .moveTo(startX, y - 14)
-            .lineTo(startX + groupWidth(0, cols.length), y - 14)
-            .stroke();
-        const h1 = 24;
-        let x = startX;
-        const drawGroup = (label, from, len) => {
-            const w = groupWidth(from, len);
-            doc.save();
-            doc.rect(x, y, w, h1).fillAndStroke('#E8F4FD', azul);
-            doc.fillColor('#1b1b1b');
-            drawFittedText({ text: label.toUpperCase(), x, y: y + 6, width: w, maxSize: 9, minSize: 7, align: 'center' });
-            doc.restore();
-            x += w;
-        };
-        drawGroup('DEADMAN', idxDEADMAN, lenDEADMAN);
-        drawGroup('ACERO', idxACERO, lenACERO);
-        drawGroup('CONCRETO', idxHORM, lenHORM);
-        drawGroup('ALAMBRE', idxALAMB, lenALAMB);
-        return y + h1;
-    };
-    // === Encabezado chico ===
-    const drawSmallHeader = (y) => {
-        const h2 = 18;
-        const labels = [
-            '#', 'EJE', 'MUROS',
-            'LARGO', 'ALTO', 'ANCHO',
-            '#', 'LONGITUD', 'PESO', 'DIRECCIÓN',
-            'VOL', 'PESO',
-            'LONGITUD', 'PESO',
-        ];
-        const units = [
-            '', '', '',
-            'm', 'm', 'm',
-            '', 'm', 'kg', '***',
-            'm³', 'ton',
-            'm', 'kg',
-        ];
-        const abbr = { 'LONGITUD': 'LONG.', 'DIRECCIÓN': 'DIR.' };
-        let x = startX;
-        for (let i = 0; i < cols.length; i++) {
-            doc.save();
-            doc.rect(x, y, cols[i].w, h2).fillAndStroke('#F6F9FC', '#CCCCCC');
-            doc.fillColor('#000000');
-            drawFittedText({ text: labels[i], x, y: y + 2, width: cols[i].w, maxSize: 8, minSize: 6, align: 'center', abbr });
-            if (units[i]) {
-                doc.fillColor('#777777');
-                drawFittedText({ text: units[i], x, y: y + 9, width: cols[i].w, maxSize: 6, minSize: 5, align: 'center' });
-            }
-            doc.restore();
-            x += cols[i].w;
-        }
-        return y + h2;
-    };
-    const drawHeaders = (y) => {
-        let yy = drawBigHeader(y);
-        yy = drawSmallHeader(yy);
-        return yy;
-    };
-    let y = drawHeaders(startY);
-    const hadRows = !!(filas && filas.length > 0);
-    if (!hadRows) {
-        doc.fontSize(12).fillColor('#666')
-            .text('No existen datos disponibles para esta sección.', startX, y + 8, {
-            width: groupWidth(0, cols.length), align: 'center'
-        });
-        const emptyH = 28;
-        doc.rect(startX, y + 28, groupWidth(0, cols.length), emptyH).strokeColor(grisBorde).stroke();
-        y += 28 + emptyH;
-    }
-    filas.forEach((r, idx) => {
-        if (y + rowH > doc.page.height - bottomMargin) {
-            doc.addPage();
-            y = drawHeaders(70);
-        }
-        const bg = idx % 2 === 0 ? '#FFFFFF' : '#F8F9FA';
-        let x = startX;
-        const cells = [
-            { text: r.deadman.index, w: cols[0].w, align: 'center' },
-            { text: r.deadman.eje, w: cols[1].w, align: 'center' },
-            { text: r.deadman.muros, w: cols[2].w, align: 'left' },
-            { text: fixedOrDash(r.deadman.largo_m, 2), w: cols[3].w, align: 'center' },
-            { text: fixedOrDash(r.deadman.alto_m, 2), w: cols[4].w, align: 'center' },
-            { text: fixedOrDash(r.deadman.ancho_m, 2), w: cols[5].w, align: 'center' },
-            { text: r.acero.cantidad ?? '—', w: cols[6].w, align: 'center' },
-            { text: fixedOrDash(r.acero.longitud_m, 2), w: cols[7].w, align: 'center' },
-            { text: fixedOrDash(r.acero.peso_kg, 2), w: cols[8].w, align: 'center' },
-            { text: r.acero.direccion || '—', w: cols[9].w, align: 'center' },
-            { text: fixedOrDash(r.concreto.vol_m3, 2), w: cols[10].w, align: 'center' },
-            { text: fixedOrDash(r.concreto.peso_ton, 2), w: cols[11].w, align: 'center' },
-            { text: fixedOrDash(r.alambre.longitud_m, 2), w: cols[12].w, align: 'center' },
-            { text: fixedOrDash(r.alambre.peso_kg, 2), w: cols[13].w, align: 'center' },
-        ];
-        cells.forEach((c) => {
-            doc.rect(x, y, c.w, rowH).fillAndStroke(bg, grisBorde);
-            doc.fillColor('#000000').fontSize(9)
-                .text(String(c.text), x + 3, y + 6, { width: c.w - 6, align: (c.align || 'center') });
-            x += c.w;
-        });
-        y += rowH;
-    });
-    y += 18;
-    const panelH = 26 + 34 + 10;
-    if (y + panelH > doc.page.height - bottomMargin) {
-        doc.addPage();
-        y = 70;
-    }
-    const totalWidth = groupWidth(0, cols.length);
-    const totals = computeTotals(filas || []);
-    drawTotalsPanel(doc, {
-        x: startX,
-        y,
-        w: totalWidth,
-        hHeader: 26,
-        hRow: 34,
-        data: totals
-    });
-    function fixedOrDash(n, d = 2) {
-        return (n === null || n === undefined || Number.isNaN(n)) ? '—' : Number(n).toFixed(d);
-    }
+function generarInforme(resultados) {
+    return generarInformePaneles(resultados);
 }
-function computeTotals(rows) {
-    const sum = (arr, sel) => arr.reduce((a, it) => a + (Number(sel(it)) || 0), 0);
-    const concretoVol_m3 = sum(rows, r => r.concreto.vol_m3);
-    const concretoTon = sum(rows, r => r.concreto.peso_ton);
-    const aceroKg = sum(rows, r => r.acero.peso_kg);
-    const alambreKg = sum(rows, r => r.alambre.peso_kg);
-    const metalKg = aceroKg + alambreKg;
-    return {
-        concreto: { m3: concretoVol_m3, ton: concretoTon },
-        acero: { kg: aceroKg, ton: aceroKg / 1000 },
-        alambre: { kg: alambreKg, ton: alambreKg / 1000 },
-        metal: { kg: metalKg, ton: metalKg / 1000 }
-    };
-}
-function drawTotalsPanel(doc, opts) {
-    const azul = '#00B5E2';
-    const grisBorde = '#1a1a1a';
-    const { x, y, w, hHeader, hRow, data } = opts;
-    const colW = w / 4;
+// ==================== HEADER / FOOTER ====================
+function addHeaderFooter(doc, pageNum, totalPages) {
+    const pageW = doc.page.width;
+    const pageH = doc.page.height;
+    // Header: "DEADMAN" top-right
     doc.save();
-    doc.rect(x, y, w, hHeader).fillAndStroke(azul, azul);
-    doc.fillColor('#ffffff').fontSize(10);
-    const labels = [
-        '🧱  CONCRETO TOTAL',
-        '🧰  ACERO TOTAL',
-        '⛓️  ALAMBRE TOTAL',
-        '⚖️  METAL TOTAL',
-    ];
-    for (let i = 0; i < 4; i++) {
-        doc.text(labels[i], x + i * colW + 8, y + 7, { width: colW - 16, align: 'left' });
-        if (i > 0) {
-            doc.moveTo(x + i * colW, y).lineTo(x + i * colW, y + hHeader).strokeColor(azul).stroke();
-        }
-    }
+    doc.fontSize(11).fillColor(AZUL).font('Helvetica-Bold')
+        .text('DEADMAN', pageW - 130, 15, { width: 90, align: 'right' });
     doc.restore();
-    const yRow = y + hHeader;
-    const cells = [
-        ` ${fmt(data.concreto.m3, 2)} m³ / ${fmt(data.concreto.ton, 2)} ton`,
-        ` ${fmt(data.acero.kg, 0)} kg / ${fmt(data.acero.ton, 2)} ton`,
-        ` ${fmt(data.alambre.kg, 0)} kg / ${fmt(data.alambre.ton, 2)} ton`,
-        ` ${fmt(data.metal.kg, 0)} kg / ${fmt(data.metal.ton, 2)} ton`,
-    ];
-    for (let i = 0; i < 4; i++) {
-        const cx = x + i * colW;
-        doc.rect(cx, yRow, colW, hRow).strokeColor(grisBorde).lineWidth(1).stroke();
-        doc.fontSize(12).fillColor('#000000')
-            .text(cells[i], cx, yRow + (hRow - 12) / 2 - 2, { width: colW, align: 'center' });
-    }
+    // Footer area
+    const footerY = pageH - 55;
+    // Disclaimer (small text)
+    doc.save();
+    doc.fontSize(5).fillColor('#888888').font('Helvetica')
+        .text(DISCLAIMER_TEXT, 40, footerY - 18, {
+        width: pageW - 80,
+        align: 'justify',
+        lineBreak: true,
+    });
+    doc.restore();
+    // Bottom line
+    const bottomY = pageH - 20;
+    doc.save();
+    doc.fontSize(7).fillColor('#888888').font('Helvetica');
+    // Website left
+    doc.text('www.puntalink.com', 40, bottomY, { width: 150, align: 'left' });
+    // Page number center
+    doc.text(`Page ${pageNum} of ${totalPages}`, 0, bottomY, { width: pageW, align: 'center' });
+    // Date right
+    const now = new Date();
+    const dateStr = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}/${String(now.getFullYear()).slice(-2)}`;
+    doc.text(dateStr, pageW - 140, bottomY, { width: 100, align: 'right' });
+    doc.restore();
 }
-function fmt(n, d) {
-    return (Number(n) || 0).toFixed(d);
-}
-// --- PORTADA Y OTROS HELPERS (Mantener originales) ---
+// ==================== COVER PAGE ====================
 function crearPortada(doc, projectInfo, reportImage) {
     const pageW = doc.page.width;
     const pageH = doc.page.height;
+    // Background image
     const fondoPath = getAssetPath('fondo.jpg');
     drawCoverImage(doc, fondoPath, pageW, pageH, 0.28);
     doc.save();
@@ -355,6 +196,7 @@ function crearPortada(doc, projectInfo, reportImage) {
     doc.save();
     doc.opacity(0.06).rect(0, 0, pageW, pageH).fill('#000000');
     doc.restore();
+    // Logo
     const logoPath = getAssetPath('logo.png');
     const titleFontName = registerFontIfExists(doc, 'TitleFont', 'fonts/Montserrat-Bold.ttf') ||
         registerFontIfExists(doc, 'TitleFont', 'fonts/Poppins-SemiBold.ttf');
@@ -362,58 +204,66 @@ function crearPortada(doc, projectInfo, reportImage) {
         doc.font('TitleFont');
     else
         doc.font('Helvetica-Bold');
-    const title = 'PUNTALINK';
-    const titleSize = 38;
-    const topMargin = 110;
-    const gapLogoTitle = 12;
-    doc.fontSize(titleSize).fillColor('#1f1f1f');
-    const titleLineHeight = doc.currentLineHeight();
-    const maxLogoWidth = doc.page.width * 0.28;
-    const maxLogoHeight = Math.max(80, titleLineHeight * 1.6);
-    const logoImg = doc.openImage(logoPath);
-    const lw = logoImg.width;
-    const lh = logoImg.height;
-    const scale = Math.min(maxLogoWidth / lw, maxLogoHeight / lh);
-    const drawLogoW = lw * scale;
-    const drawLogoH = lh * scale;
-    const logoX = (pageW - drawLogoW) / 2;
-    const logoY = topMargin;
+    // Logo centered at top
+    const maxLogoWidth = pageW * 0.28;
+    const maxLogoHeight = 80;
+    try {
+        const logoImg = doc.openImage(logoPath);
+        const scale = Math.min(maxLogoWidth / logoImg.width, maxLogoHeight / logoImg.height);
+        const drawLogoW = logoImg.width * scale;
+        const drawLogoH = logoImg.height * scale;
+        const logoX = (pageW - drawLogoW) / 2;
+        doc.save();
+        doc.opacity(1);
+        doc.image(logoPath, logoX, 80, { width: drawLogoW, height: drawLogoH });
+        doc.restore();
+    }
+    catch (e) { /* logo not found */ }
+    let currentY = 180;
+    // "DEADMAN" title
+    doc.fontSize(42).fillColor('#1f1f1f')
+        .text('DEADMAN', 0, currentY, { align: 'center' });
+    currentY += 55;
+    // Bilingual subtitle
+    doc.fontSize(13).fillColor('#333333')
+        .text('LIFTING AND BRACING ENGINEERING OF TILT-UP PANELS', 0, currentY, { align: 'center' });
+    currentY += 18;
+    doc.fontSize(11).fillColor('#555555')
+        .text('INGENIERÍA DE IZAJE Y PLOMEO DE MUROS TILT-UP', 0, currentY, { align: 'center' });
+    currentY += 40;
+    // Decorative line
     doc.save();
-    doc.opacity(1);
-    doc.image(logoPath, logoX, logoY, { width: drawLogoW, height: drawLogoH });
-    doc.restore();
-    const titleY = logoY + drawLogoH + gapLogoTitle;
-    doc.fontSize(titleSize).fillColor('#1f1f1f')
-        .text(title, 0, titleY, { align: 'center' });
-    const afterTitleY = titleY + titleLineHeight + 12;
-    doc.fontSize(16)
-        .fillColor('#4a4a4a')
-        .text('Sistema de Análisis y Cálculo Estructural', 0, afterTitleY, { align: 'center' });
-    doc.save();
-    doc.strokeColor('#2E86AB').lineWidth(3)
-        .moveTo(pageW * 0.25, afterTitleY + 28)
-        .lineTo(pageW * 0.75, afterTitleY + 28)
+    doc.strokeColor(AZUL).lineWidth(3)
+        .moveTo(pageW * 0.20, currentY)
+        .lineTo(pageW * 0.80, currentY)
         .stroke();
     doc.restore();
-    doc.fontSize(20).fillColor('#333333')
-        .text('INFORME DE ANÁLISIS', 0, afterTitleY + 58, { align: 'center' })
-        .text('DE MUERTOS CORRIDOS', 0, afterTitleY + 86, { align: 'center' });
-    let currentY = afterTitleY + 140;
-    if (projectInfo?.nombre) {
-        doc.fontSize(18).fillColor('#2E86AB').text('PROYECTO:', 0, currentY, { align: 'center' });
-        doc.fontSize(16).fillColor('#333333').text(projectInfo.nombre, 0, currentY + 25, { align: 'center' });
-        currentY += 70;
-    }
-    if (projectInfo?.empresa) {
-        doc.fontSize(16).fillColor('#2E86AB').text('CONSTRUCTORA:', 0, currentY, { align: 'center' });
-        doc.fontSize(14).fillColor('#333333').text(projectInfo.empresa, 0, currentY + 20, { align: 'center' });
-        currentY += 60;
-    }
+    currentY += 30;
+    // Project details
+    const labelX = pageW * 0.15;
+    const valueX = pageW * 0.50;
+    const lineH = 28;
+    const drawCoverField = (labelEn, labelEs, value) => {
+        const displayValue = value ? String(value).trim() : '—';
+        doc.font('Helvetica-Bold').fontSize(11).fillColor('#333')
+            .text(`${labelEn} / ${labelEs}`, labelX, currentY);
+        doc.font('Helvetica').fontSize(12).fillColor('#1f1f1f')
+            .text(displayValue, valueX, currentY);
+        currentY += lineH;
+    };
+    drawCoverField('PROJECT', 'PROYECTO', projectInfo?.nombre);
+    drawCoverField('CONTRACTOR', 'CONTRATISTA', projectInfo?.empresa);
+    currentY += 10;
+    // Tipo de muerto
+    const tipoMuerto = (projectInfo?.tipo_muerto || 'CORRIDO').toUpperCase();
+    doc.font('Helvetica-Bold').fontSize(18).fillColor(AZUL)
+        .text(`MUERTO ${tipoMuerto}`, 0, currentY, { align: 'center' });
+    currentY += 50;
     // User report image
     if (reportImage && reportImage.length > 0) {
         try {
             const maxImgW = pageW * 0.55;
-            const maxImgH = 180;
+            const maxImgH = 160;
             const img = doc.openImage(reportImage);
             const scale = Math.min(maxImgW / img.width, maxImgH / img.height);
             const drawW = img.width * scale;
@@ -426,10 +276,14 @@ function crearPortada(doc, projectInfo, reportImage) {
             console.warn('[pdfService] Error al insertar imagen del usuario:', err?.message || err);
         }
     }
-    doc.fontSize(12)
-        .fillColor('#666666')
-        .text(`Fecha: ${new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}`, 0, pageH - 90, { align: 'center' });
+    // Version and date at bottom
+    const version = projectInfo?.version || '01';
+    const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: '2-digit' }).toUpperCase();
+    doc.font('Helvetica').fontSize(12).fillColor('#444')
+        .text(`VERSION: ${version}`, 0, pageH - 100, { align: 'center' });
+    doc.text(`DATE: ${dateStr}`, 0, pageH - 82, { align: 'center' });
 }
+// ==================== PROJECT INFO PAGE ====================
 function crearPaginaProyecto(doc, projectInfo, user) {
     const pageW = doc.page.width;
     const pageH = doc.page.height;
@@ -441,9 +295,7 @@ function crearPaginaProyecto(doc, projectInfo, user) {
         const ih = img.height;
         const scale = Math.min(180 / iw, 80 / ih);
         const drawW = iw * scale;
-        const drawH = ih * scale;
-        const logoX = (pageW - drawW) / 2;
-        doc.image(logoPath, logoX, 70, { width: drawW });
+        doc.image(logoPath, (pageW - drawW) / 2, 70, { width: drawW });
     }
     doc.fontSize(22).fillColor('#000000').text('PUNTALINK', 0, 160, { align: 'center' });
     let currentY = 210;
@@ -475,26 +327,24 @@ function crearPaginaProyecto(doc, projectInfo, user) {
     if (fs_1.default.existsSync(imgPath)) {
         try {
             const img = doc.openImage(imgPath);
-            const iw = img.width;
-            const ih = img.height;
-            const scale = pageW / iw;
-            const drawW = pageW;
-            const drawH = ih * scale;
+            const scale = pageW / img.width;
+            const drawH = img.height * scale;
             const y = pageH - drawH;
             doc.save();
-            doc.image(imgPath, 0, y, { width: drawW, height: drawH });
+            doc.image(imgPath, 0, y, { width: pageW, height: drawH });
             doc.restore();
         }
         catch (err) {
-            console.warn('[pdfService] No se pudo insertar imagenInfo.png sin bordes:', err?.message || err);
+            console.warn('[pdfService] No se pudo insertar imagenInfo.png:', err?.message || err);
         }
     }
 }
+// ==================== CALCULATIONS PAGE ====================
 function crearPaginasCalculos(doc, paneles) {
     doc.fontSize(20)
-        .fillColor('#2E86AB')
+        .fillColor(AZUL)
         .text('RESULTADOS DE CÁLCULOS', 0, 80, { align: 'center' });
-    doc.strokeColor('#2E86AB')
+    doc.strokeColor(AZUL)
         .lineWidth(2)
         .moveTo(50, 110)
         .lineTo(550, 110)
@@ -519,20 +369,20 @@ function crearPaginasCalculos(doc, paneles) {
     const tableTop = currentY;
     const colWidths = [60, 80, 70, 70, 80, 80, 80];
     const headers = ['Panel', 'Ángulo (°)', 'Tipo Brace', 'FBx (kN)', 'FBy (kN)', 'FB (kN)', 'Cantidad'];
-    doc.fontSize(10).fillColor('#2E86AB');
+    doc.fontSize(10).fillColor(AZUL);
     let xPos = 50;
     headers.forEach((header, i) => {
         doc.text(header, xPos, tableTop, { width: colWidths[i], align: 'center' });
         xPos += colWidths[i];
     });
-    doc.strokeColor('#2E86AB')
+    doc.strokeColor(AZUL)
         .lineWidth(1)
         .moveTo(50, tableTop + 15)
         .lineTo(570, tableTop + 15)
         .stroke();
     currentY = tableTop + 25;
     doc.fillColor('#333333');
-    paneles.forEach((panel, i) => {
+    paneles.forEach((panel) => {
         if (currentY > 720) {
             doc.addPage();
             currentY = 80;
@@ -554,13 +404,375 @@ function crearPaginasCalculos(doc, paneles) {
         currentY += 20;
     });
 }
+// ==================== TABLA 1: ARMADO POR MUERTO (TWO-ROW PAIRS) ====================
+function crearTablaArmadoPorMuertoPairs(doc, pairs, totals) {
+    const startX = 40;
+    const startY = 70;
+    const rowH = 18;
+    const bottomMargin = 75; // Leave room for footer
+    // Column definitions
+    let cols = [
+        { key: 'index', w: 26, align: 'center' },
+        { key: 'eje', w: 36, align: 'center' },
+        { key: 'muros', w: 74, align: 'left' },
+        { key: 'dm_largo', w: 50, align: 'center' },
+        { key: 'dm_alto', w: 50, align: 'center' },
+        { key: 'dm_ancho', w: 50, align: 'center' },
+        // ACERO
+        { key: 'acero_cant', w: 32, align: 'center' },
+        { key: 'acero_long', w: 54, align: 'center' },
+        { key: 'acero_peso', w: 54, align: 'center' },
+        { key: 'acero_dir', w: 50, align: 'center' },
+        // CONCRETO
+        { key: 'horm_vol', w: 48, align: 'center' },
+        { key: 'horm_peso', w: 48, align: 'center' },
+        // ALAMBRE
+        { key: 'alam_long', w: 48, align: 'center' },
+        { key: 'alam_peso', w: 48, align: 'center' },
+    ];
+    // Auto-scale
+    const rightMargin = 40;
+    const available = doc.page.width - startX - rightMargin;
+    const rawTotal = cols.reduce((a, c) => a + c.w, 0);
+    const scale = Math.min(1, available / rawTotal);
+    if (scale < 1) {
+        cols = cols.map(c => ({ ...c, w: Math.max(20, Math.floor(c.w * scale)) }));
+    }
+    // Group indices
+    const idxDM = 0, lenDM = 6;
+    const idxAC = 6, lenAC = 4;
+    const idxCO = 10, lenCO = 2;
+    const idxAL = 12, lenAL = 2;
+    const groupWidth = (i, len) => cols.slice(i, i + len).reduce((a, c) => a + c.w, 0);
+    const totalTableW = groupWidth(0, cols.length);
+    // Title
+    const drawTitle = (y) => {
+        doc.fontSize(11).fillColor(AZUL).font('Helvetica-Bold')
+            .text('Tabla 1. Muerto corrido para muro TILT-UP. Long.: Longitud o longitudinal, Trans.: Transversal, Direc.: Dirección', startX, y - 50, { width: totalTableW });
+        doc.font('Helvetica');
+    };
+    // === Group header ===
+    const drawBigHeader = (y) => {
+        const h1 = 22;
+        let x = startX;
+        const drawGroup = (label, from, len) => {
+            const w = groupWidth(from, len);
+            doc.save();
+            doc.rect(x, y, w, h1).fillAndStroke('#E8F4FD', AZUL);
+            doc.fillColor('#1b1b1b').fontSize(8).font('Helvetica-Bold')
+                .text(label.toUpperCase(), x, y + 6, { width: w, align: 'center' });
+            doc.font('Helvetica');
+            doc.restore();
+            x += w;
+        };
+        drawGroup('DEADMAN', idxDM, lenDM);
+        drawGroup('Acero', idxAC, lenAC);
+        drawGroup('Concreto', idxCO, lenCO);
+        drawGroup('Alambre', idxAL, lenAL);
+        return y + h1;
+    };
+    // === Column sub-header ===
+    const drawSmallHeader = (y) => {
+        const h2 = 26;
+        const labels = ['Nº', 'Eje', 'Muros', 'Largo', 'Alto', 'Ancho', '#', 'Long.', 'Peso', 'Direc.', 'Vol', 'Peso', 'Long.', 'Peso'];
+        const units = ['', '', '', 'm', 'm', 'm', '', 'm', 'kg', '***', 'm³', 'ton', 'm', 'kg'];
+        let x = startX;
+        for (let i = 0; i < cols.length; i++) {
+            doc.save();
+            doc.rect(x, y, cols[i].w, h2).fillAndStroke('#F6F9FC', '#CCCCCC');
+            doc.fillColor('#000000').fontSize(7).font('Helvetica-Bold')
+                .text(labels[i], x + 2, y + 3, { width: cols[i].w - 4, align: 'center' });
+            if (units[i]) {
+                doc.fillColor('#777777').fontSize(6).font('Helvetica')
+                    .text(units[i], x + 2, y + 14, { width: cols[i].w - 4, align: 'center' });
+            }
+            doc.restore();
+            x += cols[i].w;
+        }
+        return y + h2;
+    };
+    const drawHeaders = (y) => {
+        let yy = drawBigHeader(y);
+        yy = drawSmallHeader(yy);
+        return yy;
+    };
+    // Draw title and first headers
+    drawTitle(startY);
+    let y = drawHeaders(startY);
+    if (!pairs || pairs.length === 0) {
+        doc.fontSize(12).fillColor('#666')
+            .text('No existen datos disponibles para esta sección.', startX, y + 8, {
+            width: totalTableW, align: 'center'
+        });
+        return;
+    }
+    // === Draw data rows ===
+    pairs.forEach((pair, idx) => {
+        const pairH = rowH * 2;
+        // Check page overflow
+        if (y + pairH > doc.page.height - bottomMargin) {
+            doc.addPage();
+            y = drawHeaders(70);
+        }
+        const bg = idx % 2 === 0 ? '#FFFFFF' : '#F8F9FA';
+        // Deadman cells (span 2 rows)
+        const dmCells = [
+            { text: String(pair.deadman.index), w: cols[0].w },
+            { text: pair.deadman.eje, w: cols[1].w },
+            { text: pair.deadman.muros, w: cols[2].w, align: 'left' },
+            { text: fixedOrDash(pair.deadman.largo_m, 2), w: cols[3].w },
+            { text: fixedOrDash(pair.deadman.alto_m, 2), w: cols[4].w },
+            { text: fixedOrDash(pair.deadman.ancho_m, 2), w: cols[5].w },
+        ];
+        let x = startX;
+        dmCells.forEach((c) => {
+            doc.rect(x, y, c.w, pairH).fillAndStroke(bg, GRIS_BORDE);
+            doc.fillColor('#000000').fontSize(8)
+                .text(c.text, x + 2, y + (pairH - 8) / 2, { width: c.w - 4, align: (c.align || 'center') });
+            x += c.w;
+        });
+        // Concreto cells (span 2 rows)
+        const coX = startX + groupWidth(0, idxCO);
+        const coVol = fixedOrDash(pair.concreto.vol_m3, 2);
+        const coPeso = fixedOrDash(pair.concreto.peso_ton, 1);
+        doc.rect(coX, y, cols[10].w, pairH).fillAndStroke(bg, GRIS_BORDE);
+        doc.fillColor('#000000').fontSize(8)
+            .text(coVol, coX + 2, y + (pairH - 8) / 2, { width: cols[10].w - 4, align: 'center' });
+        doc.rect(coX + cols[10].w, y, cols[11].w, pairH).fillAndStroke(bg, GRIS_BORDE);
+        doc.fillColor('#000000').fontSize(8)
+            .text(coPeso, coX + cols[10].w + 2, y + (pairH - 8) / 2, { width: cols[11].w - 4, align: 'center' });
+        // Alambre cells (span 2 rows)
+        const alX = coX + cols[10].w + cols[11].w;
+        doc.rect(alX, y, cols[12].w, pairH).fillAndStroke(bg, GRIS_BORDE);
+        doc.fillColor('#000000').fontSize(8)
+            .text(fixedOrDash(pair.alambre.longitud_m, 0), alX + 2, y + (pairH - 8) / 2, { width: cols[12].w - 4, align: 'center' });
+        doc.rect(alX + cols[12].w, y, cols[13].w, pairH).fillAndStroke(bg, GRIS_BORDE);
+        doc.fillColor('#000000').fontSize(8)
+            .text(fixedOrDash(pair.alambre.peso_kg, 1), alX + cols[12].w + 2, y + (pairH - 8) / 2, { width: cols[13].w - 4, align: 'center' });
+        // === ROW 1: Longitudinal ===
+        const acX = startX + groupWidth(0, idxAC);
+        const longCells = [
+            { text: String(pair.longitudinal.cantBarras || '-'), w: cols[6].w },
+            { text: fixedOrDash(pair.longitudinal.longitud_m, 1), w: cols[7].w },
+            { text: fixedOrDash(pair.longitudinal.peso_kg, 1), w: cols[8].w },
+            { text: 'Long.', w: cols[9].w },
+        ];
+        let ax = acX;
+        longCells.forEach((c) => {
+            doc.rect(ax, y, c.w, rowH).fillAndStroke(bg, GRIS_BORDE);
+            doc.fillColor('#000000').fontSize(8)
+                .text(c.text, ax + 2, y + 4, { width: c.w - 4, align: 'center' });
+            ax += c.w;
+        });
+        y += rowH;
+        // === ROW 2: Transversal ===
+        const transCells = [
+            { text: String(pair.transversal.cantEstribos || '-'), w: cols[6].w },
+            { text: fixedOrDash(pair.transversal.longitud_m, 1), w: cols[7].w },
+            { text: fixedOrDash(pair.transversal.peso_kg, 1), w: cols[8].w },
+            { text: 'Trans.', w: cols[9].w },
+        ];
+        ax = acX;
+        transCells.forEach((c) => {
+            doc.rect(ax, y, c.w, rowH).fillAndStroke(bg, GRIS_BORDE);
+            doc.fillColor('#000000').fontSize(8)
+                .text(c.text, ax + 2, y + 4, { width: c.w - 4, align: 'center' });
+            ax += c.w;
+        });
+        y += rowH;
+    });
+    // === TOTALS ROW ===
+    y += 6;
+    if (y + 50 > doc.page.height - bottomMargin) {
+        doc.addPage();
+        y = 80;
+    }
+    const totH = 22;
+    // "Totales" label spanning deadman columns
+    const dmW = groupWidth(idxDM, lenDM);
+    doc.rect(startX, y, dmW, totH).fillAndStroke('#E8F4FD', AZUL);
+    doc.fillColor('#1b1b1b').fontSize(9).font('Helvetica-Bold')
+        .text('Totales', startX + 2, y + 6, { width: dmW - 4, align: 'center' });
+    doc.font('Helvetica');
+    // Acero total
+    const acW = groupWidth(idxAC, lenAC);
+    const acTotalX = startX + dmW;
+    doc.rect(acTotalX, y, acW, totH).fillAndStroke('#E8F4FD', AZUL);
+    doc.fillColor('#1b1b1b').fontSize(8)
+        .text(`${fmt(totals.acero.kg, 1)} kg / ${fmt(totals.acero.ton, 2)} ton`, acTotalX + 2, y + 6, { width: acW - 4, align: 'center' });
+    // Concreto total
+    const coW = groupWidth(idxCO, lenCO);
+    const coTotalX = acTotalX + acW;
+    doc.rect(coTotalX, y, coW, totH).fillAndStroke('#E8F4FD', AZUL);
+    doc.fillColor('#1b1b1b').fontSize(8)
+        .text(`${fmt(totals.concreto.m3, 2)} m³ / ${fmt(totals.concreto.ton, 1)} ton`, coTotalX + 2, y + 6, { width: coW - 4, align: 'center' });
+    // Alambre total
+    const alW = groupWidth(idxAL, lenAL);
+    const alTotalX = coTotalX + coW;
+    doc.rect(alTotalX, y, alW, totH).fillAndStroke('#E8F4FD', AZUL);
+    doc.fillColor('#1b1b1b').fontSize(8)
+        .text(`${fmt(totals.alambre.kg, 1)} kg`, alTotalX + 2, y + 6, { width: alW - 4, align: 'center' });
+}
+// ==================== TABLA 2: ESPACIAMIENTO ====================
+function crearTablaEspaciado(doc, pairs) {
+    const startX = 40;
+    const startY = 70;
+    const rowH = 20;
+    const bottomMargin = 75;
+    // Title
+    doc.fontSize(11).fillColor(AZUL).font('Helvetica-Bold')
+        .text('Tabla 2. Espaciamiento de las varillas por muerto.', startX, startY - 40, { width: 500 });
+    doc.font('Helvetica');
+    const colDefs = [
+        { label: 'Nº', w: 36, align: 'center' },
+        { label: 'Eje', w: 40, align: 'center' },
+        { label: 'Muros', w: 130, align: 'left' },
+        { label: 'Espaciado\nLongitudinal (m)', w: 95, align: 'center' },
+        { label: 'Espaciado\nTransversal (m)', w: 95, align: 'center' },
+        { label: 'Distancia X (m)\n(Desde la cara del muro\nhasta el punto del anclaje)', w: 120, align: 'center' },
+    ];
+    // Header
+    const headerH = 36;
+    let x = startX;
+    let y = startY;
+    colDefs.forEach((col) => {
+        doc.save();
+        doc.rect(x, y, col.w, headerH).fillAndStroke('#E8F4FD', AZUL);
+        doc.fillColor('#000000').fontSize(7).font('Helvetica-Bold')
+            .text(col.label, x + 3, y + 4, { width: col.w - 6, align: 'center' });
+        doc.font('Helvetica');
+        doc.restore();
+        x += col.w;
+    });
+    y += headerH;
+    if (!pairs || pairs.length === 0) {
+        doc.fontSize(11).fillColor('#666')
+            .text('No hay datos de espaciamiento disponibles.', startX, y + 10, { width: 400, align: 'center' });
+        return;
+    }
+    pairs.forEach((pair, idx) => {
+        if (y + rowH > doc.page.height - bottomMargin) {
+            doc.addPage();
+            // Redraw header
+            x = startX;
+            y = 70;
+            colDefs.forEach((col) => {
+                doc.save();
+                doc.rect(x, y, col.w, headerH).fillAndStroke('#E8F4FD', AZUL);
+                doc.fillColor('#000000').fontSize(7).font('Helvetica-Bold')
+                    .text(col.label, x + 3, y + 4, { width: col.w - 6, align: 'center' });
+                doc.font('Helvetica');
+                doc.restore();
+                x += col.w;
+            });
+            y += headerH;
+        }
+        const bg = idx % 2 === 0 ? '#FFFFFF' : '#F8F9FA';
+        const rowData = [
+            { text: `D${pair.deadman.index}`, w: colDefs[0].w, align: 'center' },
+            { text: pair.deadman.eje, w: colDefs[1].w, align: 'center' },
+            { text: pair.deadman.muros, w: colDefs[2].w, align: 'left' },
+            { text: fixedOrDash(pair.espaciadoLong_m, 2), w: colDefs[3].w, align: 'center' },
+            { text: fixedOrDash(pair.espaciadoTrans_m, 2), w: colDefs[4].w, align: 'center' },
+            { text: fixedOrDash(pair.x_inserto, 2), w: colDefs[5].w, align: 'center' },
+        ];
+        x = startX;
+        rowData.forEach((c) => {
+            doc.rect(x, y, c.w, rowH).fillAndStroke(bg, '#CCCCCC');
+            doc.fillColor('#000000').fontSize(8)
+                .text(c.text, x + 3, y + 5, { width: c.w - 6, align: c.align });
+            x += c.w;
+        });
+        y += rowH;
+    });
+    // Note
+    y += 15;
+    doc.fontSize(9).fillColor('#333')
+        .text('Nota:', startX, y, { underline: true });
+    y += 14;
+    doc.fontSize(8).fillColor('#555')
+        .text('Revisar que la distancia X (distancia horizontal) que va desde la cara del muro al punto de apuntalamiento del brace (centro del muerto) coincida con los shop tickets de la ingeniería de izaje.', startX, y, { width: 450, align: 'justify' });
+}
+// ==================== LEGACY TABLE (single-row format) ====================
+function crearTablaArmadoLegacy(doc, filas) {
+    const startX = 40;
+    const startY = 70;
+    const rowH = 22;
+    const bottomMargin = 60;
+    let cols = [
+        { key: 'index', w: 26 }, { key: 'eje', w: 36 }, { key: 'muros', w: 74 },
+        { key: 'dm_largo', w: 50 }, { key: 'dm_alto', w: 50 }, { key: 'dm_ancho', w: 50 },
+        { key: 'acero_cant', w: 32 }, { key: 'acero_long', w: 64 }, { key: 'acero_peso', w: 54 },
+        { key: 'acero_dir', w: 68 },
+        { key: 'horm_vol', w: 54 }, { key: 'horm_peso', w: 54 },
+        { key: 'alam_long', w: 68 }, { key: 'alam_peso', w: 54 },
+    ];
+    const rightMargin = 40;
+    const available = doc.page.width - startX - rightMargin;
+    const rawTotal = cols.reduce((a, c) => a + c.w, 0);
+    const scl = Math.min(1, available / rawTotal);
+    if (scl < 1)
+        cols = cols.map(c => ({ ...c, w: Math.max(22, Math.floor(c.w * scl)) }));
+    const groupWidth = (i, len) => cols.slice(i, i + len).reduce((a, c) => a + c.w, 0);
+    const drawHeaders = (y) => {
+        const h1 = 24;
+        const h2 = 18;
+        let x = startX;
+        const drawGrp = (lbl, from, len) => {
+            const w = groupWidth(from, len);
+            doc.save();
+            doc.rect(x, y, w, h1).fillAndStroke('#E8F4FD', AZUL);
+            doc.fillColor('#1b1b1b').fontSize(9).text(lbl.toUpperCase(), x, y + 6, { width: w, align: 'center' });
+            doc.restore();
+            x += w;
+        };
+        drawGrp('DEADMAN', 0, 6);
+        drawGrp('ACERO', 6, 4);
+        drawGrp('CONCRETO', 10, 2);
+        drawGrp('ALAMBRE', 12, 2);
+        const labels = ['#', 'EJE', 'MUROS', 'LARGO', 'ALTO', 'ANCHO', '#', 'LONGITUD', 'PESO', 'DIRECCIÓN', 'VOL', 'PESO', 'LONGITUD', 'PESO'];
+        x = startX;
+        for (let i = 0; i < cols.length; i++) {
+            doc.save();
+            doc.rect(x, y + h1, cols[i].w, h2).fillAndStroke('#F6F9FC', '#CCCCCC');
+            doc.fillColor('#000000').fontSize(7).text(labels[i], x, y + h1 + 4, { width: cols[i].w, align: 'center' });
+            doc.restore();
+            x += cols[i].w;
+        }
+        return y + h1 + h2;
+    };
+    doc.fontSize(18).fillColor(AZUL).text('Tabla de Armado por Muerto', startX, startY - 38);
+    let y = drawHeaders(startY);
+    filas.forEach((r, idx) => {
+        if (y + rowH > doc.page.height - bottomMargin) {
+            doc.addPage();
+            y = drawHeaders(70);
+        }
+        const bg = idx % 2 === 0 ? '#FFFFFF' : '#F8F9FA';
+        let x = startX;
+        const cells = [
+            r.deadman.index, r.deadman.eje, r.deadman.muros,
+            fixedOrDash(r.deadman.largo_m, 2), fixedOrDash(r.deadman.alto_m, 2), fixedOrDash(r.deadman.ancho_m, 2),
+            r.acero.cantidad ?? '—', fixedOrDash(r.acero.longitud_m, 2), fixedOrDash(r.acero.peso_kg, 2), r.acero.direccion || '—',
+            fixedOrDash(r.concreto.vol_m3, 2), fixedOrDash(r.concreto.peso_ton, 2),
+            fixedOrDash(r.alambre.longitud_m, 2), fixedOrDash(r.alambre.peso_kg, 2),
+        ];
+        cells.forEach((text, i) => {
+            doc.rect(x, y, cols[i].w, rowH).fillAndStroke(bg, GRIS_BORDE);
+            doc.fillColor('#000').fontSize(9).text(String(text), x + 3, y + 6, { width: cols[i].w - 6, align: 'center' });
+            x += cols[i].w;
+        });
+        y += rowH;
+    });
+}
+// ==================== ESQUEMA ====================
 function crearEsquema(doc) {
     const pageW = doc.page.width;
     const pageH = doc.page.height;
     const margin = 40;
     const topY = 70;
-    doc.fontSize(20).fillColor('#2E86AB').text('ESQUEMA DE ARMADO', 0, 40, { align: 'center' });
-    doc.strokeColor('#2E86AB').lineWidth(2).moveTo(margin, 66).lineTo(pageW - margin, 66).stroke();
+    doc.fontSize(20).fillColor(AZUL).text('ESQUEMA DE ARMADO', 0, 40, { align: 'center' });
+    doc.strokeColor(AZUL).lineWidth(2).moveTo(margin, 66).lineTo(pageW - margin, 66).stroke();
     const imgPath = getAssetPath('esquema.png');
     try {
         if (!fs_1.default.existsSync(imgPath)) {
@@ -577,58 +789,39 @@ function crearEsquema(doc) {
             return;
         }
         const img = doc.openImage(imgPath);
-        const iw = img.width;
-        const ih = img.height;
         const maxW = pageW - margin * 2;
         const maxH = pageH - topY - margin;
-        const captionText = 'Figura: Esquema referencial de armado del muerto';
-        const captionPadding = 6;
-        const captionHeight = 12 + 2;
-        const scale = Math.min(maxW / iw, (maxH - captionPadding - captionHeight) / ih);
-        const drawW = iw * scale;
-        const drawH = ih * scale;
+        const captionHeight = 20;
+        const sc = Math.min(maxW / img.width, (maxH - captionHeight) / img.height);
+        const drawW = img.width * sc;
+        const drawH = img.height * sc;
         const x = (pageW - drawW) / 2;
-        const y = topY + (maxH - (drawH + captionPadding + captionHeight)) / 2;
+        const yImg = topY + (maxH - (drawH + captionHeight)) / 2;
         doc.save();
-        doc.image(imgPath, x, y, { width: drawW, height: drawH });
+        doc.image(imgPath, x, yImg, { width: drawW, height: drawH });
         doc.restore();
-        doc.fontSize(10).fillColor('#555').text(captionText, margin, y + drawH + captionPadding, {
-            width: pageW - margin * 2,
-            align: 'center',
-            lineBreak: false
+        doc.fontSize(10).fillColor('#555')
+            .text('Figura: Esquema referencial de armado del muerto', margin, yImg + drawH + 6, {
+            width: pageW - margin * 2, align: 'center', lineBreak: false
         });
     }
     catch (err) {
         console.warn('[pdfService] No se pudo dibujar esquema:', err?.message || err);
-        const phTop = topY + 10;
-        const phH = pageH - phTop - margin;
-        doc.rect(margin, phTop, pageW - margin * 2, phH).strokeColor('#B0B0B0').dash(5, { space: 3 }).stroke();
-        doc.undash();
-        doc.fontSize(12).fillColor('#666666')
-            .text('Error al cargar esquema.png', margin, phTop + 12, { width: pageW - margin * 2, align: 'center' });
     }
 }
+// ==================== RESUMEN POR MUERTOS ====================
 function crearPaginaMuertos(doc, tablaMuertos) {
-    doc.fontSize(20)
-        .fillColor('#2E86AB')
-        .text('RESUMEN POR MUERTOS', 50, 50);
-    doc.fontSize(12)
-        .fillColor('#000000')
-        .text('Agrupación de muros por características similares', 50, 80);
+    doc.fontSize(20).fillColor(AZUL).text('RESUMEN POR MUERTOS', 50, 50);
+    doc.fontSize(12).fillColor('#000000').text('Agrupación de muros por características similares', 50, 80);
     let currentY = 110;
     const headers = ['#', 'Muerto', 'X Braces', 'Ángulo', 'Eje', 'Tipo Construcción', 'Cant. Muros'];
     const colWidths = [30, 60, 60, 50, 60, 90, 60];
     const startX = 50;
-    doc.fontSize(10).fillColor('#2E86AB');
+    doc.fontSize(10).fillColor(AZUL);
     let currentX = startX;
     headers.forEach((header, i) => {
-        doc.rect(currentX, currentY, colWidths[i], 20)
-            .fillAndStroke('#E8F4FD', '#2E86AB');
-        doc.fillColor('#000000')
-            .text(header, currentX + 5, currentY + 5, {
-            width: colWidths[i] - 10,
-            align: 'center'
-        });
+        doc.rect(currentX, currentY, colWidths[i], 20).fillAndStroke('#E8F4FD', AZUL);
+        doc.fillColor('#000000').text(header, currentX + 5, currentY + 5, { width: colWidths[i] - 10, align: 'center' });
         currentX += colWidths[i];
     });
     currentY += 20;
@@ -639,68 +832,40 @@ function crearPaginaMuertos(doc, tablaMuertos) {
             currentY = 50;
         }
         currentX = startX;
-        const data = [
-            muerto.numero,
-            muerto.muerto,
-            muerto.x_braces,
-            muerto.angulo,
-            muerto.eje,
-            muerto.tipo_construccion,
-            muerto.cantidad_muros
-        ];
+        const data = [muerto.numero, muerto.muerto, muerto.x_braces, muerto.angulo, muerto.eje, muerto.tipo_construccion, muerto.cantidad_muros];
         const bgColor = index % 2 === 0 ? '#FFFFFF' : '#F8F9FA';
         data.forEach((value, i) => {
-            doc.rect(currentX, currentY, colWidths[i], 20)
-                .fillAndStroke(bgColor, '#CCCCCC');
-            doc.fillColor('#000000')
-                .text(value, currentX + 5, currentY + 5, {
-                width: colWidths[i] - 10,
-                align: i === 1 || i === 4 || i === 5 ? 'left' : 'center'
-            });
+            doc.rect(currentX, currentY, colWidths[i], 20).fillAndStroke(bgColor, '#CCCCCC');
+            doc.fillColor('#000000').text(value, currentX + 5, currentY + 5, { width: colWidths[i] - 10, align: i === 1 || i === 4 || i === 5 ? 'left' : 'center' });
             currentX += colWidths[i];
         });
         currentY += 20;
         if (muerto.muros_incluidos && muerto.muros_incluidos.length > 0 && currentY < 740) {
-            doc.fontSize(8)
-                .fillColor('#666666')
-                .text(`Muros: ${muerto.muros_incluidos}`, startX + 5, currentY + 2, {
-                width: 500
-            });
+            doc.fontSize(8).fillColor('#666666').text(`Muros: ${muerto.muros_incluidos}`, startX + 5, currentY + 2, { width: 500 });
             currentY += 15;
             doc.fontSize(9).fillColor('#000000');
         }
     });
     currentY += 30;
     if (currentY < 700) {
-        doc.fontSize(10)
-            .fillColor('#666666')
-            .text(`Total de grupos de muertos: ${tablaMuertos.length}`, startX, currentY);
+        doc.fontSize(10).fillColor('#666666').text(`Total de grupos de muertos: ${tablaMuertos.length}`, startX, currentY);
         const totalMuros = tablaMuertos.reduce((sum, m) => sum + parseInt(m.cantidad_muros), 0);
-        currentY += 15;
-        doc.text(`Total de muros: ${totalMuros}`, startX, currentY);
+        doc.text(`Total de muros: ${totalMuros}`, startX, currentY + 15);
     }
 }
+// ==================== METHODOLOGY PAGE ====================
 function crearDescripcionParametros(doc, projectInfo) {
-    doc.fontSize(20)
-        .fillColor('#2E86AB')
-        .text('METODOLOGÍA Y PARÁMETROS', 0, 80, { align: 'center' });
-    doc.strokeColor('#2E86AB')
-        .lineWidth(2)
-        .moveTo(50, 110)
-        .lineTo(550, 110)
-        .stroke();
+    doc.fontSize(20).fillColor(AZUL).text('METODOLOGÍA Y PARÁMETROS', 0, 80, { align: 'center' });
+    doc.strokeColor(AZUL).lineWidth(2).moveTo(50, 110).lineTo(550, 110).stroke();
     let currentY = 140;
-    doc.fontSize(14)
-        .fillColor('#333333')
-        .text('DESCRIPCIÓN DEL CÁLCULO:', 50, currentY, { underline: true });
+    doc.fontSize(14).fillColor('#333333').text('DESCRIPCIÓN DEL CÁLCULO:', 50, currentY, { underline: true });
     currentY += 25;
     doc.fontSize(11)
         .text('El cálculo del muerto está en base a la fuerza axial que actúa en el brace producto de la acción de la fuerza del viento sobre el muro.', 50, currentY, { width: 500, align: 'justify' });
     currentY += 35;
     doc.text('La fuerza de viento actuante en cada muro fue determinada haciendo uso de las "Normas y especificaciones para estudios, proyectos, construcciones e instalaciones del 2015 Volumen 4-México", y tomando en cuenta los siguientes parámetros:', 50, currentY, { width: 500, align: 'justify' });
     currentY += 50;
-    doc.fontSize(14)
-        .text('PARÁMETROS UTILIZADOS:', 50, currentY, { underline: true });
+    doc.fontSize(14).text('PARÁMETROS UTILIZADOS:', 50, currentY, { underline: true });
     currentY += 25;
     doc.fontSize(12);
     if (projectInfo?.vel_viento !== undefined) {
@@ -715,20 +880,29 @@ function crearDescripcionParametros(doc, projectInfo) {
         doc.text(`c) Presión atmosférica: ${projectInfo.presion_atmo} mmHg`, 70, currentY);
         currentY += 20;
     }
-    currentY += 30;
+    currentY += 20;
+    // Construction notes
+    doc.fontSize(11).fillColor('#333')
+        .text('El muerto debe ser enterrado en ambas caras laterales.', 50, currentY, { width: 500 });
+    currentY += 16;
+    doc.text('Las dimensiones fueron determinadas en base a la relación de densidad=masa/volumen, donde el volumen es descompuesto en Largo × Alto × Ancho.', 50, currentY, { width: 500, align: 'justify' });
+    currentY += 28;
+    doc.text('No se consideró la fricción entre las paredes de contacto terreno y el muerto para hacerlo más seguro.', 50, currentY, { width: 500, align: 'justify' });
+    currentY += 40;
     if (projectInfo?.creadorProyecto) {
-        doc.fontSize(14)
-            .text('ELABORADO POR:', 50, currentY, { underline: true });
+        doc.fontSize(14).text('ELABORADO POR:', 50, currentY, { underline: true });
         currentY += 25;
-        doc.fontSize(12)
-            .text(projectInfo.creadorProyecto, 70, currentY);
+        doc.fontSize(12).text(projectInfo.creadorProyecto, 70, currentY);
     }
-    doc.fontSize(8)
-        .fillColor('#666666')
+    doc.fontSize(8).fillColor('#666666')
         .text('Generado por PUNTALINK - Sistema de análisis y cálculo estructural', 0, 750, { align: 'center' });
 }
-function generarInforme(resultados) {
-    return generarInformePaneles(resultados);
+// ==================== HELPER FUNCTIONS ====================
+function fixedOrDash(n, d = 2) {
+    return (n === null || n === undefined || Number.isNaN(n)) ? '—' : Number(n).toFixed(d);
+}
+function fmt(n, d) {
+    return (Number(n) || 0).toFixed(d);
 }
 function getAssetPath(relPathFromSrcAssets) {
     const tryDist = path_1.default.resolve(__dirname, '../assets', relPathFromSrcAssets);
@@ -740,18 +914,21 @@ function getAssetPath(relPathFromSrcAssets) {
     return path_1.default.resolve(process.cwd(), 'src/assets', relPathFromSrcAssets);
 }
 function drawCoverImage(doc, imagePath, pageW, pageH, opacity = 0.28) {
-    const img = doc.openImage(imagePath);
-    const iw = img.width;
-    const ih = img.height;
-    const scale = Math.max(pageW / iw, pageH / ih);
-    const drawW = iw * scale;
-    const drawH = ih * scale;
-    const offsetX = (pageW - drawW) / 2;
-    const offsetY = (pageH - drawH) / 2;
-    doc.save();
-    doc.opacity(opacity);
-    doc.image(imagePath, offsetX, offsetY, { width: drawW, height: drawH });
-    doc.restore();
+    try {
+        const img = doc.openImage(imagePath);
+        const iw = img.width;
+        const ih = img.height;
+        const scale = Math.max(pageW / iw, pageH / ih);
+        const drawW = iw * scale;
+        const drawH = ih * scale;
+        const offsetX = (pageW - drawW) / 2;
+        const offsetY = (pageH - drawH) / 2;
+        doc.save();
+        doc.opacity(opacity);
+        doc.image(imagePath, offsetX, offsetY, { width: drawW, height: drawH });
+        doc.restore();
+    }
+    catch (e) { /* cover image not found */ }
 }
 function registerFontIfExists(doc, name, assetsRelPath) {
     const fontPath = getAssetPath(assetsRelPath);
@@ -763,18 +940,15 @@ function registerFontIfExists(doc, name, assetsRelPath) {
 }
 function addBackgroundImage(doc) {
     const bgPath = getAssetPath('marca_de_agua.png');
-    if (!fs_1.default.existsSync(bgPath)) {
+    if (!fs_1.default.existsSync(bgPath))
         return;
-    }
     const pageW = doc.page.width;
     const pageH = doc.page.height;
     try {
         const img = doc.openImage(bgPath);
-        const iw = img.width;
-        const ih = img.height;
-        const scale = Math.max(pageW / iw, pageH / ih);
-        const drawW = iw * scale;
-        const drawH = ih * scale;
+        const scale = Math.max(pageW / img.width, pageH / img.height);
+        const drawW = img.width * scale;
+        const drawH = img.height * scale;
         const offsetX = (pageW - drawW) / 2;
         const offsetY = (pageH - drawH) / 2;
         doc.save();
@@ -797,17 +971,10 @@ function addSignatureSection(doc, user) {
     const lineWidth = 160;
     const lineY = Math.max(currentY + 60, pageH - 160);
     const lineX = centerX - lineWidth / 2;
-    doc.strokeColor('#000000')
-        .lineWidth(1)
-        .moveTo(lineX, lineY)
-        .lineTo(lineX + lineWidth, lineY)
-        .stroke();
+    doc.strokeColor('#000000').lineWidth(1)
+        .moveTo(lineX, lineY).lineTo(lineX + lineWidth, lineY).stroke();
     const displayName = (user.name && user.name.trim()) ? user.name : (user.email ?? '__________________');
     const displayEmail = user.email ?? '';
-    doc.fontSize(11)
-        .fillColor('#000000')
-        .text(displayName, 0, lineY + 8, { align: 'center' });
-    doc.fontSize(10)
-        .fillColor('#444444')
-        .text(displayEmail, 0, lineY + 24, { align: 'center' });
+    doc.fontSize(11).fillColor('#000000').text(displayName, 0, lineY + 8, { align: 'center' });
+    doc.fontSize(10).fillColor('#444444').text(displayEmail, 0, lineY + 24, { align: 'center' });
 }

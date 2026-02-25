@@ -881,10 +881,9 @@ export function updatePanelesDisplay(panelesActuales, elements, callbacks) {
     }
     openSection('results-section');
 
-    // Habilitar otros desplegables del menú (except report section which has its own state)
+    // Habilitar todos los desplegables del menú
     const menuAccordions = document.getElementsByClassName("accordion-item");
     for (const item of menuAccordions) {
-      if (item.id === 'section-generar-informe') continue;
       item.classList.remove("disabled");
     }
   } else if (tablaPaneles.innerHTML !== '') {
@@ -3749,8 +3748,25 @@ async function ejecutarCalculosArmado() {
     // =================================================================
     
     // Guardar en variable global para la generación de PDF
+    // Enriquecer resultados con x_inserto y espaciado del grupo para Tabla 2 del PDF
+    if (window.gruposMuertosGlobal) {
+      const claves = Object.keys(window.gruposMuertosGlobal);
+      resultados.forEach((res) => {
+        const clave = res.grupo_clave || claves.find(c => {
+          const g = window.gruposMuertosGlobal[c];
+          return g && g.numero_grupo === res.grupo_numero;
+        });
+        if (clave) {
+          const grupo = window.gruposMuertosGlobal[clave];
+          const config = window.configGruposMuertos?.[clave] || {};
+          res.x_inserto = parseFloat(grupo.xInserto || grupo.x_inserto || grupo.x || 0);
+          res.espaciadoLong_m = (config.separacionLongitudinal || 25) / 100;
+          res.espaciadoTrans_m = (config.separacionTransversal || 25) / 100;
+        }
+      });
+    }
     window.ultimosResultadosMacizos = resultados;
-    
+
     console.log('[DASHBOARD] ✅ Cálculo Rectangular completado exitosamente');
 
   } catch (error) {

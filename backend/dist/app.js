@@ -17,7 +17,7 @@ const projectRoutes_1 = __importDefault(require("./routes/projectRoutes"));
 const authRoutes_1 = __importDefault(require("./routes/authRoutes")); // 👈 NUEVO
 const grupoMuertoRoutes_1 = __importDefault(require("./routes/grupoMuertoRoutes")); // 👈 NUEVO - Grupos de muertos
 const muroRoutes_1 = __importDefault(require("./routes/muroRoutes"));
-const reportRoutes_1 = __importDefault(require("./routes/reportRoutes"));
+const pdfRoutes_1 = __importDefault(require("./routes/pdfRoutes"));
 const app = (0, express_1.default)();
 const ALLOWED = (process.env.ALLOWED_ORIGINS ?? '')
     .split(',')
@@ -83,7 +83,7 @@ app.use('/api/muros', muroRoutes_1.default);
 // ===== Grupos de Muertos (DEBE IR ANTES DEL 404) =====
 app.use('/api/grupos-muertos', grupoMuertoRoutes_1.default);
 // ===== Informe (PDF/DOCX) =====
-app.use('/api/informe', reportRoutes_1.default);
+app.use('/api/informe', pdfRoutes_1.default);
 // ===== 404 para APIs (SIEMPRE AL FINAL) =====
 app.use('/api', (_req, res) => {
     res.status(404).json({ ok: false, error: 'Recurso API no encontrado' });

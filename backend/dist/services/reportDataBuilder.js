@@ -3,6 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.normalizePaneles = normalizePaneles;
 exports.normalizeArmadoRows = normalizeArmadoRows;
 exports.computeTotals = computeTotals;
+exports.normalizeArmadoPairs = normalizeArmadoPairs;
+exports.computeTotalsFromPairs = computeTotalsFromPairs;
 exports.buildReportData = buildReportData;
 exports.validateReportCompleteness = validateReportCompleteness;
 exports.verifyTotals = verifyTotals;
@@ -69,15 +71,68 @@ function computeTotals(rows) {
         metal: { kg: metalKg, ton: metalKg / 1000 }
     };
 }
+function normalizeArmadoPairs(reporteMacizos) {
+    if (!reporteMacizos || !Array.isArray(reporteMacizos) || reporteMacizos.length === 0)
+        return [];
+    return reporteMacizos.map((m, i) => ({
+        deadman: {
+            index: m.grupo_numero || (i + 1),
+            eje: String(m.eje || '-'),
+            muros: m.muros_list || (m.cantidadMuros ? `${m.cantidadMuros} muros` : ''),
+            largo_m: m.largo_total || m.profundidad || 0,
+            alto_m: m.alto_total || m.alto || 0,
+            ancho_m: m.espesor_bloque || m.ancho || 0,
+        },
+        longitudinal: {
+            cantBarras: m.cantBarrasLong || 0,
+            longitud_m: m.longLongitudinal_m || m.longitudTotalLongitudinal || 0,
+            peso_kg: m.pesoLongitudinal_kg || m.pesoLongitudinal || 0,
+        },
+        transversal: {
+            cantEstribos: m.cantEstribos || 0,
+            longitud_m: m.longEstribos_m || m.longitudTotalTransversal || 0,
+            peso_kg: m.pesoEstribos_kg || m.pesoTransversal || 0,
+        },
+        concreto: {
+            vol_m3: m.volumenConcreto_m3 || m.volumenConcreto || 0,
+            peso_ton: (m.pesoConcreto_kg || m.pesoConcreto || 0) / 1000,
+        },
+        alambre: {
+            longitud_m: m.longAlambre_m || m.longitudAlambre || 0,
+            peso_kg: m.pesoAlambre_kg || m.pesoAlambre || 0,
+        },
+        espaciadoLong_m: m.espaciadoLong_m || ((m.espaciadoLong_cm || 0) / 100),
+        espaciadoTrans_m: m.espaciadoTrans_m || ((m.espaciadoTrans_cm || 0) / 100),
+        x_inserto: m.x_inserto || 0,
+    }));
+}
+function computeTotalsFromPairs(pairs) {
+    const sum = (arr, sel) => arr.reduce((a, it) => a + (Number(sel(it)) || 0), 0);
+    const concretoVol_m3 = sum(pairs, r => r.concreto.vol_m3);
+    const concretoTon = sum(pairs, r => r.concreto.peso_ton);
+    const aceroKg = sum(pairs, r => r.longitudinal.peso_kg + r.transversal.peso_kg);
+    const alambreKg = sum(pairs, r => r.alambre.peso_kg);
+    const metalKg = aceroKg + alambreKg;
+    return {
+        concreto: { m3: concretoVol_m3, ton: concretoTon },
+        acero: { kg: aceroKg, ton: aceroKg / 1000 },
+        alambre: { kg: alambreKg, ton: alambreKg / 1000 },
+        metal: { kg: metalKg, ton: metalKg / 1000 },
+    };
+}
 function buildReportData(input) {
     const paneles = normalizePaneles(input.paneles);
     const filasArmado = normalizeArmadoRows(input.reporteMacizos, input.tablaArmado);
-    const totals = computeTotals(filasArmado);
+    const filasArmadoPairs = normalizeArmadoPairs(input.reporteMacizos);
+    const totals = filasArmadoPairs.length > 0
+        ? computeTotalsFromPairs(filasArmadoPairs)
+        : computeTotals(filasArmado);
     return {
         paneles,
         projectInfo: input.projectInfo,
         tablaMuertos: input.tablaMuertos,
         filasArmado,
+        filasArmadoPairs,
         totals,
         user: input.user,
         reportImage: input.reportImage

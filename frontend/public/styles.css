@@ -266,6 +266,13 @@ body {
   background: var(--bg);
   color: var(--muted);
 }
+/* Report section is always fully active */
+#section-generar-informe.disabled .accordion-header {
+  cursor: pointer;
+  pointer-events: auto;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.02), transparent);
+  color: inherit;
+}
 
 .accordion-header {
   display: flex;
@@ -4840,9 +4847,6 @@ label {
 .report-options {
   margin-top: 1.5rem;
   padding: 1rem 1.25rem;
-  border: 1px solid var(--border, #ddd);
-  border-radius: 8px;
-  background: var(--surface, #fafbfc);
 }
 .report-format-row {
   display: flex;

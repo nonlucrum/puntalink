@@ -98,7 +98,9 @@ function calcularTransversal(dimensiones, config = {}) {
   const longitudTotal_m = longitudUno_m * cantidad;
   const peso_kg = longitudTotal_m * pesoVarilla_kgm;
 
-  return { tipoVarillaStr: tipoVarilla, cantidad, longitudUno_m, longitudTotal_m, peso_kg };
+  const espaciadoRealTrans_m = cantidad > 1 ? largoUtil / (cantidad - 1) : 0;
+
+  return { tipoVarillaStr: tipoVarilla, cantidad, longitudUno_m, longitudTotal_m, peso_kg, espaciadoRealTrans_cm: espaciadoRealTrans_m * 100 };
 }
 
 function calcularAlambre(dimensiones, config = {}, longitudinal, transversal) {
@@ -160,7 +162,12 @@ function calcularReporteMuerto(dimensiones, inputsUI = {}) {
     pesoEstribos_kg: transversal.peso_kg,
     longAlambre_m: alambre.longitudTotal_m,
     pesoAlambre_kg: alambre.peso_kg,
-    pesoTotalArmado_kg: longitudinal.peso_kg + transversal.peso_kg + alambre.peso_kg
+    pesoTotalArmado_kg: longitudinal.peso_kg + transversal.peso_kg + alambre.peso_kg,
+
+    cantBarrasLong: longitudinal.totalBarrasLong,
+    cantEstribos: transversal.cantidad,
+    espaciadoLong_cm: 0,
+    espaciadoTrans_cm: transversal.espaciadoRealTrans_cm || 0
   };
 }
 
@@ -199,7 +206,12 @@ export function calcularMacizosTriangulares(grupos, inputsUI) {
       
       pesoAlambre_kg: reporte.pesoAlambre_kg,
       longAlambre_m: reporte.longAlambre_m,
-      peso_acero_total: reporte.pesoTotalArmado_kg
+      peso_acero_total: reporte.pesoTotalArmado_kg,
+
+      cantBarrasLong: reporte.cantBarrasLong,
+      cantEstribos: reporte.cantEstribos,
+      espaciadoLong_cm: reporte.espaciadoLong_cm,
+      espaciadoTrans_cm: reporte.espaciadoTrans_cm
     });
   });
 

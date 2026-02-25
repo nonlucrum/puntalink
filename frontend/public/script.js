@@ -4534,6 +4534,7 @@ const itemsTop = [
   { action: 'armado-deadman-rect',    label: 'Armado Rectangular',     icon: 'img/backgrounds/8.png', code: 'dock-rect' },
   { action: 'armado-deadman-cil',    label: 'Armado Cilíndrico',     icon: 'img/backgrounds/8.png', code: 'dock-cil' },
   { action: 'armado-deadman-tri',    label: 'Armado Triangular',     icon: 'img/backgrounds/8.png', code: 'dock-tri' },
+  { action: 'generar-informe',       label: 'Generar Informe',       icon: 'img/backgrounds/13.png', code: 'dock-informe' },
 ];
 
 
@@ -4600,6 +4601,14 @@ const clickHandlers = {
   },
   'armado-deadman-tri': () => {
     var element = document.getElementById('section-armado-triangular');
+    var elementPosition = element.getBoundingClientRect().top;
+    var offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+    window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+  },
+
+  // GENERAR INFORME -> Sección final
+  'generar-informe': () => {
+    var element = document.getElementById('section-generar-informe');
     var elementPosition = element.getBoundingClientRect().top;
     var offsetPosition = elementPosition + window.pageYOffset - headerOffset;
     window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
