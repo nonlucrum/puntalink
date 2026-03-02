@@ -181,7 +181,14 @@ function buildCoverSection(data) {
         alignment: docx_1.AlignmentType.CENTER,
         spacing: { after: 400 },
         children: [
-            new docx_1.TextRun({ text: 'DE MUERTOS CORRIDOS', bold: true, size: 36, font: 'Calibri', color: '333333' }),
+            new docx_1.TextRun({ text: (() => {
+                    const t = data.projectInfo?.tipo_muerto || 'Corrido';
+                    if (t === 'Cilindrico')
+                        return 'DE MUERTOS CILÍNDRICOS';
+                    if (t === 'Triangular')
+                        return 'DE MUERTOS TRIANGULARES';
+                    return 'DE MUERTOS CORRIDOS';
+                })(), bold: true, size: 36, font: 'Calibri', color: '333333' }),
         ],
     }));
     // Project name
@@ -537,7 +544,7 @@ function buildMuertosSection(tablaMuertos) {
     }));
     return children;
 }
-function buildArmadoSection(pairs, totals) {
+function buildArmadoSection(pairs, totals, geoLabels) {
     const children = [];
     children.push(new docx_1.Paragraph({
         alignment: docx_1.AlignmentType.LEFT,
@@ -571,7 +578,8 @@ function buildArmadoSection(pairs, totals) {
         ],
     });
     // Sub-header row
-    const subHeaders = ['#', 'EJE', 'MUROS', 'LARGO (m)', 'ALTO (m)', 'ANCHO (m)', 'VARILLA', 'LONGITUD (m)', 'PESO (kg)', 'DIRECCIÓN', 'VOL (m³)', 'PESO (ton)', 'LONGITUD (m)', 'PESO (kg)'];
+    const labels = geoLabels || { dim1: 'LARGO (m)', dim2: 'ALTO (m)', dim3: 'ANCHO (m)' };
+    const subHeaders = ['#', 'EJE', 'MUROS', labels.dim1, labels.dim2, labels.dim3, 'VARILLA', 'LONGITUD (m)', 'PESO (kg)', 'DIRECCIÓN', 'VOL (m³)', 'PESO (ton)', 'LONGITUD (m)', 'PESO (kg)'];
     const subHeaderRow = new docx_1.TableRow({
         tableHeader: true,
         children: subHeaders.map(h => {
@@ -687,6 +695,101 @@ function buildArmadoSection(pairs, totals) {
         ],
     });
     children.push(totalsTable);
+    return children;
+}
+function buildArmadoCilindricoSection(cilData) {
+    const children = [];
+    // Section title
+    children.push(new docx_1.Paragraph({
+        alignment: docx_1.AlignmentType.LEFT,
+        spacing: { before: 100, after: 50 },
+        children: [
+            new docx_1.TextRun({ text: 'Tabla de Armado por Muerto (Cilíndrico)', bold: true, size: 32, font: 'Calibri', color: AZUL }),
+        ],
+    }), new docx_1.Paragraph({
+        border: { bottom: { style: docx_1.BorderStyle.SINGLE, size: 2, color: AZUL, space: 1 } },
+        spacing: { after: 200 },
+        children: [],
+    }));
+    if (!cilData.diameters || cilData.diameters.length === 0) {
+        children.push(new docx_1.Paragraph({
+            alignment: docx_1.AlignmentType.CENTER,
+            spacing: { before: 100 },
+            children: [
+                new docx_1.TextRun({ text: 'No existen datos disponibles para esta sección.', size: 22, font: 'Calibri', color: '666666' }),
+            ],
+        }));
+        return children;
+    }
+    // Per-diameter detail tables
+    for (const diametro of cilData.diameters) {
+        const rows = cilData.perDiameterTables[diametro] || [];
+        // Diameter sub-header
+        children.push(new docx_1.Paragraph({
+            spacing: { before: 200, after: 80 },
+            children: [
+                new docx_1.TextRun({ text: `Ø ${diametro} mm`, bold: true, size: 24, font: 'Calibri', color: '2C3E50' }),
+            ],
+        }));
+        const colHeaders = ['Muro', 'Ø (mm)', 'Cant. Muertos', 'Altura (mm)', 'Concreto (ton)', 'Acero Varillas (kg)', 'Acero Anillos (kg)'];
+        const hRow = new docx_1.TableRow({
+            tableHeader: true,
+            children: colHeaders.map(h => headerCell(h)),
+        });
+        const dataRows = rows.map((r, i) => {
+            const bg = i % 2 === 0 ? BLANCO : 'F8F9FA';
+            return new docx_1.TableRow({
+                children: [
+                    shadedCell(r.id_muro, bg, { fontSize: 16, bold: true }),
+                    shadedCell(String(r.diametro_mm), bg, { fontSize: 16 }),
+                    shadedCell(String(r.cantidad_muertos), bg, { fontSize: 16 }),
+                    shadedCell(String(r.profundidad_mm), bg, { fontSize: 16 }),
+                    shadedCell(r.concreto_ton.toFixed(3), bg, { fontSize: 16 }),
+                    shadedCell(r.acero_varillas_kg.toFixed(2), bg, { fontSize: 16 }),
+                    shadedCell(r.acero_anillos_kg.toFixed(2), bg, { fontSize: 16 }),
+                ],
+            });
+        });
+        children.push(new docx_1.Table({
+            width: { size: 100, type: docx_1.WidthType.PERCENTAGE },
+            rows: [hRow, ...dataRows],
+        }));
+    }
+    // Summary table (transposed: materials as rows, diameters as columns)
+    children.push(new docx_1.Paragraph({
+        spacing: { before: 300, after: 100 },
+        children: [
+            new docx_1.TextRun({ text: 'Resumen Muerto Cilíndrico - Totales Materiales', bold: true, size: 24, font: 'Calibri', color: '27AE60' }),
+        ],
+    }));
+    // Header row: empty + diameters
+    const summaryHeaderRow = new docx_1.TableRow({
+        tableHeader: true,
+        children: [
+            headerCell('Material'),
+            ...cilData.summaryByDiameter.map(s => headerCell(`Ø ${s.diametro_mm} mm`)),
+        ],
+    });
+    // Material rows
+    const materialDefs = [
+        { label: 'Total Concreto (ton)', key: 'concreto_ton', dec: 3 },
+        { label: 'Total Acero Varillas (kg)', key: 'varillas_kg', dec: 2 },
+        { label: 'Total Acero Anillos (kg)', key: 'anillos_kg', dec: 2 },
+        { label: 'Total Alambre (kg)', key: 'alambre_kg', dec: 2 },
+    ];
+    const materialRows = materialDefs.map((mat, idx) => {
+        const bg = idx % 2 === 0 ? BLANCO : 'F8F9FA';
+        return new docx_1.TableRow({
+            children: [
+                shadedCell(mat.label, 'ECF0F1', { fontSize: 16, bold: true }),
+                ...cilData.summaryByDiameter.map(s => shadedCell(s[mat.key].toFixed(mat.dec), bg, { fontSize: 16 })),
+            ],
+        });
+    });
+    children.push(new docx_1.Table({
+        width: { size: 100, type: docx_1.WidthType.PERCENTAGE },
+        rows: [summaryHeaderRow, ...materialRows],
+    }));
     return children;
 }
 function buildMethodologySection(projectInfo, user) {
@@ -837,6 +940,7 @@ async function generarInformeDocx(data) {
         headers: defaultHeader ? { default: defaultHeader } : undefined,
         footers: { default: defaultFooter },
     };
+    const tipoMuerto = data.projectInfo?.tipo_muerto || 'Corrido';
     // Cover page
     const coverChildren = buildCoverSection(data);
     // Image page (if provided)
@@ -845,16 +949,8 @@ async function generarInformeDocx(data) {
     const projectInfoChildren = buildProjectInfoSection(data);
     // Calculations page
     const calcChildren = buildCalculationsSection(data);
-    // Armado page (two-row pairs: longitudinal + transversal per deadman)
-    const armadoChildren = buildArmadoSection(data.filasArmadoPairs, data.totals);
-    // Spacing table
-    const spacingChildren = (data.filasArmadoPairs && data.filasArmadoPairs.length > 0)
-        ? buildSpacingSection(data.filasArmadoPairs)
-        : [];
-    // Schema page
-    const schemaChildren = buildSchemaSection();
-    // Muertos page
-    const muertosChildren = (data.tablaMuertos && data.tablaMuertos.length > 0)
+    // Muertos page (only for Corrido and Triangular — in the web, Cilíndrico hides this)
+    const muertosChildren = (tipoMuerto !== 'Cilindrico' && data.tablaMuertos && data.tablaMuertos.length > 0)
         ? buildMuertosSection(data.tablaMuertos)
         : [];
     // Methodology page
@@ -887,24 +983,45 @@ async function generarInformeDocx(data) {
             children: muertosChildren,
         });
     }
-    // Armado table
-    if (data.filasArmadoPairs && data.filasArmadoPairs.length > 0) {
+    // === TYPE-AWARE SECTIONS ===
+    if (tipoMuerto === 'Cilindrico' && data.cilindricoData) {
+        // Cilíndrico: per-diameter tables + summary, no spacing, no schema
+        const armadoCilChildren = buildArmadoCilindricoSection(data.cilindricoData);
         sections.push({
             ...sectionBase,
-            children: armadoChildren,
+            children: armadoCilChildren,
         });
     }
-    // Spacing table
-    if (spacingChildren.length > 0) {
-        sections.push({
-            ...sectionBase,
-            children: spacingChildren,
-        });
+    else {
+        // Corrido (Rectangular) or Triangular
+        const geoLabels = tipoMuerto === 'Triangular'
+            ? { dim1: 'LARGO (m)', dim2: 'ALTO (m)', dim3: 'BASE (m)' }
+            : undefined;
+        const armadoChildren = buildArmadoSection(data.filasArmadoPairs, data.totals, geoLabels);
+        if (data.filasArmadoPairs && data.filasArmadoPairs.length > 0) {
+            sections.push({
+                ...sectionBase,
+                children: armadoChildren,
+            });
+        }
+        // Spacing table
+        const spacingChildren = (data.filasArmadoPairs && data.filasArmadoPairs.length > 0)
+            ? buildSpacingSection(data.filasArmadoPairs)
+            : [];
+        if (spacingChildren.length > 0) {
+            sections.push({
+                ...sectionBase,
+                children: spacingChildren,
+            });
+        }
+        // Schema image (only for Corrido — only one esquema.png exists)
+        if (tipoMuerto !== 'Triangular') {
+            sections.push({
+                ...sectionBase,
+                children: buildSchemaSection(),
+            });
+        }
     }
-    sections.push({
-        ...sectionBase,
-        children: schemaChildren,
-    });
     sections.push({
         ...sectionBase,
         children: methodChildren,

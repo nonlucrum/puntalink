@@ -112,6 +112,33 @@ export interface ReportTotals {
   metal: { kg: number; ton: number };
 }
 
+// === Cilíndrico report data ===
+
+export interface CilindricoMuroRow {
+  id_muro: string;
+  diametro_mm: number;
+  profundidad_mm: number;
+  cantidad_muertos: number;
+  concreto_ton: number;
+  acero_varillas_kg: number;
+  acero_anillos_kg: number;
+  alambre_kg: number;
+}
+
+export interface CilindricoDiametroSummary {
+  diametro_mm: number;
+  concreto_ton: number;
+  varillas_kg: number;
+  anillos_kg: number;
+  alambre_kg: number;
+}
+
+export interface CilindricoReportData {
+  perDiameterTables: Record<number, CilindricoMuroRow[]>;
+  summaryByDiameter: CilindricoDiametroSummary[];
+  diameters: number[];
+}
+
 export interface ReportData {
   paneles: PanelCalculado[];
   projectInfo?: ProjectInfo;
@@ -121,6 +148,7 @@ export interface ReportData {
   totals: ReportTotals;
   user?: UsuarioInfo;
   reportImage?: Buffer;
+  cilindricoData?: CilindricoReportData | null;
 }
 
 // === Datos crudos del frontend ===
@@ -136,6 +164,12 @@ interface RawMacizoData {
   alto?: number;
   espesor_bloque?: number;
   ancho?: number;
+  // Triangular-specific geometry
+  base?: number;
+  largo?: number;
+  // Triangular-specific concrete
+  volumen_m3?: number;
+  peso_conc?: number;
   longLongitudinal_m?: number;
   longitudTotalLongitudinal?: number;
   pesoLongitudinal_kg?: number;
@@ -253,9 +287,9 @@ export function normalizeArmadoRows(
         index: m.grupo_numero || (i + 1),
         eje: String(m.eje || '-'),
         muros: m.muros_list || (m.cantidadMuros ? `${m.cantidadMuros} muros` : ''),
-        largo_m: m.largo_total || m.profundidad || 0,
+        largo_m: m.largo_total || m.profundidad || m.largo || 0,
         alto_m: m.alto_total || m.alto || 0,
-        ancho_m: m.espesor_bloque || m.ancho || 0
+        ancho_m: m.espesor_bloque || m.ancho || m.base || 0
       },
       acero: {
         cantidad: '-',
@@ -264,8 +298,8 @@ export function normalizeArmadoRows(
         direccion: 'Long+Est'
       },
       concreto: {
-        vol_m3: m.volumenConcreto_m3 || m.volumenConcreto || 0,
-        peso_ton: (m.pesoConcreto_kg || m.pesoConcreto || 0) / 1000
+        vol_m3: m.volumenConcreto_m3 || m.volumenConcreto || m.volumen_m3 || 0,
+        peso_ton: (m.pesoConcreto_kg || m.pesoConcreto || m.peso_conc || 0) / 1000
       },
       alambre: {
         longitud_m: m.longAlambre_m || m.longitudAlambre || 0,
@@ -304,9 +338,9 @@ export function normalizeArmadoPairs(
       index: m.grupo_numero || (i + 1),
       eje: String(m.eje || '-'),
       muros: m.muros_list || (m.cantidadMuros ? `${m.cantidadMuros} muros` : ''),
-      largo_m: m.largo_total || m.profundidad || 0,
+      largo_m: m.largo_total || m.profundidad || m.largo || 0,
       alto_m: m.alto_total || m.alto || 0,
-      ancho_m: m.espesor_bloque || m.ancho || 0,
+      ancho_m: m.espesor_bloque || m.ancho || m.base || 0,
     },
     longitudinal: {
       cantBarras: m.cantBarrasLong || 0,
@@ -319,8 +353,8 @@ export function normalizeArmadoPairs(
       peso_kg: m.pesoEstribos_kg || m.pesoTransversal || 0,
     },
     concreto: {
-      vol_m3: m.volumenConcreto_m3 || m.volumenConcreto || 0,
-      peso_ton: (m.pesoConcreto_kg || m.pesoConcreto || 0) / 1000,
+      vol_m3: m.volumenConcreto_m3 || m.volumenConcreto || m.volumen_m3 || 0,
+      peso_ton: (m.pesoConcreto_kg || m.pesoConcreto || m.peso_conc || 0) / 1000,
     },
     alambre: {
       longitud_m: m.longAlambre_m || m.longitudAlambre || 0,
@@ -376,10 +410,50 @@ function normalizeTablaMuertos(raw?: MuertoResumen[]): MuertoResumen[] | undefin
   }));
 }
 
+export function normalizeCilindricoData(reporteMacizos?: any[]): CilindricoReportData | null {
+  if (!reporteMacizos || !Array.isArray(reporteMacizos) || reporteMacizos.length === 0) return null;
+  const first = reporteMacizos[0] as any;
+  if (!first || first._tipo !== 'Cilindrico') return null;
+
+  const raw = first;
+  const diameters: number[] = raw.diametrosSeleccionados || [];
+  const perDiameterTables: Record<number, CilindricoMuroRow[]> = {};
+  const summaryByDiameter: CilindricoDiametroSummary[] = [];
+
+  for (const d of diameters) {
+    perDiameterTables[d] = (raw.resultadosPorDiametro?.[d] || []).map((r: any) => ({
+      id_muro: String(r.id_muro || ''),
+      diametro_mm: Number(r.diametro_mm) || d,
+      profundidad_mm: Number(r.profundidad_mm) || 0,
+      cantidad_muertos: Number(r.cantidad_muertos) || 0,
+      concreto_ton: Number(r.concreto_ton) || 0,
+      acero_varillas_kg: Number(r.acero_varillas_kg) || 0,
+      acero_anillos_kg: Number(r.acero_anillos_kg) || 0,
+      alambre_kg: Number(r.alambre_kg) || 0,
+    }));
+
+    const totals = raw.totalesPorDiametro?.[d] || {};
+    summaryByDiameter.push({
+      diametro_mm: d,
+      concreto_ton: Number(totals.concreto) || 0,
+      varillas_kg: Number(totals.varillas) || 0,
+      anillos_kg: Number(totals.anillos) || 0,
+      alambre_kg: Number(totals.alambre) || 0,
+    });
+  }
+
+  return { perDiameterTables, summaryByDiameter, diameters };
+}
+
 export function buildReportData(input: BuildReportInput): ReportData {
   const paneles = normalizePaneles(input.paneles);
-  const filasArmado = normalizeArmadoRows(input.reporteMacizos, input.tablaArmado);
-  const filasArmadoPairs = normalizeArmadoPairs(input.reporteMacizos);
+
+  // Detect cylindrical envelope
+  const cilindricoData = normalizeCilindricoData(input.reporteMacizos as any);
+  const rawMacizos = cilindricoData ? undefined : input.reporteMacizos;
+
+  const filasArmado = normalizeArmadoRows(rawMacizos, input.tablaArmado);
+  const filasArmadoPairs = normalizeArmadoPairs(rawMacizos);
   const totals = filasArmadoPairs.length > 0
     ? computeTotalsFromPairs(filasArmadoPairs)
     : computeTotals(filasArmado);
@@ -393,7 +467,8 @@ export function buildReportData(input: BuildReportInput): ReportData {
     filasArmadoPairs,
     totals,
     user: input.user,
-    reportImage: input.reportImage
+    reportImage: input.reportImage,
+    cilindricoData,
   };
 }
 

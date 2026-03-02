@@ -173,8 +173,9 @@ document.addEventListener('DOMContentLoaded', () => {
           }
           containerTablas.innerHTML = '';
 
-          // Objeto para acumular totales por diámetro
+          // Objetos para acumular totales y detalle por diámetro
           const totalesPorDiametro = {};
+          const resultadosPorDiametro = {};
 
           // Crear una tabla por cada diámetro seleccionado
           diametrosSeleccionados.forEach(diametro => {
@@ -263,6 +264,19 @@ document.addEventListener('DOMContentLoaded', () => {
                   totalesPorDiametro[diametro].anillos += resultado.unitario.acero_trans_kg;
                   totalesPorDiametro[diametro].alambre += resultado.unitario.alambre_kg || 0;
 
+                  // Acumular detalle por diámetro para reporte
+                  if (!resultadosPorDiametro[diametro]) resultadosPorDiametro[diametro] = [];
+                  resultadosPorDiametro[diametro].push({
+                    id_muro: muroId,
+                    diametro_mm: diametro,
+                    profundidad_mm: profundidad,
+                    cantidad_muertos: numBraces,
+                    concreto_ton: resultado.total_muro.peso_concreto_ton,
+                    acero_varillas_kg: resultado.unitario.acero_long_kg,
+                    acero_anillos_kg: resultado.unitario.acero_trans_kg,
+                    alambre_kg: resultado.unitario.alambre_kg || 0
+                  });
+
                   // Crear fila con los datos calculados
                   const tr = document.createElement('tr');
                   tr.innerHTML = `
@@ -329,6 +343,15 @@ document.addEventListener('DOMContentLoaded', () => {
               
               resumenContainer.style.display = 'block';
           }
+
+          // Almacenar resultados cilíndricos para el reporte
+          window.ultimosResultadosMacizos = [{
+            _tipo: 'Cilindrico',
+            diametrosSeleccionados,
+            totalesPorDiametro,
+            resultadosPorDiametro
+          }];
+          console.log('[CILINDRICO] Resultados almacenados para reporte:', window.ultimosResultadosMacizos);
       });
   }
 
@@ -1385,10 +1408,11 @@ export async function handleGenerarInforme(elements, globalVars) {
 
   mostrarConfigGrupos(gruposMuertos);
 
-  // Recalcular macizos para asegurar sincronización
-  console.log('[DASHBOARD] Recalculando macizos antes de enviar informe...');
-  if (typeof window.ejecutarCalculosArmado === 'function') {
-     await window.ejecutarCalculosArmado();
+  // Recalcular macizos para asegurar sincronización (solo rectangular)
+  const tipoMuertoInforme = projectInfo.tipo_muerto || 'Corrido';
+  if (tipoMuertoInforme === 'Corrido' && typeof window.ejecutarCalculosArmado === 'function') {
+    console.log('[DASHBOARD] Recalculando macizos rectangulares antes de enviar informe...');
+    await window.ejecutarCalculosArmado();
   }
 
   // Configuración UI
