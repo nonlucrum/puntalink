@@ -537,7 +537,7 @@ function buildMuertosSection(tablaMuertos) {
     }));
     return children;
 }
-function buildArmadoSection(filas, totals) {
+function buildArmadoSection(pairs, totals) {
     const children = [];
     children.push(new docx_1.Paragraph({
         alignment: docx_1.AlignmentType.LEFT,
@@ -550,7 +550,7 @@ function buildArmadoSection(filas, totals) {
         spacing: { after: 200 },
         children: [],
     }));
-    if (!filas || filas.length === 0) {
+    if (!pairs || pairs.length === 0) {
         children.push(new docx_1.Paragraph({
             alignment: docx_1.AlignmentType.CENTER,
             spacing: { before: 100 },
@@ -571,7 +571,7 @@ function buildArmadoSection(filas, totals) {
         ],
     });
     // Sub-header row
-    const subHeaders = ['#', 'EJE', 'MUROS', 'LARGO (m)', 'ALTO (m)', 'ANCHO (m)', '#', 'LONGITUD (m)', 'PESO (kg)', 'DIRECCIÓN', 'VOL (m³)', 'PESO (ton)', 'LONGITUD (m)', 'PESO (kg)'];
+    const subHeaders = ['#', 'EJE', 'MUROS', 'LARGO (m)', 'ALTO (m)', 'ANCHO (m)', 'VARILLA', 'LONGITUD (m)', 'PESO (kg)', 'DIRECCIÓN', 'VOL (m³)', 'PESO (ton)', 'LONGITUD (m)', 'PESO (kg)'];
     const subHeaderRow = new docx_1.TableRow({
         tableHeader: true,
         children: subHeaders.map(h => {
@@ -594,28 +594,70 @@ function buildArmadoSection(filas, totals) {
             });
         }),
     });
-    // Data rows
-    const dataRows = filas.map((r, idx) => {
-        const bg = idx % 2 === 0 ? BLANCO : 'F8F9FA';
-        const cells = [
-            String(r.deadman.index),
-            r.deadman.eje,
-            r.deadman.muros,
-            fixedOrDash(r.deadman.largo_m, 2),
-            fixedOrDash(r.deadman.alto_m, 2),
-            fixedOrDash(r.deadman.ancho_m, 2),
-            String(r.acero.cantidad ?? '\u2014'),
-            fixedOrDash(r.acero.longitud_m, 2),
-            fixedOrDash(r.acero.peso_kg, 2),
-            r.acero.direccion || '\u2014',
-            fixedOrDash(r.concreto.vol_m3, 2),
-            fixedOrDash(r.concreto.peso_ton, 2),
-            fixedOrDash(r.alambre.longitud_m, 2),
-            fixedOrDash(r.alambre.peso_kg, 2),
-        ];
-        return new docx_1.TableRow({
-            children: cells.map(text => shadedCell(text, bg, { fontSize: 16 })),
+    // Helper to create a cell with optional vertical merge
+    const mergedCell = (text, bg, vMerge) => {
+        return new docx_1.TableCell({
+            shading: { type: docx_1.ShadingType.CLEAR, fill: bg },
+            verticalAlign: docx_1.VerticalAlign.CENTER,
+            verticalMerge: vMerge,
+            children: [
+                new docx_1.Paragraph({
+                    alignment: docx_1.AlignmentType.CENTER,
+                    spacing: { before: 40, after: 40 },
+                    children: [new docx_1.TextRun({ text, size: 16, font: 'Calibri', color: NEGRO })],
+                }),
+            ],
         });
+    };
+    // Data rows — two rows per deadman (longitudinal + transversal)
+    const dataRows = [];
+    pairs.forEach((r, idx) => {
+        const bg = idx % 2 === 0 ? BLANCO : 'F8F9FA';
+        // Row 1: Longitudinal — deadman, concreto, alambre cells start vertical merge
+        const row1 = new docx_1.TableRow({
+            children: [
+                mergedCell(`G${r.deadman.index}`, bg, docx_1.VerticalMergeType.RESTART),
+                mergedCell(r.deadman.eje, bg, docx_1.VerticalMergeType.RESTART),
+                mergedCell(r.deadman.muros, bg, docx_1.VerticalMergeType.RESTART),
+                mergedCell(fixedOrDash(r.deadman.largo_m, 2), bg, docx_1.VerticalMergeType.RESTART),
+                mergedCell(fixedOrDash(r.deadman.alto_m, 2), bg, docx_1.VerticalMergeType.RESTART),
+                mergedCell(fixedOrDash(r.deadman.ancho_m, 2), bg, docx_1.VerticalMergeType.RESTART),
+                // Acero longitudinal
+                shadedCell('#4', bg, { fontSize: 16 }),
+                shadedCell(fixedOrDash(r.longitudinal.longitud_m, 1), bg, { fontSize: 16 }),
+                shadedCell(fixedOrDash(r.longitudinal.peso_kg, 1), bg, { fontSize: 16 }),
+                shadedCell('Long.', bg, { fontSize: 16 }),
+                // Concreto (merged)
+                mergedCell(fixedOrDash(r.concreto.vol_m3, 2), bg, docx_1.VerticalMergeType.RESTART),
+                mergedCell(fixedOrDash(r.concreto.peso_ton, 1), bg, docx_1.VerticalMergeType.RESTART),
+                // Alambre (merged)
+                mergedCell(fixedOrDash(r.alambre.longitud_m, 1), bg, docx_1.VerticalMergeType.RESTART),
+                mergedCell(fixedOrDash(r.alambre.peso_kg, 1), bg, docx_1.VerticalMergeType.RESTART),
+            ],
+        });
+        // Row 2: Transversal — deadman, concreto, alambre cells continue merge
+        const row2 = new docx_1.TableRow({
+            children: [
+                mergedCell('', bg, docx_1.VerticalMergeType.CONTINUE),
+                mergedCell('', bg, docx_1.VerticalMergeType.CONTINUE),
+                mergedCell('', bg, docx_1.VerticalMergeType.CONTINUE),
+                mergedCell('', bg, docx_1.VerticalMergeType.CONTINUE),
+                mergedCell('', bg, docx_1.VerticalMergeType.CONTINUE),
+                mergedCell('', bg, docx_1.VerticalMergeType.CONTINUE),
+                // Acero transversal
+                shadedCell('#3', bg, { fontSize: 16 }),
+                shadedCell(fixedOrDash(r.transversal.longitud_m, 1), bg, { fontSize: 16 }),
+                shadedCell(fixedOrDash(r.transversal.peso_kg, 1), bg, { fontSize: 16 }),
+                shadedCell('Estribo', bg, { fontSize: 16 }),
+                // Concreto (continue merge)
+                mergedCell('', bg, docx_1.VerticalMergeType.CONTINUE),
+                mergedCell('', bg, docx_1.VerticalMergeType.CONTINUE),
+                // Alambre (continue merge)
+                mergedCell('', bg, docx_1.VerticalMergeType.CONTINUE),
+                mergedCell('', bg, docx_1.VerticalMergeType.CONTINUE),
+            ],
+        });
+        dataRows.push(row1, row2);
     });
     children.push(new docx_1.Table({
         width: { size: 100, type: docx_1.WidthType.PERCENTAGE },
@@ -803,8 +845,8 @@ async function generarInformeDocx(data) {
     const projectInfoChildren = buildProjectInfoSection(data);
     // Calculations page
     const calcChildren = buildCalculationsSection(data);
-    // Armado page (two-row pairs)
-    const armadoChildren = buildArmadoSection(data.filasArmado, data.totals);
+    // Armado page (two-row pairs: longitudinal + transversal per deadman)
+    const armadoChildren = buildArmadoSection(data.filasArmadoPairs, data.totals);
     // Spacing table
     const spacingChildren = (data.filasArmadoPairs && data.filasArmadoPairs.length > 0)
         ? buildSpacingSection(data.filasArmadoPairs)
@@ -838,8 +880,15 @@ async function generarInformeDocx(data) {
         ...sectionBase,
         children: calcChildren,
     });
+    // Muertos summary (in the web this appears right after calculations)
+    if (muertosChildren.length > 0) {
+        sections.push({
+            ...sectionBase,
+            children: muertosChildren,
+        });
+    }
     // Armado table
-    if (data.filasArmado && data.filasArmado.length > 0) {
+    if (data.filasArmadoPairs && data.filasArmadoPairs.length > 0) {
         sections.push({
             ...sectionBase,
             children: armadoChildren,
@@ -856,12 +905,6 @@ async function generarInformeDocx(data) {
         ...sectionBase,
         children: schemaChildren,
     });
-    if (muertosChildren.length > 0) {
-        sections.push({
-            ...sectionBase,
-            children: muertosChildren,
-        });
-    }
     sections.push({
         ...sectionBase,
         children: methodChildren,

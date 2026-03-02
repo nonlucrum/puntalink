@@ -20,6 +20,7 @@ import {
   PageBreak,
   convertInchesToTwip,
   Tab,
+  VerticalMergeType,
 } from 'docx';
 
 import type {
@@ -693,7 +694,7 @@ function buildMuertosSection(tablaMuertos: MuertoResumen[]): (Paragraph | Table)
   return children;
 }
 
-function buildArmadoSection(filas: ArmadoMuertoRow[], totals: ReportTotals): (Paragraph | Table)[] {
+function buildArmadoSection(pairs: ArmadoMuertoPair[], totals: ReportTotals): (Paragraph | Table)[] {
   const children: (Paragraph | Table)[] = [];
 
   children.push(
@@ -711,7 +712,7 @@ function buildArmadoSection(filas: ArmadoMuertoRow[], totals: ReportTotals): (Pa
     })
   );
 
-  if (!filas || filas.length === 0) {
+  if (!pairs || pairs.length === 0) {
     children.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
@@ -736,7 +737,7 @@ function buildArmadoSection(filas: ArmadoMuertoRow[], totals: ReportTotals): (Pa
   });
 
   // Sub-header row
-  const subHeaders = ['#', 'EJE', 'MUROS', 'LARGO (m)', 'ALTO (m)', 'ANCHO (m)', '#', 'LONGITUD (m)', 'PESO (kg)', 'DIRECCIÓN', 'VOL (m³)', 'PESO (ton)', 'LONGITUD (m)', 'PESO (kg)'];
+  const subHeaders = ['#', 'EJE', 'MUROS', 'LARGO (m)', 'ALTO (m)', 'ANCHO (m)', 'VARILLA', 'LONGITUD (m)', 'PESO (kg)', 'DIRECCIÓN', 'VOL (m³)', 'PESO (ton)', 'LONGITUD (m)', 'PESO (kg)'];
   const subHeaderRow = new TableRow({
     tableHeader: true,
     children: subHeaders.map(h => {
@@ -760,28 +761,74 @@ function buildArmadoSection(filas: ArmadoMuertoRow[], totals: ReportTotals): (Pa
     }),
   });
 
-  // Data rows
-  const dataRows = filas.map((r, idx) => {
-    const bg = idx % 2 === 0 ? BLANCO : 'F8F9FA';
-    const cells = [
-      String(r.deadman.index),
-      r.deadman.eje,
-      r.deadman.muros,
-      fixedOrDash(r.deadman.largo_m, 2),
-      fixedOrDash(r.deadman.alto_m, 2),
-      fixedOrDash(r.deadman.ancho_m, 2),
-      String(r.acero.cantidad ?? '\u2014'),
-      fixedOrDash(r.acero.longitud_m, 2),
-      fixedOrDash(r.acero.peso_kg, 2),
-      r.acero.direccion || '\u2014',
-      fixedOrDash(r.concreto.vol_m3, 2),
-      fixedOrDash(r.concreto.peso_ton, 2),
-      fixedOrDash(r.alambre.longitud_m, 2),
-      fixedOrDash(r.alambre.peso_kg, 2),
-    ];
-    return new TableRow({
-      children: cells.map(text => shadedCell(text, bg, { fontSize: 16 })),
+  // Helper to create a cell with optional vertical merge
+  const mergedCell = (text: string, bg: string, vMerge: typeof VerticalMergeType[keyof typeof VerticalMergeType]) => {
+    return new TableCell({
+      shading: { type: ShadingType.CLEAR, fill: bg },
+      verticalAlign: VerticalAlign.CENTER,
+      verticalMerge: vMerge,
+      children: [
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { before: 40, after: 40 },
+          children: [new TextRun({ text, size: 16, font: 'Calibri', color: NEGRO })],
+        }),
+      ],
     });
+  };
+
+  // Data rows — two rows per deadman (longitudinal + transversal)
+  const dataRows: TableRow[] = [];
+  pairs.forEach((r, idx) => {
+    const bg = idx % 2 === 0 ? BLANCO : 'F8F9FA';
+
+    // Row 1: Longitudinal — deadman, concreto, alambre cells start vertical merge
+    const row1 = new TableRow({
+      children: [
+        mergedCell(`G${r.deadman.index}`, bg, VerticalMergeType.RESTART),
+        mergedCell(r.deadman.eje, bg, VerticalMergeType.RESTART),
+        mergedCell(r.deadman.muros, bg, VerticalMergeType.RESTART),
+        mergedCell(fixedOrDash(r.deadman.largo_m, 2), bg, VerticalMergeType.RESTART),
+        mergedCell(fixedOrDash(r.deadman.alto_m, 2), bg, VerticalMergeType.RESTART),
+        mergedCell(fixedOrDash(r.deadman.ancho_m, 2), bg, VerticalMergeType.RESTART),
+        // Acero longitudinal
+        shadedCell('#4', bg, { fontSize: 16 }),
+        shadedCell(fixedOrDash(r.longitudinal.longitud_m, 1), bg, { fontSize: 16 }),
+        shadedCell(fixedOrDash(r.longitudinal.peso_kg, 1), bg, { fontSize: 16 }),
+        shadedCell('Long.', bg, { fontSize: 16 }),
+        // Concreto (merged)
+        mergedCell(fixedOrDash(r.concreto.vol_m3, 2), bg, VerticalMergeType.RESTART),
+        mergedCell(fixedOrDash(r.concreto.peso_ton, 1), bg, VerticalMergeType.RESTART),
+        // Alambre (merged)
+        mergedCell(fixedOrDash(r.alambre.longitud_m, 1), bg, VerticalMergeType.RESTART),
+        mergedCell(fixedOrDash(r.alambre.peso_kg, 1), bg, VerticalMergeType.RESTART),
+      ],
+    });
+
+    // Row 2: Transversal — deadman, concreto, alambre cells continue merge
+    const row2 = new TableRow({
+      children: [
+        mergedCell('', bg, VerticalMergeType.CONTINUE),
+        mergedCell('', bg, VerticalMergeType.CONTINUE),
+        mergedCell('', bg, VerticalMergeType.CONTINUE),
+        mergedCell('', bg, VerticalMergeType.CONTINUE),
+        mergedCell('', bg, VerticalMergeType.CONTINUE),
+        mergedCell('', bg, VerticalMergeType.CONTINUE),
+        // Acero transversal
+        shadedCell('#3', bg, { fontSize: 16 }),
+        shadedCell(fixedOrDash(r.transversal.longitud_m, 1), bg, { fontSize: 16 }),
+        shadedCell(fixedOrDash(r.transversal.peso_kg, 1), bg, { fontSize: 16 }),
+        shadedCell('Estribo', bg, { fontSize: 16 }),
+        // Concreto (continue merge)
+        mergedCell('', bg, VerticalMergeType.CONTINUE),
+        mergedCell('', bg, VerticalMergeType.CONTINUE),
+        // Alambre (continue merge)
+        mergedCell('', bg, VerticalMergeType.CONTINUE),
+        mergedCell('', bg, VerticalMergeType.CONTINUE),
+      ],
+    });
+
+    dataRows.push(row1, row2);
   });
 
   children.push(
@@ -1025,8 +1072,8 @@ export async function generarInformeDocx(data: ReportData): Promise<Buffer> {
   // Calculations page
   const calcChildren = buildCalculationsSection(data);
 
-  // Armado page (two-row pairs)
-  const armadoChildren = buildArmadoSection(data.filasArmado, data.totals);
+  // Armado page (two-row pairs: longitudinal + transversal per deadman)
+  const armadoChildren = buildArmadoSection(data.filasArmadoPairs, data.totals);
 
   // Spacing table
   const spacingChildren = (data.filasArmadoPairs && data.filasArmadoPairs.length > 0)
@@ -1069,8 +1116,16 @@ export async function generarInformeDocx(data: ReportData): Promise<Buffer> {
     children: calcChildren,
   });
 
+  // Muertos summary (in the web this appears right after calculations)
+  if (muertosChildren.length > 0) {
+    sections.push({
+      ...sectionBase,
+      children: muertosChildren,
+    });
+  }
+
   // Armado table
-  if (data.filasArmado && data.filasArmado.length > 0) {
+  if (data.filasArmadoPairs && data.filasArmadoPairs.length > 0) {
     sections.push({
       ...sectionBase,
       children: armadoChildren,
@@ -1089,13 +1144,6 @@ export async function generarInformeDocx(data: ReportData): Promise<Buffer> {
     ...sectionBase,
     children: schemaChildren,
   });
-
-  if (muertosChildren.length > 0) {
-    sections.push({
-      ...sectionBase,
-      children: muertosChildren,
-    });
-  }
 
   sections.push({
     ...sectionBase,
