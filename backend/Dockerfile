@@ -1,6 +1,11 @@
 # Usa una imagen oficial de Node.js
 FROM node:20
 
+# Instala LibreOffice headless para conversión DOCX → PDF
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libreoffice-core libreoffice-writer && \
+    rm -rf /var/lib/apt/lists/*
+
 # Crea el directorio de trabajo
 WORKDIR /app
 

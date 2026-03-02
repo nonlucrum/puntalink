@@ -19,6 +19,7 @@
     "express": "^4.21.2",
     "google-auth-library": "^10.4.2",
     "jsonwebtoken": "^9.0.2",
+    "libreoffice-convert": "^1.8.1",
     "morgan": "^1.10.0",
     "multer": "^2.0.2",
     "pdfkit": "^0.13.0",

@@ -28,6 +28,7 @@ import type {
   ProjectInfo,
   MuertoResumen,
   ArmadoMuertoRow,
+  ArmadoMuertoPair,
   ReportTotals,
   UsuarioInfo,
 } from './reportDataBuilder';
@@ -52,6 +53,26 @@ function safeReadFile(relPath: string): Buffer | null {
   const p = getAssetPath(relPath);
   if (fs.existsSync(p)) return fs.readFileSync(p);
   return null;
+}
+
+/** Read PNG dimensions from buffer header */
+function getPngDimensions(buf: Buffer): { width: number; height: number } | null {
+  // PNG signature: 137 80 78 71 13 10 26 10, then IHDR chunk
+  if (buf.length < 24) return null;
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47) {
+    const width = buf.readUInt32BE(16);
+    const height = buf.readUInt32BE(20);
+    return { width, height };
+  }
+  return null;
+}
+
+/** Scale image to fit within maxW x maxH preserving aspect ratio */
+function fitImage(buf: Buffer, maxW: number, maxH: number): { width: number; height: number } {
+  const dims = getPngDimensions(buf);
+  if (!dims) return { width: maxW, height: maxH };
+  const scale = Math.min(maxW / dims.width, maxH / dims.height);
+  return { width: Math.round(dims.width * scale), height: Math.round(dims.height * scale) };
 }
 
 function fmt(n: number, d: number): string {
@@ -150,6 +171,7 @@ function buildCoverSection(data: ReportData): Paragraph[] {
   // Logo
   const logoBuffer = safeReadFile('logo.png');
   if (logoBuffer) {
+    const logoDims = fitImage(logoBuffer, 200, 90);
     children.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
@@ -157,7 +179,7 @@ function buildCoverSection(data: ReportData): Paragraph[] {
         children: [
           new ImageRun({
             data: logoBuffer,
-            transformation: { width: 180, height: 80 },
+            transformation: logoDims,
           }),
         ],
       })
@@ -250,22 +272,6 @@ function buildCoverSection(data: ReportData): Paragraph[] {
     );
   }
 
-  // User report image (if provided)
-  if (data.reportImage) {
-    children.push(
-      new Paragraph({
-        alignment: AlignmentType.CENTER,
-        spacing: { before: 200, after: 200 },
-        children: [
-          new ImageRun({
-            data: data.reportImage,
-            transformation: { width: 400, height: 250 },
-          }),
-        ],
-      })
-    );
-  }
-
   // Date
   const fecha = new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
   children.push(
@@ -289,12 +295,13 @@ function buildProjectInfoSection(data: ReportData): Paragraph[] {
   // Logo
   const logoBuffer = safeReadFile('logo.png');
   if (logoBuffer) {
+    const logoDims = fitImage(logoBuffer, 180, 80);
     children.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
         spacing: { before: 200, after: 100 },
         children: [
-          new ImageRun({ data: logoBuffer, transformation: { width: 160, height: 70 } }),
+          new ImageRun({ data: logoBuffer, transformation: logoDims }),
         ],
       })
     );
@@ -477,6 +484,135 @@ function buildSchemaSection(): Paragraph[] {
       })
     );
   }
+
+  return children;
+}
+
+function buildImageSection(imageBuffer: Buffer): Paragraph[] {
+  const children: Paragraph[] = [];
+
+  children.push(
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 100, after: 50 },
+      children: [
+        new TextRun({ text: 'IMAGEN DEL PROYECTO', bold: true, size: 32, font: 'Calibri', color: AZUL }),
+      ],
+    }),
+    new Paragraph({
+      border: { bottom: { style: BorderStyle.SINGLE, size: 2, color: AZUL, space: 1 } },
+      spacing: { after: 200 },
+      children: [],
+    })
+  );
+
+  // Try to get image dimensions for proper aspect ratio
+  const dims = getPngDimensions(imageBuffer);
+  let imgW = 480;
+  let imgH = 360;
+  if (dims) {
+    const scale = Math.min(480 / dims.width, 600 / dims.height);
+    imgW = Math.round(dims.width * scale);
+    imgH = Math.round(dims.height * scale);
+  }
+
+  children.push(
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 100 },
+      children: [
+        new ImageRun({
+          data: imageBuffer,
+          transformation: { width: imgW, height: imgH },
+        }),
+      ],
+    })
+  );
+
+  return children;
+}
+
+function buildSpacingSection(pairs: ArmadoMuertoPair[]): (Paragraph | Table)[] {
+  const children: (Paragraph | Table)[] = [];
+
+  children.push(
+    new Paragraph({
+      alignment: AlignmentType.LEFT,
+      spacing: { before: 100, after: 50 },
+      children: [
+        new TextRun({ text: 'Tabla 2. Espaciamiento de las varillas por muerto.', bold: true, size: 22, font: 'Calibri', color: AZUL }),
+      ],
+    }),
+    new Paragraph({
+      border: { bottom: { style: BorderStyle.SINGLE, size: 2, color: AZUL, space: 1 } },
+      spacing: { after: 200 },
+      children: [],
+    })
+  );
+
+  if (!pairs || pairs.length === 0) {
+    children.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { before: 100 },
+        children: [
+          new TextRun({ text: 'No hay datos de espaciamiento disponibles.', size: 22, font: 'Calibri', color: '666666' }),
+        ],
+      })
+    );
+    return children;
+  }
+
+  const headers = ['Nº', 'Eje', 'Muros', 'Espaciado\nLongitudinal (m)', 'Espaciado\nTransversal (m)', 'Distancia X (m)'];
+
+  const headerRow = new TableRow({
+    tableHeader: true,
+    children: headers.map(h => headerCell(h)),
+  });
+
+  const dataRows = pairs.map((pair, i) => {
+    const bg = i % 2 === 0 ? BLANCO : 'F8F9FA';
+    const cells = [
+      `D${pair.deadman.index}`,
+      pair.deadman.eje,
+      pair.deadman.muros,
+      fixedOrDash(pair.espaciadoLong_m, 2),
+      fixedOrDash(pair.espaciadoTrans_m, 2),
+      fixedOrDash(pair.x_inserto, 2),
+    ];
+    return new TableRow({
+      children: cells.map((text, j) => shadedCell(text, bg, {
+        fontSize: 16,
+        alignment: j === 2 ? AlignmentType.LEFT : AlignmentType.CENTER,
+      })),
+    });
+  });
+
+  children.push(
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: [headerRow, ...dataRows],
+    })
+  );
+
+  // Note
+  children.push(
+    new Paragraph({
+      spacing: { before: 200, after: 40 },
+      children: [
+        new TextRun({ text: 'Nota:', bold: true, underline: {}, size: 18, font: 'Calibri', color: '333333' }),
+      ],
+    }),
+    new Paragraph({
+      spacing: { after: 100 },
+      children: [
+        new TextRun({
+          text: 'Revisar que la distancia X (distancia horizontal) que va desde la cara del muro al punto de apuntalamiento del brace (centro del muerto) coincida con los shop tickets de la ingeniería de izaje.',
+          size: 16, font: 'Calibri', color: '555555',
+        }),
+      ],
+    })
+  );
 
   return children;
 }
@@ -820,6 +956,9 @@ function buildMethodologySection(projectInfo?: ProjectInfo, user?: UsuarioInfo):
   return children;
 }
 
+// === Disclaimer text (same as PDF) ===
+const DISCLAIMER_TEXT = 'We disclaim any liability for any loss or damage, including without limitation, indirect or consequential loss or damage, or any loss or damage whatsoever arising from the use of this document. It is your responsibility to verify and independently assess the information provided and to ensure its suitability for your intended purpose. Nuestra empresa no se hace responsable por pérdidas o daños, incluyendo, sin limitación, pérdidas o daños indirectos o consecuentes, o cualquier pérdida o daño que surja de la utilización de este documento. Es su responsabilidad verificar y evaluar de forma independiente la información proporcionada y garantizar su idoneidad para su propósito previsto.';
+
 // === Main export ===
 
 export async function generarInformeDocx(data: ReportData): Promise<Buffer> {
@@ -849,18 +988,50 @@ export async function generarInformeDocx(data: ReportData): Promise<Buffer> {
     });
   }
 
+  // Build disclaimer footer
+  const defaultFooter = new Footer({
+    children: [
+      new Paragraph({
+        alignment: AlignmentType.JUSTIFIED,
+        spacing: { before: 40 },
+        children: [
+          new TextRun({ text: DISCLAIMER_TEXT, size: 10, font: 'Calibri', color: '888888' }),
+        ],
+      }),
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { before: 40 },
+        children: [
+          new TextRun({ text: 'www.puntalink.com', size: 14, font: 'Calibri', color: '888888' }),
+        ],
+      }),
+    ],
+  });
+
   const sectionBase = {
     headers: defaultHeader ? { default: defaultHeader } : undefined,
+    footers: { default: defaultFooter },
   };
 
   // Cover page
   const coverChildren = buildCoverSection(data);
+
+  // Image page (if provided)
+  const imageChildren = data.reportImage ? buildImageSection(data.reportImage) : [];
 
   // Project info page
   const projectInfoChildren = buildProjectInfoSection(data);
 
   // Calculations page
   const calcChildren = buildCalculationsSection(data);
+
+  // Armado page (two-row pairs)
+  const armadoChildren = buildArmadoSection(data.filasArmado, data.totals);
+
+  // Spacing table
+  const spacingChildren = (data.filasArmadoPairs && data.filasArmadoPairs.length > 0)
+    ? buildSpacingSection(data.filasArmadoPairs)
+    : [];
 
   // Schema page
   const schemaChildren = buildSchemaSection();
@@ -870,9 +1041,6 @@ export async function generarInformeDocx(data: ReportData): Promise<Buffer> {
     ? buildMuertosSection(data.tablaMuertos)
     : [];
 
-  // Armado page
-  const armadoChildren = buildArmadoSection(data.filasArmado, data.totals);
-
   // Methodology page
   const methodChildren = buildMethodologySection(data.projectInfo, data.user);
 
@@ -881,19 +1049,46 @@ export async function generarInformeDocx(data: ReportData): Promise<Buffer> {
       ...sectionBase,
       children: coverChildren,
     },
-    {
-      ...sectionBase,
-      children: projectInfoChildren,
-    },
-    {
-      ...sectionBase,
-      children: calcChildren,
-    },
-    {
-      ...sectionBase,
-      children: schemaChildren,
-    },
   ];
+
+  // Image page (if provided)
+  if (imageChildren.length > 0) {
+    sections.push({
+      ...sectionBase,
+      children: imageChildren,
+    });
+  }
+
+  sections.push({
+    ...sectionBase,
+    children: projectInfoChildren,
+  });
+
+  sections.push({
+    ...sectionBase,
+    children: calcChildren,
+  });
+
+  // Armado table
+  if (data.filasArmado && data.filasArmado.length > 0) {
+    sections.push({
+      ...sectionBase,
+      children: armadoChildren,
+    });
+  }
+
+  // Spacing table
+  if (spacingChildren.length > 0) {
+    sections.push({
+      ...sectionBase,
+      children: spacingChildren,
+    });
+  }
+
+  sections.push({
+    ...sectionBase,
+    children: schemaChildren,
+  });
 
   if (muertosChildren.length > 0) {
     sections.push({
@@ -901,11 +1096,6 @@ export async function generarInformeDocx(data: ReportData): Promise<Buffer> {
       children: muertosChildren,
     });
   }
-
-  sections.push({
-    ...sectionBase,
-    children: armadoChildren,
-  });
 
   sections.push({
     ...sectionBase,

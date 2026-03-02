@@ -25,7 +25,63 @@ function normalizePaneles(paneles) {
     return paneles.map(panel => {
         if ('idMuro' in panel)
             return convertirPanelParaPDF(panel);
-        return panel;
+        const p = panel;
+        const result = panel;
+        // Compute volumen_m3 from raw data if not present
+        if (!result.volumen_m3 && result.volumen_m3 !== 0) {
+            if (p.volumen != null) {
+                result.volumen_m3 = Number(p.volumen) || 0;
+            }
+            else if (p.grosor && p.area) {
+                result.volumen_m3 = (Number(p.grosor) || 0) * (Number(p.area) || 0);
+            }
+        }
+        // Compute peso_kN from raw data if not present
+        if (!result.peso_kN && result.peso_kN !== 0) {
+            if (p.peso != null) {
+                result.peso_kN = Number(p.peso) || 0;
+            }
+            else if (result.volumen_m3) {
+                // Concrete density ~24 kN/m³
+                result.peso_kN = result.volumen_m3 * 24;
+            }
+        }
+        // Compute grua_min_kN_aprox if not present
+        if (!result.grua_min_kN_aprox && result.grua_min_kN_aprox !== 0) {
+            if (p.grua_min_kN_aprox != null) {
+                result.grua_min_kN_aprox = Number(p.grua_min_kN_aprox) || 0;
+            }
+            else if (result.peso_kN) {
+                result.grua_min_kN_aprox = result.peso_kN * 1.25;
+            }
+        }
+        // Map id_muro from idMuro if needed
+        if (!result.id_muro && p.idMuro) {
+            result.id_muro = p.idMuro;
+        }
+        if (!result.id_muro && p.id_muro) {
+            result.id_muro = p.id_muro;
+        }
+        // Map brace fields from raw data
+        if (!result.grados_inclinacion_brace && p.angulo_brace != null) {
+            result.grados_inclinacion_brace = Number(p.angulo_brace) || undefined;
+        }
+        if (!result.modelo_brace && p.tipo_brace_seleccionado) {
+            result.modelo_brace = p.tipo_brace_seleccionado;
+        }
+        if (result.fbx == null && p.fbx != null) {
+            result.fbx = Number(p.fbx) || undefined;
+        }
+        if (result.fby == null && p.fby != null) {
+            result.fby = Number(p.fby) || undefined;
+        }
+        if (result.fb == null && p.fb != null) {
+            result.fb = Number(p.fb) || undefined;
+        }
+        if (result.total_braces == null && p.x_braces != null) {
+            result.total_braces = Number(p.x_braces) || undefined;
+        }
+        return result;
     });
 }
 function normalizeArmadoRows(reporteMacizos, tablaArmado) {
@@ -120,6 +176,21 @@ function computeTotalsFromPairs(pairs) {
         metal: { kg: metalKg, ton: metalKg / 1000 },
     };
 }
+/** Normalize tablaMuertos field names from frontend variations */
+function normalizeTablaMuertos(raw) {
+    if (!raw || !Array.isArray(raw) || raw.length === 0)
+        return raw;
+    return raw.map((m) => ({
+        numero: m.numero || '',
+        muerto: m.muerto || '',
+        x_braces: m.x_braces || m.tipo_brace || '',
+        angulo: m.angulo || '',
+        eje: m.eje || '',
+        tipo_construccion: m.tipo_construccion || '',
+        cantidad_muros: m.cantidad_muros || '0',
+        muros_incluidos: m.muros_incluidos || '',
+    }));
+}
 function buildReportData(input) {
     const paneles = normalizePaneles(input.paneles);
     const filasArmado = normalizeArmadoRows(input.reporteMacizos, input.tablaArmado);
@@ -127,10 +198,11 @@ function buildReportData(input) {
     const totals = filasArmadoPairs.length > 0
         ? computeTotalsFromPairs(filasArmadoPairs)
         : computeTotals(filasArmado);
+    const tablaMuertos = normalizeTablaMuertos(input.tablaMuertos);
     return {
         paneles,
         projectInfo: input.projectInfo,
-        tablaMuertos: input.tablaMuertos,
+        tablaMuertos,
         filasArmado,
         filasArmadoPairs,
         totals,

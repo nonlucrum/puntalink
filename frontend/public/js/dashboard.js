@@ -1311,15 +1311,17 @@ export async function handleGenerarInforme(elements, globalVars) {
     let numeroMuerto = 1;
     Object.keys(gruposMuertos).forEach(clave => {
       const grupo = gruposMuertos[clave];
+      const primerMuroGrupo = Array.isArray(grupo.muros) ? grupo.muros[0] : null;
+      const xBraces = primerMuroGrupo?.x_braces || grupo.x_braces || 2;
       tablaMuertos.push({
         numero: numeroMuerto.toString(),
         muerto: `M${numeroMuerto}`,
-        x_inserto: typeof grupo.xInserto === 'number' ? `${grupo.xInserto.toFixed(2)}m` : `${grupo.x_inserto?.toFixed(2) || '0.00'}m`,
-        tipo_brace: grupo.tipo || grupo.tipo_brace || 'B12',
+        x_braces: String(xBraces),
         angulo: `${grupo.ang || grupo.angulo || 55}°`,
         eje: (grupo.eje || 1).toString(),
+        tipo_construccion: Number(xBraces) >= 3 ? 'Reforzado' : 'Estándar',
         cantidad_muros: (grupo.cantidadMuros || grupo.muros?.length || 0).toString(),
-        muros_incluidos: grupo.muros?.join?.(', ') || ''
+        muros_incluidos: grupo.muros?.map?.(m => typeof m === 'string' ? m : m.id_muro).join(', ') || ''
       });
       numeroMuerto++;
     });
@@ -1426,6 +1428,16 @@ export async function handleGenerarInforme(elements, globalVars) {
   try {
     console.log('[DASHBOARD] Enviando reporteMacizos:', window.ultimosResultadosMacizos);
 
+    // Add creator info from user session
+    const userSession = JSON.parse(localStorage.getItem('user') || 'null');
+    if (userSession && !projectInfo.creadorProyecto) {
+      projectInfo.creadorProyecto = userSession.name || userSession.email || '';
+    }
+
+    // Read custom document name
+    const docNameInput = document.getElementById('reportDocName');
+    const customDocName = docNameInput && docNameInput.value.trim() ? docNameInput.value.trim() : '';
+
     const payload = {
         format: format,
         paneles: murosConBraces,
@@ -1468,7 +1480,8 @@ export async function handleGenerarInforme(elements, globalVars) {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = format === 'docx' ? 'informe_proyecto.docx' : 'informe_proyecto.pdf';
+    const baseName = customDocName || 'informe_proyecto';
+    a.download = format === 'docx' ? `${baseName}.docx` : `${baseName}.pdf`;
     document.body.appendChild(a);
     a.click();
     a.remove();
