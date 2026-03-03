@@ -341,7 +341,49 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // 4. Armado rectangular results (#tablaArmadoResultados)
+    // 4. Configuración Global (inputs from .configuracion-global in armado-section)
+    const armadoSection = document.getElementById('armado-section');
+    if (armadoSection) {
+      const getVal = (id) => {
+        const el = document.getElementById(id);
+        if (!el) return '';
+        if (el.tagName === 'SELECT') {
+          return el.options[el.selectedIndex]?.text || el.value || '';
+        }
+        return el.value || '';
+      };
+      result.configGlobal = {
+        varillasLong: {
+          tipo: getVal('tipoVarillaLongitudinal'),
+          recubrimiento: getVal('recubrimientoLongitudinal'),
+          superiores: getVal('cantVarillasSuperior'),
+          medias: getVal('cantVarillasMedias') || 'Auto',
+          inferiores: getVal('cantVarillasInferior'),
+        },
+        varillasTrans: {
+          tipo: getVal('tipoVarillaTransversal'),
+          recubrimiento: getVal('recubrimientoTransversal'),
+          ganchos: getVal('longGanchoEstribo'),
+        },
+        construccion: {
+          resistenciaConcreto: getVal('tipoConcreto'),
+          factorDesperdicio: getVal('factorDesperdicio'),
+        },
+        alambre: {
+          diametro: getVal('diametroAlambre'),
+          longitudVuelta: getVal('longitudVuelta'),
+          factorDesperdicio: getVal('factorDesperdicioAlambre'),
+        },
+      };
+    }
+
+    // 5. Config por Muerto table (#tablaInfoMuertos)
+    const infoMuertosTable = document.getElementById('tablaInfoMuertos');
+    if (infoMuertosTable) {
+      result.infoMuertos = scrapeTable(infoMuertosTable);
+    }
+
+    // 5. Armado rectangular results (#tablaArmadoResultados)
     const armadoTable = document.getElementById('tablaArmadoResultados');
     if (armadoTable && armadoTable.style.display !== 'none') {
       const armadoGrupos = [];
@@ -400,6 +442,20 @@ document.addEventListener('DOMContentLoaded', () => {
       if (armadoGrupos.length > 0) {
         result.armadoResultados = { grupos: armadoGrupos, totales };
       }
+    }
+
+    // 6. Resumen de totales (totalConcreto, totalAcero, totalAlambre, totalMetal)
+    const totalConcreto = document.getElementById('totalConcreto')?.textContent?.trim();
+    const totalAcero = document.getElementById('totalAcero')?.textContent?.trim();
+    const totalAlambre = document.getElementById('totalAlambre')?.textContent?.trim();
+    const totalMetal = document.getElementById('totalMetal')?.textContent?.trim();
+    if (totalConcreto || totalAcero || totalAlambre || totalMetal) {
+      result.resumenTotales = {
+        concreto: totalConcreto || '—',
+        acero: totalAcero || '—',
+        alambre: totalAlambre || '—',
+        metal: totalMetal || '—',
+      };
     }
 
     // Return null if nothing collected

@@ -638,6 +638,33 @@ function crearPaginasRectangularPDF(doc, rectData) {
             y = drawGenericTablePDF(doc, cfg.headers, cfg.rows, y, marginX, contentW, '#28a745');
         }
     }
+    // ── Page: Configuración por Muerto ──
+    if (rectData.infoMuertos) {
+        doc.addPage();
+        let y = 50;
+        doc.fontSize(16).fillColor('#1f1f1f').font('Helvetica-Bold')
+            .text('CONFIGURACIÓN POR MUERTO', marginX, y, { align: 'center', width: contentW });
+        y += 30;
+        doc.strokeColor('#17a2b8').lineWidth(2).moveTo(marginX, y).lineTo(pageW - marginX, y).stroke();
+        y += 15;
+        y = drawGenericTablePDF(doc, rectData.infoMuertos.headers, rectData.infoMuertos.rows, y, marginX, contentW, '#17a2b8');
+        // Resumen totales on same page if fits
+        if (rectData.resumenTotales) {
+            const rt = rectData.resumenTotales;
+            const pageH = doc.page.height;
+            if (y + 80 > pageH - 40) {
+                doc.addPage();
+                y = 50;
+            }
+            y += 10;
+            doc.fontSize(11).fillColor('#1f1f1f').font('Helvetica-Bold')
+                .text('Resumen de Totales', marginX, y);
+            y += 18;
+            const rtHeaders = ['Concreto Total', 'Acero Total', 'Alambre Total', 'Metal Total'];
+            const rtRow = [[rt.concreto, rt.acero, rt.alambre, rt.metal]];
+            y = drawGenericTablePDF(doc, rtHeaders, rtRow, y, marginX, contentW, '#00b6f1');
+        }
+    }
     // ── Page: Armado Rectangular Results ──
     if (rectData.armadoResultados && rectData.armadoResultados.grupos.length > 0) {
         doc.addPage();
@@ -1388,6 +1415,37 @@ async function generarInformeDOCX(projectInfo, coverImageBuffer, windTableData, 
                 cfgChildren.push(buildDocxTable(cfgData.headers, cfgData.rows, '28a745', 'EAFAF1'));
             }
             sections.push({ properties: { page: a4Page }, children: cfgChildren });
+        }
+        // ── Section: Configuración por Muerto ──
+        if (rectangularData.infoMuertos) {
+            const infoChildren = [];
+            infoChildren.push(new docx_1.Paragraph({
+                alignment: docx_1.AlignmentType.CENTER,
+                spacing: { after: 200, before: 200 },
+                children: [
+                    new docx_1.TextRun({ text: 'CONFIGURACIÓN POR MUERTO', bold: true, size: 32, color: '1f1f1f', font: 'Arial' }),
+                ],
+            }));
+            infoChildren.push(new docx_1.Paragraph({
+                spacing: { after: 200 },
+                border: {
+                    bottom: { style: docx_1.BorderStyle.SINGLE, size: 4, color: '17a2b8', space: 1 },
+                },
+                children: [new docx_1.TextRun({ text: ' ', size: 4 })],
+            }));
+            infoChildren.push(buildDocxTable(rectangularData.infoMuertos.headers, rectangularData.infoMuertos.rows, '17a2b8', 'E8F8FB'));
+            // Resumen totales on same section
+            if (rectangularData.resumenTotales) {
+                const rt = rectangularData.resumenTotales;
+                infoChildren.push(new docx_1.Paragraph({
+                    spacing: { before: 300, after: 80 },
+                    children: [
+                        new docx_1.TextRun({ text: 'Resumen de Totales', bold: true, size: 22, color: '1f1f1f', font: 'Arial' }),
+                    ],
+                }));
+                infoChildren.push(buildDocxTable(['Concreto Total', 'Acero Total', 'Alambre Total', 'Metal Total'], [[rt.concreto, rt.acero, rt.alambre, rt.metal]], '00b6f1', 'F0FBFF'));
+            }
+            sections.push({ properties: { page: a4Page }, children: infoChildren });
         }
         // ── Section: Armado Rectangular Results ──
         if (rectangularData.armadoResultados && rectangularData.armadoResultados.grupos.length > 0) {
