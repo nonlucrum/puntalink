@@ -1676,26 +1676,32 @@ function agregarListenersCalculoTiempoReal() {
  */
 async function calcularBracesTiempoReal(input) {
   const pid = input.dataset.pid;
-  const row = document.querySelector(`tr[data-pid="${pid}"]`);
-  
+  const row = input.closest('tr[data-pid]');
+
   if (!row) {
     console.error(`[BRACES-RT] Fila no encontrada para PID ${pid}`);
     return;
   }
-  
+
   // Obtener valores actuales de la fila
   const altoText = row.dataset.alto || '15.15';
   const alto = parseFloat(altoText);
-  const angulo = parseFloat(row.querySelector('[data-field="angulo"]').value);
-  const npt = parseFloat(row.querySelector('[data-field="npt"]').value);
+  const anguloEl = row.querySelector('[data-field="angulo"]');
+  const nptEl = row.querySelector('[data-field="npt"]');
+  if (!anguloEl || !nptEl) {
+    console.warn(`[BRACES-RT] Inputs angulo/npt no encontrados para PID ${pid}`);
+    return;
+  }
+  const angulo = parseFloat(anguloEl.value);
+  const npt = parseFloat(nptEl.value);
   const factorW2 = 0.6; // Factor fijo
-  
+
   // CALCULAR AUTOMÁTICAMENTE EL TIPO DE BRACE
   const tipoCalculado = determinarTipoBraceFormula(alto, npt, factorW2, angulo);
-  
+
   // Actualizar el dropdown automáticamente
   const selectTipo = row.querySelector('[data-field="tipo_brace"]');
-  if (selectTipo.value !== tipoCalculado) {
+  if (selectTipo && selectTipo.value !== tipoCalculado) {
     selectTipo.value = tipoCalculado;
     console.log(`[BRACES-RT] Tipo auto-actualizado de ${selectTipo.value} a ${tipoCalculado}`);
   }

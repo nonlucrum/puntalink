@@ -13,7 +13,7 @@ const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
 const isProd = process.env.NODE_ENV === 'production';
 const resolvedPort = Number(process.env.PGPORT) ||
-    (process.env.PGHOST === 'db' ? 5432 : 5008);
+    (process.env.PGHOST === 'database' ? 5432 : 5008);
 const sslEnabled = String(process.env.PGSSL || process.env.DATABASE_SSL || '').toLowerCase() === 'true';
 const poolConfig = {
     user: process.env.PGUSER,

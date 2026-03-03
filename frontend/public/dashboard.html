@@ -16,6 +16,34 @@
 
 
 <body>
+  <!-- Botón hamburguesa para sidebar -->
+  <button id="toggleSidebar" class="toggle-btn">☰</button>
+
+  <!-- Sidebar de acceso rápido -->
+  <nav id="sidebar" class="sidebar collapsed">
+    <h3 class="sidebar-title">Acceso Rápido</h3>
+    <ul class="sidebar-nav">
+      <li><a href="#info-proyecto" data-target="info-proyecto">Proyecto</a></li>
+      <li><a href="#section-import-txt" data-target="section-import-txt">Importar TXT</a></li>
+      <li><a href="#section-manual-muros" data-target="section-manual-muros">Muros Manuales</a></li>
+      <li><a href="#section-calculos-libro" data-target="section-calculos-libro">Cálculos Libro III</a></li>
+      <li><a href="#section-resultados-calculo" data-target="section-resultados-calculo">Resultados</a></li>
+      <li><a href="#section-armado-deadman" data-target="section-armado-deadman">Armado Rectangular</a></li>
+      <li><a href="#section-armado-cilindrico" data-target="section-armado-cilindrico">Armado Cilíndrico</a></li>
+      <li><a href="#section-armado-triangular" data-target="section-armado-triangular">Armado Triangular</a></li>
+      <li class="sidebar-separator"></li>
+      <li>
+        <a href="#section-generar-informe" data-target="section-generar-informe" class="sidebar-report-link">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align: middle; margin-right: 4px;">
+            <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M14 2V8H20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Generar Informe
+        </a>
+      </li>
+    </ul>
+  </nav>
+
   <!-- Todo el contenido actual, encerrado -->
   <div class="content">
     <!-- Header moderno con info de usuario -->
@@ -1167,10 +1195,109 @@
           </div>
         </div>
       </div>
+      <!-- Sección: Generar Informe -->
+      <div id="section-generar-informe" class="accordion-item">
+        <div class="accordion-header" data-target="informe-section">
+          <h2 class="accordion-title">
+            <span class="accordion-icon"></span>
+            Generar Informe
+          </h2>
+          <span class="accordion-toggle">▼</span>
+        </div>
+        <div class="accordion-content" id="informe-section">
+          <div class="informe-container">
 
+            <div class="parameter-groups">
+              <!-- Formato de salida -->
+              <div class="parameter-group">
+                <h4>Formato de Salida</h4>
+                <div class="radio-card-group">
+                  <label class="radio-card-label">
+                    <input type="radio" name="formatoInforme" value="docx" checked>
+                    <span class="radio-card-content">
+                      <span class="radio-card-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                          <path d="M14 2V8H20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                          <path d="M8 15L9.5 12L11 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                          <path d="M13 12V15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                          <path d="M15 12V15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                      </span>
+                      <span class="radio-card-text">
+                        <strong>Word (.docx)</strong>
+                        <small>Documento editable</small>
+                      </span>
+                    </span>
+                  </label>
+                  <label class="radio-card-label">
+                    <input type="radio" name="formatoInforme" value="pdf">
+                    <span class="radio-card-content">
+                      <span class="radio-card-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                          <path d="M14 2V8H20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                          <path d="M9 13H15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                          <path d="M9 16H13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                      </span>
+                      <span class="radio-card-text">
+                        <strong>PDF (.pdf)</strong>
+                        <small>Documento fijo</small>
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Imagen opcional -->
+              <div class="parameter-group">
+                <h4>Imagen del Proyecto (opcional)</h4>
+                <p class="muted" style="margin-bottom: 0.75rem; font-size: 0.85rem;">
+                  Se ubicará en la segunda página del informe. Formatos: JPG, PNG.
+                </p>
+                <div class="image-upload-area" id="imageUploadArea">
+                  <input type="file" id="imagenInforme" accept="image/jpeg,image/png,image/jpg" style="display: none;">
+                  <div class="image-upload-placeholder" id="imagePlaceholder">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+                      <circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" stroke-width="2"/>
+                      <path d="M21 15L16 10L5 21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <span>Haz clic o arrastra una imagen aquí</span>
+                  </div>
+                  <div class="image-preview-container" id="imagePreviewContainer" style="display: none;">
+                    <img id="imagePreview" alt="Vista previa" />
+                    <button type="button" id="btnRemoveImage" class="btn-remove-image" title="Eliminar imagen">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Nombre del archivo -->
+            <div class="parameter-group" style="margin-top: 1rem;">
+              <h4>Nombre del Archivo</h4>
+              <div class="form-row">
+                <label for="nombreArchivoInforme">Nombre:</label>
+                <input type="text" id="nombreArchivoInforme" placeholder="informe_proyecto" maxlength="100" style="flex: 1;">
+                <span class="muted" id="extensionInforme">.docx</span>
+              </div>
+            </div>
+
+            <div class="actions" style="margin-top: 1.5rem;">
+              <button id="btnGenerarInforme" class="btn btn--primary">Generar Informe</button>
+            </div>
+          </div>
+        </div>
+      </div>
 
   </div>
 </div>
+
 
 
     </div> <!-- FIN DEL DIV ACCORDION -->
@@ -1192,6 +1319,7 @@
   
   <script type="module" src="js/usability.js"></script>
   <script src="js/manualMuros.js"></script>
+  <script src="js/reportes.js"></script>
   <script type="module" src="js/dashboard.js"></script>
   <script type="module" src="script.js"></script>
   <script>

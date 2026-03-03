@@ -325,6 +325,7 @@ function calcularVientoMuro(muro, parametros) {
     // ✅ CORREGIDO: Asegurar que area_m2 sea un número válido
     let area_m2 = Number(muro.area) || 0;
     let peso_ton = Number(muro.peso) || 0;
+    let overall_width = Number(muro.overall_width) || 0;
     console.log(`[CALCULOS] DEBUG: DEBUG ÁREA: muro.area=${muro.area} (tipo: ${typeof muro.area}), area_m2=${area_m2} (tipo: ${typeof area_m2})`);
     // Para altura, usar overall_height del TXT si existe, sino usar estimación
     let altura_z_m = Number(parametros.altura_estimada_m) || 0;
@@ -419,9 +420,11 @@ function calcularVientoMuro(muro, parametros) {
     return {
         pid: muro.pid || 0,
         id_muro: muro.id_muro || 'N/A',
+        origen: muro.origen || 'TXT',
         area_m2: +parseFloat(area_m2.toString()).toFixed(2),
         peso_ton: +parseFloat(peso_ton.toString()).toFixed(2),
         altura_z_m: +parseFloat(altura_z_m.toString()).toFixed(2),
+        overall_width: +parseFloat(overall_width.toString()).toFixed(3), // ✅ Mantener 3 decimales para precisión (4.515, 4.301)
         // Clasificación según normativa
         categoria_terreno: parametros.categoria_terreno,
         clase_estructura: claseEstructura.clase,

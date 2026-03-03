@@ -14,6 +14,8 @@ router.get('/viento/parametros-defecto', calculosController_1.parametrosVientoDe
 // Sección 1-2: Calcular cargas de viento en muros (implementa fórmulas del diagrama)
 router.post('/viento/calcular-muros', calculosController_1.calculoVientoMuros);
 // Rutas para gestión de braces
+// Obtener un muro específico por PID
+router.get('/muros/:pid', calculosController_1.obtenerMuroPorPid);
 // Actualizar campos editables de un muro (ángulo, NPT, X, tipo)
 router.put('/muros/:pid/editable', calculosController_1.actualizarCamposEditables);
 // Calcular fuerzas de braces para un muro específico (guarda en BD)
