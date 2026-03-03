@@ -59,7 +59,7 @@ function drawCoverImage(doc, imagePath, pageW, pageH, opacity = 0.28) {
     doc.restore();
 }
 // ─── PDF Generation ────────────────────────────────────────
-async function generarInformePDF(projectInfo, coverImageBuffer, windTableData, cilindricoData) {
+async function generarInformePDF(projectInfo, coverImageBuffer, windTableData, cilindricoData, rectangularData) {
     return new Promise((resolve) => {
         const doc = new pdfkit_1.default({ size: 'A4', margin: 40 });
         const buffers = [];
@@ -86,6 +86,10 @@ async function generarInformePDF(projectInfo, coverImageBuffer, windTableData, c
         if (cilindricoData && cilindricoData.tables.length > 0) {
             doc.addPage();
             crearPaginaCilindricoPDF(doc, cilindricoData);
+        }
+        // Rectangular deadman pages (if applicable)
+        if (rectangularData) {
+            crearPaginasRectangularPDF(doc, rectangularData);
         }
         doc.end();
     });
@@ -531,8 +535,187 @@ function crearPaginaCilindricoPDF(doc, cilData) {
         }
     }
 }
+// ─── PDF Helper: Draw generic table ────────────────────────
+function drawGenericTablePDF(doc, headers, rows, startY, marginX, contentW, headerColor, title) {
+    const pageH = doc.page.height;
+    let y = startY;
+    const colCount = headers.length;
+    const colW = contentW / colCount;
+    const headerH = 22;
+    const rowH = 18;
+    if (title) {
+        if (y + headerH + rowH * rows.length + 40 > pageH - 40) {
+            doc.addPage();
+            y = 50;
+        }
+        doc.fontSize(10).fillColor('#1f1f1f').font('Helvetica-Bold').text(title, marginX, y);
+        y += 16;
+    }
+    // Check page break
+    if (y + headerH + rowH * Math.min(rows.length, 3) > pageH - 40) {
+        doc.addPage();
+        y = 50;
+    }
+    // Header
+    doc.save();
+    doc.rect(marginX, y, contentW, headerH).fill(headerColor);
+    doc.restore();
+    doc.fontSize(6).fillColor('#ffffff').font('Helvetica-Bold');
+    for (let c = 0; c < colCount; c++) {
+        doc.text(headers[c], marginX + c * colW + 2, y + 6, { width: colW - 4, align: 'center' });
+    }
+    y += headerH;
+    // Rows
+    doc.font('Helvetica').fontSize(6).fillColor('#000000');
+    for (let i = 0; i < rows.length; i++) {
+        if (y + rowH > pageH - 40) {
+            doc.addPage();
+            y = 50;
+        }
+        if (i % 2 === 0) {
+            doc.save();
+            doc.rect(marginX, y, contentW, rowH).fill('#f5f5f5');
+            doc.restore();
+            doc.fillColor('#000000');
+        }
+        for (let c = 0; c < colCount; c++) {
+            const val = (rows[i] && rows[i][c]) || '—';
+            doc.text(val, marginX + c * colW + 2, y + 4, { width: colW - 4, align: c === 0 ? 'left' : 'center' });
+        }
+        doc.strokeColor('#dddddd').lineWidth(0.2).moveTo(marginX, y + rowH).lineTo(marginX + contentW, y + rowH).stroke();
+        y += rowH;
+    }
+    // Border
+    const tableTop = y - rowH * rows.length - headerH;
+    doc.strokeColor('#999999').lineWidth(0.5).rect(marginX, tableTop, contentW, y - tableTop).stroke();
+    for (let c = 1; c < colCount; c++) {
+        doc.moveTo(marginX + c * colW, tableTop).lineTo(marginX + c * colW, y).stroke();
+    }
+    return y + 15;
+}
+// ─── PDF Rectangular Deadman Pages ─────────────────────────
+function crearPaginasRectangularPDF(doc, rectData) {
+    const pageW = doc.page.width;
+    const marginX = 40;
+    const contentW = pageW - marginX * 2;
+    // ── Page: Grouped Walls + Sequential Groups ──
+    if (rectData.gruposMuertos || rectData.gruposSecuenciales) {
+        doc.addPage();
+        let y = 50;
+        doc.fontSize(16).fillColor('#1f1f1f').font('Helvetica-Bold')
+            .text('AGRUPACIÓN DE MUERTOS', marginX, y, { align: 'center', width: contentW });
+        y += 30;
+        doc.strokeColor('#0d6efd').lineWidth(2).moveTo(marginX, y).lineTo(pageW - marginX, y).stroke();
+        y += 15;
+        if (rectData.gruposMuertos) {
+            y = drawGenericTablePDF(doc, rectData.gruposMuertos.headers, rectData.gruposMuertos.rows, y, marginX, contentW, '#0d6efd', 'Resumen por Muertos');
+        }
+        if (rectData.gruposSecuenciales) {
+            y = drawGenericTablePDF(doc, rectData.gruposSecuenciales.headers, rectData.gruposSecuenciales.rows, y, marginX, contentW, '#6f42c1', 'Grupos Secuenciales');
+        }
+    }
+    // ── Page: Group Configuration ──
+    if (rectData.configGrupos) {
+        doc.addPage();
+        let y = 50;
+        doc.fontSize(16).fillColor('#1f1f1f').font('Helvetica-Bold')
+            .text('CONFIGURACIÓN DE GRUPOS', marginX, y, { align: 'center', width: contentW });
+        y += 30;
+        doc.strokeColor('#28a745').lineWidth(2).moveTo(marginX, y).lineTo(pageW - marginX, y).stroke();
+        y += 15;
+        // This table has 14 columns — split if needed
+        const cfg = rectData.configGrupos;
+        if (cfg.headers.length > 8) {
+            const midPoint = 7; // Split: first 7 cols + rest
+            const headers1 = cfg.headers.slice(0, midPoint);
+            const headers2 = [cfg.headers[0], ...cfg.headers.slice(midPoint)];
+            const rows1 = cfg.rows.map(r => r.slice(0, midPoint));
+            const rows2 = cfg.rows.map(r => [r[0], ...r.slice(midPoint)]);
+            y = drawGenericTablePDF(doc, headers1, rows1, y, marginX, contentW, '#28a745', 'Datos del Grupo');
+            y = drawGenericTablePDF(doc, headers2, rows2, y, marginX, contentW, '#28a745', 'Dimensiones y Materiales');
+        }
+        else {
+            y = drawGenericTablePDF(doc, cfg.headers, cfg.rows, y, marginX, contentW, '#28a745');
+        }
+    }
+    // ── Page: Armado Rectangular Results ──
+    if (rectData.armadoResultados && rectData.armadoResultados.grupos.length > 0) {
+        doc.addPage();
+        let y = 50;
+        const pageH = doc.page.height;
+        doc.fontSize(16).fillColor('#1f1f1f').font('Helvetica-Bold')
+            .text('ARMADO RECTANGULAR - RESULTADOS', marginX, y, { align: 'center', width: contentW });
+        y += 30;
+        doc.strokeColor('#dc3545').lineWidth(2).moveTo(marginX, y).lineTo(pageW - marginX, y).stroke();
+        y += 15;
+        const grupos = rectData.armadoResultados.grupos;
+        // Split into column groups matching the th colspan structure
+        const armadoGroups = [
+            {
+                title: 'DEADMAN',
+                color: '#e3f2fd',
+                headers: ['#', 'Eje', 'Muros', 'Largo (m)', 'Alto (m)', 'Ancho (m)'],
+                getData: (g) => [[g.numero, g.eje, g.muros, g.largo, g.alto, g.ancho]],
+            },
+            {
+                title: 'ACERO',
+                color: '#fff3e0',
+                headers: ['#', 'Tipo', 'Longitud (m)', 'Peso (kg)', 'Dirección'],
+                getData: (g) => [
+                    [g.numero, g.aceroLongTipo, g.aceroLongLong, g.aceroLongPeso, 'Long.'],
+                    [g.numero, g.aceroTransTipo, g.aceroTransLong, g.aceroTransPeso, 'Estribo'],
+                ],
+            },
+            {
+                title: 'CONCRETO',
+                color: '#e8f5e9',
+                headers: ['#', 'Volumen (m³)', 'Peso (ton)'],
+                getData: (g) => [[g.numero, g.concretoVol, g.concretoPeso]],
+            },
+            {
+                title: 'ALAMBRE',
+                color: '#fce4ec',
+                headers: ['#', 'Longitud (m)', 'Peso (kg)'],
+                getData: (g) => [[g.numero, g.alambreLong, g.alambrePeso]],
+            },
+        ];
+        for (const ag of armadoGroups) {
+            const allRows = [];
+            for (const g of grupos) {
+                allRows.push(...ag.getData(g));
+            }
+            const neededH = 22 + 18 * allRows.length + 45;
+            if (y + neededH > pageH - 40) {
+                doc.addPage();
+                y = 50;
+            }
+            y = drawGenericTablePDF(doc, ag.headers, allRows, y, marginX, contentW, ag.color.replace('#', '').length === 6 ? ag.color : '#666666', ag.title);
+        }
+        // Totals
+        const tot = rectData.armadoResultados.totales;
+        if (tot) {
+            if (y + 40 > pageH - 40) {
+                doc.addPage();
+                y = 50;
+            }
+            doc.fontSize(9).fillColor('#1f1f1f').font('Helvetica-Bold')
+                .text('TOTALES PROYECTO:', marginX, y);
+            y += 16;
+            const totItems = [
+                `Acero Total: ${tot.aceroTotal}`,
+                `Concreto: ${tot.concretoVol} | ${tot.concretoPeso}`,
+                `Alambre: ${tot.alambreLong} | ${tot.alambrePeso}`,
+            ];
+            doc.fontSize(8).font('Helvetica').fillColor('#333333');
+            for (const item of totItems) {
+                doc.text(`•  ${item}`, marginX + 10, y);
+                y += 14;
+            }
+        }
+    }
+}
 // ─── DOCX Generation ───────────────────────────────────────
-async function generarInformeDOCX(projectInfo, coverImageBuffer, windTableData, cilindricoData) {
+async function generarInformeDOCX(projectInfo, coverImageBuffer, windTableData, cilindricoData, rectangularData) {
     const sections = [];
     // Read logo for DOCX
     const logoPath = getAssetPath('logo.png');
@@ -1082,6 +1265,220 @@ async function generarInformeDOCX(projectInfo, coverImageBuffer, windTableData, 
             }));
         }
         sections.push({ properties: { page: a4Page }, children: cilChildren });
+    }
+    // ── Rectangular Deadman Sections ──
+    if (rectangularData) {
+        // Helper to build a generic DOCX table
+        function buildDocxTable(headers, rows, headerColor, altRowColor) {
+            const colCount = headers.length;
+            const headerCells = headers.map(h => new docx_1.TableCell({
+                shading: { type: docx_1.ShadingType.CLEAR, fill: headerColor },
+                children: [
+                    new docx_1.Paragraph({
+                        alignment: docx_1.AlignmentType.CENTER,
+                        spacing: { before: 30, after: 30 },
+                        children: [
+                            new docx_1.TextRun({ text: h, bold: true, size: 14, color: 'FFFFFF', font: 'Arial' }),
+                        ],
+                    }),
+                ],
+                width: { size: Math.floor(100 / colCount), type: docx_1.WidthType.PERCENTAGE },
+            }));
+            const dataRows = rows.map((row, idx) => {
+                const cells = row.map((val, ci) => new docx_1.TableCell({
+                    shading: idx % 2 === 0 && altRowColor
+                        ? { type: docx_1.ShadingType.CLEAR, fill: altRowColor }
+                        : undefined,
+                    children: [
+                        new docx_1.Paragraph({
+                            alignment: ci === 0 ? docx_1.AlignmentType.LEFT : docx_1.AlignmentType.CENTER,
+                            spacing: { before: 20, after: 20 },
+                            children: [
+                                new docx_1.TextRun({ text: val || '—', size: 14, color: '000000', font: 'Arial' }),
+                            ],
+                        }),
+                    ],
+                    width: { size: Math.floor(100 / colCount), type: docx_1.WidthType.PERCENTAGE },
+                }));
+                return new docx_1.TableRow({ children: cells });
+            });
+            return new docx_1.Table({
+                width: { size: 100, type: docx_1.WidthType.PERCENTAGE },
+                layout: docx_1.TableLayoutType.FIXED,
+                rows: [new docx_1.TableRow({ children: headerCells }), ...dataRows],
+            });
+        }
+        // ── Section: Grouped Walls + Sequential Groups ──
+        if (rectangularData.gruposMuertos || rectangularData.gruposSecuenciales) {
+            const grpChildren = [];
+            grpChildren.push(new docx_1.Paragraph({
+                alignment: docx_1.AlignmentType.CENTER,
+                spacing: { after: 200, before: 200 },
+                children: [
+                    new docx_1.TextRun({ text: 'AGRUPACIÓN DE MUERTOS', bold: true, size: 32, color: '1f1f1f', font: 'Arial' }),
+                ],
+            }));
+            grpChildren.push(new docx_1.Paragraph({
+                spacing: { after: 200 },
+                border: {
+                    bottom: { style: docx_1.BorderStyle.SINGLE, size: 4, color: '0d6efd', space: 1 },
+                },
+                children: [new docx_1.TextRun({ text: ' ', size: 4 })],
+            }));
+            if (rectangularData.gruposMuertos) {
+                grpChildren.push(new docx_1.Paragraph({
+                    spacing: { before: 100, after: 80 },
+                    children: [
+                        new docx_1.TextRun({ text: 'Resumen por Muertos', bold: true, size: 20, color: '0d6efd', font: 'Arial' }),
+                    ],
+                }));
+                grpChildren.push(buildDocxTable(rectangularData.gruposMuertos.headers, rectangularData.gruposMuertos.rows, '0d6efd', 'EBF5FB'));
+            }
+            if (rectangularData.gruposSecuenciales) {
+                grpChildren.push(new docx_1.Paragraph({
+                    spacing: { before: 200, after: 80 },
+                    children: [
+                        new docx_1.TextRun({ text: 'Grupos Secuenciales', bold: true, size: 20, color: '6f42c1', font: 'Arial' }),
+                    ],
+                }));
+                grpChildren.push(buildDocxTable(rectangularData.gruposSecuenciales.headers, rectangularData.gruposSecuenciales.rows, '6f42c1', 'F4ECF7'));
+            }
+            sections.push({ properties: { page: a4Page }, children: grpChildren });
+        }
+        // ── Section: Group Configuration ──
+        if (rectangularData.configGrupos) {
+            const cfgChildren = [];
+            cfgChildren.push(new docx_1.Paragraph({
+                alignment: docx_1.AlignmentType.CENTER,
+                spacing: { after: 200, before: 200 },
+                children: [
+                    new docx_1.TextRun({ text: 'CONFIGURACIÓN DE GRUPOS', bold: true, size: 32, color: '1f1f1f', font: 'Arial' }),
+                ],
+            }));
+            cfgChildren.push(new docx_1.Paragraph({
+                spacing: { after: 200 },
+                border: {
+                    bottom: { style: docx_1.BorderStyle.SINGLE, size: 4, color: '28a745', space: 1 },
+                },
+                children: [new docx_1.TextRun({ text: ' ', size: 4 })],
+            }));
+            const cfgData = rectangularData.configGrupos;
+            if (cfgData.headers.length > 8) {
+                const midPoint = 7;
+                const headers1 = cfgData.headers.slice(0, midPoint);
+                const headers2 = [cfgData.headers[0], ...cfgData.headers.slice(midPoint)];
+                const rows1 = cfgData.rows.map(r => r.slice(0, midPoint));
+                const rows2 = cfgData.rows.map(r => [r[0], ...r.slice(midPoint)]);
+                cfgChildren.push(new docx_1.Paragraph({
+                    spacing: { before: 100, after: 80 },
+                    children: [
+                        new docx_1.TextRun({ text: 'Datos del Grupo', bold: true, size: 20, color: '28a745', font: 'Arial' }),
+                    ],
+                }));
+                cfgChildren.push(buildDocxTable(headers1, rows1, '28a745', 'EAFAF1'));
+                cfgChildren.push(new docx_1.Paragraph({
+                    spacing: { before: 200, after: 80 },
+                    children: [
+                        new docx_1.TextRun({ text: 'Dimensiones y Materiales', bold: true, size: 20, color: '28a745', font: 'Arial' }),
+                    ],
+                }));
+                cfgChildren.push(buildDocxTable(headers2, rows2, '28a745', 'EAFAF1'));
+            }
+            else {
+                cfgChildren.push(buildDocxTable(cfgData.headers, cfgData.rows, '28a745', 'EAFAF1'));
+            }
+            sections.push({ properties: { page: a4Page }, children: cfgChildren });
+        }
+        // ── Section: Armado Rectangular Results ──
+        if (rectangularData.armadoResultados && rectangularData.armadoResultados.grupos.length > 0) {
+            const armChildren = [];
+            armChildren.push(new docx_1.Paragraph({
+                alignment: docx_1.AlignmentType.CENTER,
+                spacing: { after: 200, before: 200 },
+                children: [
+                    new docx_1.TextRun({ text: 'ARMADO RECTANGULAR - RESULTADOS', bold: true, size: 32, color: '1f1f1f', font: 'Arial' }),
+                ],
+            }));
+            armChildren.push(new docx_1.Paragraph({
+                spacing: { after: 200 },
+                border: {
+                    bottom: { style: docx_1.BorderStyle.SINGLE, size: 4, color: 'dc3545', space: 1 },
+                },
+                children: [new docx_1.TextRun({ text: ' ', size: 4 })],
+            }));
+            const grupos = rectangularData.armadoResultados.grupos;
+            const armadoGroups = [
+                {
+                    title: 'DEADMAN',
+                    headerColor: '2196F3',
+                    altColor: 'E3F2FD',
+                    headers: ['#', 'Eje', 'Muros', 'Largo (m)', 'Alto (m)', 'Ancho (m)'],
+                    getData: (g) => [[g.numero, g.eje, g.muros, g.largo, g.alto, g.ancho]],
+                },
+                {
+                    title: 'ACERO',
+                    headerColor: 'F57C00',
+                    altColor: 'FFF3E0',
+                    headers: ['#', 'Tipo', 'Longitud (m)', 'Peso (kg)', 'Dirección'],
+                    getData: (g) => [
+                        [g.numero, g.aceroLongTipo, g.aceroLongLong, g.aceroLongPeso, 'Long.'],
+                        [g.numero, g.aceroTransTipo, g.aceroTransLong, g.aceroTransPeso, 'Estribo'],
+                    ],
+                },
+                {
+                    title: 'CONCRETO',
+                    headerColor: '388E3C',
+                    altColor: 'E8F5E9',
+                    headers: ['#', 'Volumen (m³)', 'Peso (ton)'],
+                    getData: (g) => [[g.numero, g.concretoVol, g.concretoPeso]],
+                },
+                {
+                    title: 'ALAMBRE',
+                    headerColor: 'C62828',
+                    altColor: 'FCE4EC',
+                    headers: ['#', 'Longitud (m)', 'Peso (kg)'],
+                    getData: (g) => [[g.numero, g.alambreLong, g.alambrePeso]],
+                },
+            ];
+            for (const ag of armadoGroups) {
+                const allRows = [];
+                for (const g of grupos) {
+                    allRows.push(...ag.getData(g));
+                }
+                armChildren.push(new docx_1.Paragraph({
+                    spacing: { before: 200, after: 80 },
+                    children: [
+                        new docx_1.TextRun({ text: ag.title, bold: true, size: 22, color: ag.headerColor, font: 'Arial' }),
+                    ],
+                }));
+                armChildren.push(buildDocxTable(ag.headers, allRows, ag.headerColor, ag.altColor));
+            }
+            // Totals
+            const tot = rectangularData.armadoResultados.totales;
+            if (tot) {
+                armChildren.push(new docx_1.Paragraph({
+                    spacing: { before: 300, after: 60 },
+                    children: [
+                        new docx_1.TextRun({ text: 'TOTALES PROYECTO:', bold: true, size: 20, color: '1f1f1f', font: 'Arial' }),
+                    ],
+                }));
+                const totItems = [
+                    `Acero Total: ${tot.aceroTotal}`,
+                    `Concreto: ${tot.concretoVol} | ${tot.concretoPeso}`,
+                    `Alambre: ${tot.alambreLong} | ${tot.alambrePeso}`,
+                ];
+                for (const item of totItems) {
+                    armChildren.push(new docx_1.Paragraph({
+                        spacing: { after: 30 },
+                        children: [
+                            new docx_1.TextRun({ text: '•  ', size: 18, font: 'Arial' }),
+                            new docx_1.TextRun({ text: item, size: 18, color: '333333', font: 'Arial' }),
+                        ],
+                    }));
+                }
+            }
+            sections.push({ properties: { page: a4Page }, children: armChildren });
+        }
     }
     const docx = new docx_1.Document({
         sections,

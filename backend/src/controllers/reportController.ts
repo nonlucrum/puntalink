@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { generarInformePDF, generarInformeDOCX, ReportProjectInfo, WindTableData, CilindricoData } from '../services/reportService';
+import { generarInformePDF, generarInformeDOCX, ReportProjectInfo, WindTableData, CilindricoData, RectangularData } from '../services/reportService';
 import { getProjectById } from '../models/Project';
 
 export async function generarInforme(req: Request, res: Response) {
@@ -73,8 +73,20 @@ export async function generarInforme(req: Request, res: Response) {
       }
     }
 
+    // Parse rectangular deadman data if provided
+    let rectangularData: RectangularData | undefined;
+    if (req.body.rectangularData) {
+      try {
+        rectangularData = typeof req.body.rectangularData === 'string'
+          ? JSON.parse(req.body.rectangularData)
+          : req.body.rectangularData;
+      } catch (e) {
+        console.warn('[reportController] Error parsing rectangularData:', e);
+      }
+    }
+
     if (formato === 'docx') {
-      const docxBuffer = await generarInformeDOCX(projectInfo, coverImageBuffer, windTableData, cilindricoData);
+      const docxBuffer = await generarInformeDOCX(projectInfo, coverImageBuffer, windTableData, cilindricoData, rectangularData);
       const filename = `informe_${(projectInfo.nombre || 'proyecto').replace(/\s+/g, '_')}.docx`;
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -83,7 +95,7 @@ export async function generarInforme(req: Request, res: Response) {
     }
 
     // PDF
-    const pdfBuffer = await generarInformePDF(projectInfo, coverImageBuffer, windTableData, cilindricoData);
+    const pdfBuffer = await generarInformePDF(projectInfo, coverImageBuffer, windTableData, cilindricoData, rectangularData);
     const filename = `informe_${(projectInfo.nombre || 'proyecto').replace(/\s+/g, '_')}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);

@@ -293,6 +293,120 @@ document.addEventListener('DOMContentLoaded', () => {
     return { config, tables, summary };
   }
 
+  // ── Collect rectangular deadman data from DOM ──
+  function collectRectangularData() {
+    const result = {};
+
+    // Helper: scrape any table into { headers, rows }
+    function scrapeTable(tableEl) {
+      if (!tableEl) return null;
+      const headers = [];
+      const thRow = tableEl.querySelector('thead tr:last-child') || tableEl.querySelector('thead tr');
+      if (thRow) {
+        thRow.querySelectorAll('th').forEach(th => headers.push(th.textContent.trim()));
+      }
+      const rows = [];
+      tableEl.querySelectorAll('tbody tr').forEach(tr => {
+        const cells = [];
+        tr.querySelectorAll('td').forEach(td => {
+          const input = td.querySelector('input');
+          cells.push(input ? input.value : td.textContent.trim());
+        });
+        if (cells.length > 0 && cells.some(c => c !== '')) rows.push(cells);
+      });
+      return (rows.length > 0) ? { headers, rows } : null;
+    }
+
+    // 1. Grouped walls table (#tablaMuertosTable)
+    const muertosTable = document.getElementById('tablaMuertosTable');
+    if (muertosTable) {
+      result.gruposMuertos = scrapeTable(muertosTable);
+    }
+
+    // 2. Sequential groups debug table (inside #muertosDebugOutput)
+    const debugOut = document.getElementById('muertosDebugOutput');
+    if (debugOut) {
+      const debugTable = debugOut.querySelector('table');
+      if (debugTable) {
+        result.gruposSecuenciales = scrapeTable(debugTable);
+      }
+    }
+
+    // 3. Config groups table (inside #configGruposContainer)
+    const configContainer = document.getElementById('configGruposContainer');
+    if (configContainer) {
+      const configTable = configContainer.querySelector('table');
+      if (configTable) {
+        result.configGrupos = scrapeTable(configTable);
+      }
+    }
+
+    // 4. Armado rectangular results (#tablaArmadoResultados)
+    const armadoTable = document.getElementById('tablaArmadoResultados');
+    if (armadoTable && armadoTable.style.display !== 'none') {
+      const armadoGrupos = [];
+      const bodyRows = armadoTable.querySelectorAll('tbody tr');
+      // Each group = 2 consecutive rows (row1 has rowspan=2 cells, row2 has acero transversal)
+      for (let i = 0; i < bodyRows.length; i += 2) {
+        const row1 = bodyRows[i];
+        const row2 = bodyRows[i + 1];
+        if (!row1) break;
+        const tds1 = row1.querySelectorAll('td');
+        // Row1: [#, Eje, Muros, Largo, Alto, Ancho, AceroTipo, AceroLong, AceroPeso, AceroDir, ConcVol, ConcPeso, AlamLong, AlamPeso]
+        if (tds1.length < 14) continue;
+        const grupo = {
+          numero: tds1[0].textContent.trim(),
+          eje: tds1[1].textContent.trim(),
+          muros: tds1[2].textContent.trim(),
+          largo: tds1[3].textContent.trim(),
+          alto: tds1[4].textContent.trim(),
+          ancho: tds1[5].textContent.trim(),
+          aceroLongTipo: tds1[6].textContent.trim(),
+          aceroLongLong: tds1[7].textContent.trim(),
+          aceroLongPeso: tds1[8].textContent.trim(),
+          concretoVol: tds1[10].textContent.trim(),
+          concretoPeso: tds1[11].textContent.trim(),
+          alambreLong: tds1[12].textContent.trim(),
+          alambrePeso: tds1[13].textContent.trim(),
+          aceroTransTipo: '',
+          aceroTransLong: '',
+          aceroTransPeso: '',
+        };
+        if (row2) {
+          const tds2 = row2.querySelectorAll('td');
+          if (tds2.length >= 3) {
+            grupo.aceroTransTipo = tds2[0].textContent.trim();
+            grupo.aceroTransLong = tds2[1].textContent.trim();
+            grupo.aceroTransPeso = tds2[2].textContent.trim();
+          }
+        }
+        armadoGrupos.push(grupo);
+      }
+      // Footer totals
+      const footerRow = armadoTable.querySelector('tfoot tr');
+      let totales = null;
+      if (footerRow) {
+        const ftds = footerRow.querySelectorAll('td');
+        if (ftds.length >= 14) {
+          totales = {
+            aceroTotal: ftds[8].textContent.trim(),
+            concretoVol: ftds[10].textContent.trim(),
+            concretoPeso: ftds[11].textContent.trim(),
+            alambreLong: ftds[12].textContent.trim(),
+            alambrePeso: ftds[13].textContent.trim(),
+          };
+        }
+      }
+      if (armadoGrupos.length > 0) {
+        result.armadoResultados = { grupos: armadoGrupos, totales };
+      }
+    }
+
+    // Return null if nothing collected
+    if (!result.gruposMuertos && !result.configGrupos && !result.armadoResultados) return null;
+    return result;
+  }
+
   // ── Generate Report ──
   btnGenerar.addEventListener('click', async () => {
     const formato = document.querySelector('input[name="formatoInforme"]:checked')?.value;
@@ -351,6 +465,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const cilData = collectCilindricoData();
       if (cilData) {
         formData.append('cilindricoData', JSON.stringify(cilData));
+      }
+    }
+
+    // ── Collect rectangular deadman data if applicable ──
+    if ((projectInfo.tipo_muerto || '').toLowerCase() === 'corrido') {
+      const rectData = collectRectangularData();
+      if (rectData) {
+        formData.append('rectangularData', JSON.stringify(rectData));
       }
     }
 
