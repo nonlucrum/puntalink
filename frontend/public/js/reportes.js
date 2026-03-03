@@ -188,6 +188,111 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
+  // ── Collect cylindrical deadman data from DOM ──
+  function collectCilindricoData() {
+    const container = document.getElementById('containerTablasCilindrico');
+    const resumenContainer = document.getElementById('resumenCilindricoContainer');
+    if (!container) return null;
+
+    // Configuration values
+    const getVal = (id) => {
+      const el = document.getElementById(id);
+      return el ? (el.value || '') : '';
+    };
+    const config = {
+      densidad: getVal('cil_densidad_concreto'),
+      desperdicio: getVal('cil_desperdicio'),
+      cantVert: getVal('cil_cant_vert'),
+      tipoVert: getVal('cil_tipo_vert'),
+      tipoAnillo: getVal('cil_tipo_anillo'),
+      modoAnillos: getVal('cil_modo_anillos'),
+      datoAnillos: getVal('cil_dato_anillos'),
+    };
+
+    // Per-diameter tables
+    const tables = [];
+    const details = container.querySelectorAll('.cilindrico-detail');
+    details.forEach(detail => {
+      const header = detail.querySelector('.cilindrico-detail-header');
+      const diametro = header ? header.textContent.trim() : '';
+      const table = detail.querySelector('table');
+      if (!table) return;
+
+      const rows = [];
+      table.querySelectorAll('tbody tr').forEach(tr => {
+        const tds = tr.querySelectorAll('td');
+        if (tds.length < 7) return;
+        rows.push({
+          muro: tds[0].textContent.trim(),
+          x: tds[1].textContent.trim(),
+          cantMuertos: tds[2].textContent.trim(),
+          altura: tds[3].textContent.trim(),
+          concreto: tds[4].textContent.trim(),
+          aceroVarillas: tds[5].textContent.trim(),
+          aceroAnillos: tds[6].textContent.trim(),
+        });
+      });
+
+      if (rows.length > 0) {
+        tables.push({ diametro, rows });
+      }
+    });
+
+    // If no per-diameter tables, try the static table
+    if (tables.length === 0) {
+      const staticTable = document.getElementById('tablaInputsCilindrico');
+      if (staticTable) {
+        const rows = [];
+        staticTable.querySelectorAll('tbody tr').forEach(tr => {
+          const tds = tr.querySelectorAll('td');
+          if (tds.length < 7) return;
+          rows.push({
+            muro: tds[0].textContent.trim(),
+            x: tds[1].textContent.trim(),
+            cantMuertos: tds[2].textContent.trim(),
+            altura: tds[3].textContent.trim(),
+            concreto: tds[4].textContent.trim(),
+            aceroVarillas: tds[5].textContent.trim(),
+            aceroAnillos: tds[6].textContent.trim(),
+          });
+        });
+        if (rows.length > 0) {
+          tables.push({ diametro: 'General', rows });
+        }
+      }
+    }
+
+    if (tables.length === 0) return null;
+
+    // Summary table
+    const summary = { diameters: [], materiales: [] };
+    if (resumenContainer && resumenContainer.style.display !== 'none') {
+      const resumenTable = document.getElementById('tablaResumenCilindrico');
+      if (resumenTable) {
+        // Header row 2 has diameters
+        const headerRows = resumenTable.querySelectorAll('thead tr');
+        if (headerRows.length >= 2) {
+          headerRows[1].querySelectorAll('th').forEach((th, i) => {
+            if (i > 0) summary.diameters.push(th.textContent.trim());
+          });
+        }
+        // Body rows have material totals
+        resumenTable.querySelectorAll('tbody tr').forEach(tr => {
+          const tds = tr.querySelectorAll('td');
+          if (tds.length < 2) return;
+          const label = tds[0].textContent.trim();
+          const values = [];
+          for (let i = 1; i < tds.length; i++) {
+            values.push(tds[i].textContent.trim());
+          }
+          summary.materiales.push({ label, values });
+        });
+      }
+    }
+
+    return { config, tables, summary };
+  }
+
   // ── Generate Report ──
   btnGenerar.addEventListener('click', async () => {
     const formato = document.querySelector('input[name="formatoInforme"]:checked')?.value;
@@ -239,6 +344,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const windTableData = collectWindTableData();
     if (windTableData) {
       formData.append('windTableData', JSON.stringify(windTableData));
+    }
+
+    // ── Collect cylindrical deadman data if applicable ──
+    if ((projectInfo.tipo_muerto || '').toLowerCase() === 'cilindrico') {
+      const cilData = collectCilindricoData();
+      if (cilData) {
+        formData.append('cilindricoData', JSON.stringify(cilData));
+      }
     }
 
     // Show progress

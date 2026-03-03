@@ -59,7 +59,7 @@ function drawCoverImage(doc, imagePath, pageW, pageH, opacity = 0.28) {
     doc.restore();
 }
 // ─── PDF Generation ────────────────────────────────────────
-async function generarInformePDF(projectInfo, coverImageBuffer, windTableData) {
+async function generarInformePDF(projectInfo, coverImageBuffer, windTableData, cilindricoData) {
     return new Promise((resolve) => {
         const doc = new pdfkit_1.default({ size: 'A4', margin: 40 });
         const buffers = [];
@@ -81,6 +81,11 @@ async function generarInformePDF(projectInfo, coverImageBuffer, windTableData) {
         if (windTableData && windTableData.rows.length > 0) {
             doc.addPage();
             crearPaginaResumenPDF(doc, windTableData);
+        }
+        // Cylindrical deadman pages (if applicable)
+        if (cilindricoData && cilindricoData.tables.length > 0) {
+            doc.addPage();
+            crearPaginaCilindricoPDF(doc, cilindricoData);
         }
         doc.end();
     });
@@ -365,8 +370,169 @@ function crearPaginaResumenPDF(doc, windData) {
         y += 20;
     }
 }
+// ─── PDF Cylindrical Deadman Page ──────────────────────────
+function crearPaginaCilindricoPDF(doc, cilData) {
+    const pageW = doc.page.width;
+    const pageH = doc.page.height;
+    const marginX = 40;
+    const contentW = pageW - marginX * 2;
+    let y = 50;
+    // Title
+    doc.fontSize(18).fillColor('#1f1f1f').font('Helvetica-Bold')
+        .text('ARMADO CILÍNDRICO AISLADO', marginX, y, { align: 'center', width: contentW });
+    y += 35;
+    // Separator
+    doc.strokeColor('#27ae60').lineWidth(2)
+        .moveTo(marginX, y).lineTo(pageW - marginX, y).stroke();
+    y += 20;
+    // Configuration section
+    doc.fontSize(11).fillColor('#1f1f1f').font('Helvetica-Bold')
+        .text('Configuración y Materiales', marginX, y);
+    y += 18;
+    const cfg = cilData.config;
+    const configItems = [
+        { label: 'Densidad', value: `${cfg.densidad} kg/m³` },
+        { label: 'Desperdicio', value: cfg.desperdicio },
+        { label: 'Cant. Varillas Vert', value: cfg.cantVert },
+        { label: 'Tipo Varilla', value: cfg.tipoVert },
+        { label: 'Tipo Anillo', value: cfg.tipoAnillo },
+        { label: 'Criterio Anillos', value: cfg.modoAnillos === 'fijo' ? 'Cantidad Fija' : 'Por Separación' },
+        { label: 'Cant./Sep.', value: cfg.datoAnillos },
+    ];
+    // Draw config as 2-column layout
+    const colHalf = contentW / 2;
+    for (let i = 0; i < configItems.length; i++) {
+        const item = configItems[i];
+        const xOff = (i % 2 === 0) ? marginX : marginX + colHalf;
+        doc.fontSize(8).fillColor('#666666').font('Helvetica')
+            .text(`${item.label}: `, xOff, y, { continued: true })
+            .font('Helvetica-Bold').fillColor('#000000')
+            .text(item.value);
+        if (i % 2 === 1 || i === configItems.length - 1)
+            y += 16;
+    }
+    y += 10;
+    // Per-diameter tables
+    const tableHeaders = ['Muro', 'X (mm)', 'Cant. M.', 'Altura (mm)', 'Concreto (ton)', 'Acero Var. (kg)', 'Acero Anil. (kg)'];
+    const colCount = tableHeaders.length;
+    const colW = contentW / colCount;
+    const headerH = 24;
+    const rowH = 20;
+    for (const tableGroup of cilData.tables) {
+        const neededH = headerH + rowH * tableGroup.rows.length + 45;
+        if (y + neededH > pageH - 40) {
+            doc.addPage();
+            y = 50;
+        }
+        // Diameter title
+        doc.fontSize(10).fillColor('#27ae60').font('Helvetica-Bold')
+            .text(tableGroup.diametro, marginX, y);
+        y += 16;
+        // Header background
+        doc.save();
+        doc.rect(marginX, y, contentW, headerH).fill('#27ae60');
+        doc.restore();
+        // Header text
+        doc.fontSize(7).fillColor('#ffffff').font('Helvetica-Bold');
+        for (let c = 0; c < colCount; c++) {
+            doc.text(tableHeaders[c], marginX + c * colW + 2, y + 7, { width: colW - 4, align: 'center' });
+        }
+        doc.strokeColor('#1e8449').lineWidth(0.5);
+        doc.moveTo(marginX, y + headerH).lineTo(marginX + contentW, y + headerH).stroke();
+        y += headerH;
+        // Data rows
+        doc.font('Helvetica').fontSize(7).fillColor('#000000');
+        for (let i = 0; i < tableGroup.rows.length; i++) {
+            const row = tableGroup.rows[i];
+            const vals = [row.muro, row.x, row.cantMuertos, row.altura, row.concreto, row.aceroVarillas, row.aceroAnillos];
+            if (i % 2 === 0) {
+                doc.save();
+                doc.rect(marginX, y, contentW, rowH).fill('#f0faf4');
+                doc.restore();
+                doc.fillColor('#000000');
+            }
+            for (let c = 0; c < colCount; c++) {
+                doc.text(vals[c] || '—', marginX + c * colW + 2, y + 5, { width: colW - 4, align: c === 0 ? 'left' : 'center' });
+            }
+            doc.strokeColor('#dddddd').lineWidth(0.3);
+            doc.moveTo(marginX, y + rowH).lineTo(marginX + contentW, y + rowH).stroke();
+            y += rowH;
+        }
+        // Table border
+        const tableTop = y - rowH * tableGroup.rows.length - headerH;
+        doc.strokeColor('#27ae60').lineWidth(0.5);
+        doc.rect(marginX, tableTop, contentW, headerH + rowH * tableGroup.rows.length).stroke();
+        for (let c = 1; c < colCount; c++) {
+            doc.moveTo(marginX + c * colW, tableTop).lineTo(marginX + c * colW, y).stroke();
+        }
+        y += 15;
+    }
+    // Summary table
+    if (cilData.summary && cilData.summary.diameters.length > 0 && cilData.summary.materiales.length > 0) {
+        const sumCols = cilData.summary.diameters.length + 1; // +1 for label column
+        const sumColW = contentW / sumCols;
+        const sumHeaderH = 22;
+        const sumRowH = 20;
+        const sumNeeded = sumHeaderH * 2 + sumRowH * cilData.summary.materiales.length + 50;
+        if (y + sumNeeded > pageH - 40) {
+            doc.addPage();
+            y = 50;
+        }
+        // Summary title
+        doc.fontSize(11).fillColor('#1f1f1f').font('Helvetica-Bold')
+            .text('Resumen Muerto Cilíndrico Aislado - Totales Materiales', marginX, y, { align: 'center', width: contentW });
+        y += 22;
+        // Header row 1: Option numbers
+        doc.save();
+        doc.rect(marginX, y, contentW, sumHeaderH).fill('#34495e');
+        doc.restore();
+        doc.fontSize(7).fillColor('#ffffff').font('Helvetica-Bold');
+        doc.text('', marginX + 2, y + 6, { width: sumColW - 4, align: 'center' });
+        for (let i = 0; i < cilData.summary.diameters.length; i++) {
+            doc.text(String(i + 1), marginX + (i + 1) * sumColW + 2, y + 6, { width: sumColW - 4, align: 'center' });
+        }
+        y += sumHeaderH;
+        // Header row 2: Diameters
+        doc.save();
+        doc.rect(marginX, y, contentW, sumHeaderH).fill('#34495e');
+        doc.restore();
+        doc.fontSize(7).fillColor('#ffffff').font('Helvetica-Bold');
+        doc.text('Diámetro (mm)', marginX + 2, y + 6, { width: sumColW - 4, align: 'center' });
+        for (let i = 0; i < cilData.summary.diameters.length; i++) {
+            doc.text(cilData.summary.diameters[i], marginX + (i + 1) * sumColW + 2, y + 6, { width: sumColW - 4, align: 'center' });
+        }
+        y += sumHeaderH;
+        // Material rows
+        doc.font('Helvetica').fontSize(7).fillColor('#000000');
+        for (let r = 0; r < cilData.summary.materiales.length; r++) {
+            const mat = cilData.summary.materiales[r];
+            if (r % 2 === 0) {
+                doc.save();
+                doc.rect(marginX, y, contentW, sumRowH).fill('#ecf0f1');
+                doc.restore();
+                doc.fillColor('#000000');
+            }
+            doc.font('Helvetica-Bold')
+                .text(mat.label, marginX + 2, y + 5, { width: sumColW - 4, align: 'left' });
+            doc.font('Helvetica');
+            for (let i = 0; i < mat.values.length; i++) {
+                doc.text(mat.values[i] || '—', marginX + (i + 1) * sumColW + 2, y + 5, { width: sumColW - 4, align: 'center' });
+            }
+            doc.strokeColor('#cccccc').lineWidth(0.3);
+            doc.moveTo(marginX, y + sumRowH).lineTo(marginX + contentW, y + sumRowH).stroke();
+            y += sumRowH;
+        }
+        // Summary table border
+        const sumTop = y - sumRowH * cilData.summary.materiales.length - sumHeaderH * 2;
+        doc.strokeColor('#27ae60').lineWidth(0.5);
+        doc.rect(marginX, sumTop, contentW, sumHeaderH * 2 + sumRowH * cilData.summary.materiales.length).stroke();
+        for (let c = 1; c < sumCols; c++) {
+            doc.moveTo(marginX + c * sumColW, sumTop).lineTo(marginX + c * sumColW, y).stroke();
+        }
+    }
+}
 // ─── DOCX Generation ───────────────────────────────────────
-async function generarInformeDOCX(projectInfo, coverImageBuffer, windTableData) {
+async function generarInformeDOCX(projectInfo, coverImageBuffer, windTableData, cilindricoData) {
     const sections = [];
     // Read logo for DOCX
     const logoPath = getAssetPath('logo.png');
@@ -731,6 +897,191 @@ async function generarInformeDOCX(projectInfo, coverImageBuffer, windTableData) 
             summaryChildren.push(table);
         }
         sections.push({ properties: { page: a4Page }, children: summaryChildren });
+    }
+    // ── Cylindrical Deadman Section ──
+    if (cilindricoData && cilindricoData.tables.length > 0) {
+        const cilChildren = [];
+        // Title
+        cilChildren.push(new docx_1.Paragraph({
+            alignment: docx_1.AlignmentType.CENTER,
+            spacing: { after: 200, before: 200 },
+            children: [
+                new docx_1.TextRun({ text: 'ARMADO CILÍNDRICO AISLADO', bold: true, size: 32, color: '1f1f1f', font: 'Arial' }),
+            ],
+        }));
+        // Separator
+        cilChildren.push(new docx_1.Paragraph({
+            spacing: { after: 200 },
+            border: {
+                bottom: { style: docx_1.BorderStyle.SINGLE, size: 4, color: '27AE60', space: 1 },
+            },
+            children: [new docx_1.TextRun({ text: ' ', size: 4 })],
+        }));
+        // Configuration
+        cilChildren.push(new docx_1.Paragraph({
+            spacing: { after: 100 },
+            children: [
+                new docx_1.TextRun({ text: 'Configuración y Materiales', bold: true, size: 22, color: '1f1f1f', font: 'Arial' }),
+            ],
+        }));
+        const cfg = cilindricoData.config;
+        const configPairs = [
+            ['Densidad', `${cfg.densidad} kg/m³`],
+            ['Desperdicio', cfg.desperdicio],
+            ['Cant. Varillas Vert', cfg.cantVert],
+            ['Tipo Varilla', cfg.tipoVert],
+            ['Tipo Anillo', cfg.tipoAnillo],
+            ['Criterio Anillos', cfg.modoAnillos === 'fijo' ? 'Cantidad Fija' : 'Por Separación'],
+            ['Cant./Sep.', cfg.datoAnillos],
+        ];
+        for (const [label, value] of configPairs) {
+            cilChildren.push(new docx_1.Paragraph({
+                spacing: { after: 40 },
+                children: [
+                    new docx_1.TextRun({ text: `${label}: `, size: 18, color: '666666', font: 'Arial' }),
+                    new docx_1.TextRun({ text: value || '—', bold: true, size: 18, color: '000000', font: 'Arial' }),
+                ],
+            }));
+        }
+        cilChildren.push(new docx_1.Paragraph({ spacing: { after: 150 } }));
+        // Per-diameter tables
+        const cilHeaders = ['Muro', 'X (mm)', 'Cant. M.', 'Altura (mm)', 'Concreto (ton)', 'Acero Var. (kg)', 'Acero Anil. (kg)'];
+        const cilColCount = cilHeaders.length;
+        for (const tableGroup of cilindricoData.tables) {
+            // Diameter title
+            cilChildren.push(new docx_1.Paragraph({
+                spacing: { before: 150, after: 80 },
+                children: [
+                    new docx_1.TextRun({ text: tableGroup.diametro, bold: true, size: 20, color: '27AE60', font: 'Arial' }),
+                ],
+            }));
+            // Header cells
+            const hCells = cilHeaders.map(h => new docx_1.TableCell({
+                shading: { type: docx_1.ShadingType.CLEAR, fill: '27AE60' },
+                children: [
+                    new docx_1.Paragraph({
+                        alignment: docx_1.AlignmentType.CENTER,
+                        spacing: { before: 30, after: 30 },
+                        children: [
+                            new docx_1.TextRun({ text: h, bold: true, size: 14, color: 'FFFFFF', font: 'Arial' }),
+                        ],
+                    }),
+                ],
+                width: { size: Math.floor(100 / cilColCount), type: docx_1.WidthType.PERCENTAGE },
+            }));
+            // Data rows
+            const dRows = tableGroup.rows.map((row, idx) => {
+                const vals = [row.muro, row.x, row.cantMuertos, row.altura, row.concreto, row.aceroVarillas, row.aceroAnillos];
+                const cells = vals.map((val, ci) => new docx_1.TableCell({
+                    shading: idx % 2 === 0 ? { type: docx_1.ShadingType.CLEAR, fill: 'F0FAF4' } : undefined,
+                    children: [
+                        new docx_1.Paragraph({
+                            alignment: ci === 0 ? docx_1.AlignmentType.LEFT : docx_1.AlignmentType.CENTER,
+                            spacing: { before: 20, after: 20 },
+                            children: [
+                                new docx_1.TextRun({ text: val || '—', size: 14, color: '000000', font: 'Arial' }),
+                            ],
+                        }),
+                    ],
+                    width: { size: Math.floor(100 / cilColCount), type: docx_1.WidthType.PERCENTAGE },
+                }));
+                return new docx_1.TableRow({ children: cells });
+            });
+            cilChildren.push(new docx_1.Table({
+                width: { size: 100, type: docx_1.WidthType.PERCENTAGE },
+                layout: docx_1.TableLayoutType.FIXED,
+                rows: [new docx_1.TableRow({ children: hCells }), ...dRows],
+            }));
+        }
+        // Summary table
+        if (cilindricoData.summary && cilindricoData.summary.diameters.length > 0 && cilindricoData.summary.materiales.length > 0) {
+            cilChildren.push(new docx_1.Paragraph({
+                alignment: docx_1.AlignmentType.CENTER,
+                spacing: { before: 300, after: 100 },
+                children: [
+                    new docx_1.TextRun({ text: 'Resumen Muerto Cilíndrico Aislado - Totales Materiales', bold: true, size: 20, color: '1f1f1f', font: 'Arial' }),
+                ],
+            }));
+            const sumColCount = cilindricoData.summary.diameters.length + 1;
+            // Header row 1: option numbers
+            const optCells = [
+                new docx_1.TableCell({
+                    shading: { type: docx_1.ShadingType.CLEAR, fill: '34495E' },
+                    children: [new docx_1.Paragraph({ children: [new docx_1.TextRun({ text: '', size: 14 })] })],
+                    width: { size: Math.floor(100 / sumColCount), type: docx_1.WidthType.PERCENTAGE },
+                }),
+                ...cilindricoData.summary.diameters.map((_, i) => new docx_1.TableCell({
+                    shading: { type: docx_1.ShadingType.CLEAR, fill: '34495E' },
+                    children: [
+                        new docx_1.Paragraph({
+                            alignment: docx_1.AlignmentType.CENTER,
+                            children: [new docx_1.TextRun({ text: String(i + 1), bold: true, size: 14, color: 'FFFFFF', font: 'Arial' })],
+                        }),
+                    ],
+                    width: { size: Math.floor(100 / sumColCount), type: docx_1.WidthType.PERCENTAGE },
+                })),
+            ];
+            // Header row 2: diameters
+            const diamCells = [
+                new docx_1.TableCell({
+                    shading: { type: docx_1.ShadingType.CLEAR, fill: '34495E' },
+                    children: [
+                        new docx_1.Paragraph({
+                            alignment: docx_1.AlignmentType.CENTER,
+                            children: [new docx_1.TextRun({ text: 'Diámetro (mm)', bold: true, size: 14, color: 'FFFFFF', font: 'Arial' })],
+                        }),
+                    ],
+                    width: { size: Math.floor(100 / sumColCount), type: docx_1.WidthType.PERCENTAGE },
+                }),
+                ...cilindricoData.summary.diameters.map(d => new docx_1.TableCell({
+                    shading: { type: docx_1.ShadingType.CLEAR, fill: '34495E' },
+                    children: [
+                        new docx_1.Paragraph({
+                            alignment: docx_1.AlignmentType.CENTER,
+                            children: [new docx_1.TextRun({ text: d, bold: true, size: 14, color: 'FFFFFF', font: 'Arial' })],
+                        }),
+                    ],
+                    width: { size: Math.floor(100 / sumColCount), type: docx_1.WidthType.PERCENTAGE },
+                })),
+            ];
+            // Material rows
+            const matRows = cilindricoData.summary.materiales.map((mat, idx) => {
+                const cells = [
+                    new docx_1.TableCell({
+                        shading: { type: docx_1.ShadingType.CLEAR, fill: 'ECF0F1' },
+                        children: [
+                            new docx_1.Paragraph({
+                                spacing: { before: 20, after: 20 },
+                                children: [new docx_1.TextRun({ text: mat.label, bold: true, size: 14, color: '000000', font: 'Arial' })],
+                            }),
+                        ],
+                        width: { size: Math.floor(100 / sumColCount), type: docx_1.WidthType.PERCENTAGE },
+                    }),
+                    ...mat.values.map(v => new docx_1.TableCell({
+                        shading: idx % 2 === 0 ? { type: docx_1.ShadingType.CLEAR, fill: 'F9F9F9' } : undefined,
+                        children: [
+                            new docx_1.Paragraph({
+                                alignment: docx_1.AlignmentType.CENTER,
+                                spacing: { before: 20, after: 20 },
+                                children: [new docx_1.TextRun({ text: v || '—', size: 14, color: '000000', font: 'Arial' })],
+                            }),
+                        ],
+                        width: { size: Math.floor(100 / sumColCount), type: docx_1.WidthType.PERCENTAGE },
+                    })),
+                ];
+                return new docx_1.TableRow({ children: cells });
+            });
+            cilChildren.push(new docx_1.Table({
+                width: { size: 100, type: docx_1.WidthType.PERCENTAGE },
+                layout: docx_1.TableLayoutType.FIXED,
+                rows: [
+                    new docx_1.TableRow({ children: optCells }),
+                    new docx_1.TableRow({ children: diamCells }),
+                    ...matRows,
+                ],
+            }));
+        }
+        sections.push({ properties: { page: a4Page }, children: cilChildren });
     }
     const docx = new docx_1.Document({
         sections,

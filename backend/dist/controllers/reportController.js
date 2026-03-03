@@ -57,8 +57,20 @@ async function generarInforme(req, res) {
                 console.warn('[reportController] Error parsing windTableData:', e);
             }
         }
+        // Parse cylindrical deadman data if provided
+        let cilindricoData;
+        if (req.body.cilindricoData) {
+            try {
+                cilindricoData = typeof req.body.cilindricoData === 'string'
+                    ? JSON.parse(req.body.cilindricoData)
+                    : req.body.cilindricoData;
+            }
+            catch (e) {
+                console.warn('[reportController] Error parsing cilindricoData:', e);
+            }
+        }
         if (formato === 'docx') {
-            const docxBuffer = await (0, reportService_1.generarInformeDOCX)(projectInfo, coverImageBuffer, windTableData);
+            const docxBuffer = await (0, reportService_1.generarInformeDOCX)(projectInfo, coverImageBuffer, windTableData, cilindricoData);
             const filename = `informe_${(projectInfo.nombre || 'proyecto').replace(/\s+/g, '_')}.docx`;
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
             res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -66,7 +78,7 @@ async function generarInforme(req, res) {
             return res.send(docxBuffer);
         }
         // PDF
-        const pdfBuffer = await (0, reportService_1.generarInformePDF)(projectInfo, coverImageBuffer, windTableData);
+        const pdfBuffer = await (0, reportService_1.generarInformePDF)(projectInfo, coverImageBuffer, windTableData, cilindricoData);
         const filename = `informe_${(projectInfo.nombre || 'proyecto').replace(/\s+/g, '_')}.pdf`;
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
