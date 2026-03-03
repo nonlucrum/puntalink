@@ -642,7 +642,7 @@ function buildMuertosSection(tablaMuertos: MuertoResumen[]): (Paragraph | Table)
     })
   );
 
-  const headers = ['#', 'Muerto', 'X Braces', 'Ángulo', 'Eje', 'Tipo Construcción', 'Cant. Muros'];
+  const headers = ['Muerto #', 'Distancia X (m)', 'Ángulo', 'Eje', 'Tipo Construcción', 'Cant. Muros', 'Total Braces'];
 
   const headerRow = new TableRow({
     tableHeader: true,
@@ -650,7 +650,8 @@ function buildMuertosSection(tablaMuertos: MuertoResumen[]): (Paragraph | Table)
   });
 
   const dataRows = tablaMuertos.map((m, i) => {
-    const values = [m.numero, m.muerto, m.x_braces, m.angulo, m.eje, m.tipo_construccion, m.cantidad_muros];
+    const distX = m.distancia_x ? `${parseFloat(String(m.distancia_x)).toFixed(2)} m` : '0.00 m';
+    const values = [m.muerto, distX, m.angulo, m.eje, m.tipo_construccion, m.cantidad_muros, m.total_braces || '0'];
     const bg = i % 2 === 0 ? BLANCO : 'F8F9FA';
     return new TableRow({
       children: values.map(v => shadedCell(v || '\u2014', bg)),
@@ -1205,8 +1206,8 @@ export async function generarInformeDocx(data: ReportData): Promise<Buffer> {
   // Calculations page
   const calcChildren = buildCalculationsSection(data);
 
-  // Muertos page (only for Corrido and Triangular — in the web, Cilíndrico hides this)
-  const muertosChildren = (tipoMuerto !== 'Cilindrico' && data.tablaMuertos && data.tablaMuertos.length > 0)
+  // Muertos page — shown for all project types (matches web behavior)
+  const muertosChildren = (data.tablaMuertos && data.tablaMuertos.length > 0)
     ? buildMuertosSection(data.tablaMuertos)
     : [];
 

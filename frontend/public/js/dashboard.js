@@ -1300,19 +1300,20 @@ export async function handleGenerarInforme(elements, globalVars) {
     murosConBraces = murosActualizados.map(muro => {
       const muroViento = hasViento ? globalVars.resultadosTomoIII.find(m => m.pid === muro.pid) : null;
       return {
-        ...(muroViento || {}),
         ...muro,
-        angulo_brace: muro.angulo_brace || muro.angulo || 55,
-        npt: muro.npt || 0.350,
-        tipo_brace_seleccionado: muro.tipo_brace_seleccionado || muro.tipo_brace || 'B12',
-        x_braces: muro.x_braces || 2,
-        x_inserto: muro.x_inserto || 0,
-        eje: muro.eje || '',
+        ...(muroViento || {}),
+        // Prefer viento/calculated data, fallback to DB, then defaults
+        angulo_brace: muroViento?.angulo_brace ?? muroViento?.grados_inclinacion_brace ?? muro.angulo_brace ?? muro.angulo ?? 55,
+        npt: muro.npt || muroViento?.npt || 0.350,
+        tipo_brace_seleccionado: muroViento?.tipo_brace_seleccionado ?? muroViento?.modelo_brace ?? muro.tipo_brace_seleccionado ?? muro.tipo_brace ?? 'B12',
+        x_braces: muroViento?.x_braces ?? muroViento?.total_braces ?? muro.x_braces ?? 2,
+        x_inserto: muroViento?.x_inserto ?? muro.x_inserto ?? 0,
+        eje: muro.eje || muroViento?.eje || '',
         grosor: muro.grosor || 0,
         overall_height: muro.overall_height || 0,
-        fbx: parseFloat(muro.fbx || 0),
-        fby: parseFloat(muro.fby || 0),
-        fb: parseFloat(muro.fb || 0)
+        fbx: parseFloat(muroViento?.fbx ?? muro.fbx ?? 0),
+        fby: parseFloat(muroViento?.fby ?? muro.fby ?? 0),
+        fb: parseFloat(muroViento?.fb ?? muro.fb ?? 0)
       };
     });
 
@@ -1340,9 +1341,11 @@ export async function handleGenerarInforme(elements, globalVars) {
         numero: numeroMuerto.toString(),
         muerto: `M${numeroMuerto}`,
         x_braces: String(xBraces),
+        total_braces: String(grupo.totalBraces || 0),
+        distancia_x: grupo.xInserto || grupo.x || '0.00',
         angulo: `${grupo.ang || grupo.angulo || 55}°`,
         eje: (grupo.eje || 1).toString(),
-        tipo_construccion: Number(xBraces) >= 3 ? 'Reforzado' : 'Estándar',
+        tipo_construccion: (grupo.tipoConst || (Number(xBraces) >= 3 ? 'Reforzado' : 'Estándar')),
         cantidad_muros: (grupo.cantidadMuros || grupo.muros?.length || 0).toString(),
         muros_incluidos: grupo.muros?.map?.(m => typeof m === 'string' ? m : m.id_muro).join(', ') || ''
       });
@@ -1389,16 +1392,17 @@ export async function handleGenerarInforme(elements, globalVars) {
   Object.keys(gruposMuertos).forEach(clave => {
     const grupo = gruposMuertos[clave];
     const primerMuro = grupo.muros[0];
+    const xBracesFallback = primerMuro.x_braces || 2;
+    const totalBracesGrupo = grupo.muros.reduce((sum, m) => sum + (parseInt(m.x_braces) || 2), 0);
     tablaMuertos.push({
       numero: numeroMuerto.toString(),
       muerto: `M${numeroMuerto}`,
-      x_braces: (primerMuro.x_braces || 2).toString(),
-      tipo_brace: grupo.tipo_brace,
+      x_braces: xBracesFallback.toString(),
+      total_braces: String(totalBracesGrupo),
+      distancia_x: grupo.x_inserto != null ? grupo.x_inserto.toFixed(2) : '0.00',
       angulo: `${grupo.angulo}°`,
-      x_inserto: `${grupo.x_inserto.toFixed(2)}m`,
       eje: grupo.eje.toString(),
-      profundidad: '2.0',
-      tipo_construccion: (primerMuro.x_braces || 2) >= 3 ? 'Reforzado' : 'Estándar',
+      tipo_construccion: (grupo.muros[0]?.tipo_construccion || (xBracesFallback >= 3 ? 'Reforzado' : 'Estándar')),
       cantidad_muros: grupo.muros.length.toString(),
       muros_incluidos: grupo.muros.map(m => m.id_muro).join(', ')
     });

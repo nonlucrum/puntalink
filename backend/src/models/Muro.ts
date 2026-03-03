@@ -168,22 +168,31 @@ export async function updateMuroEditableFields(
   tipo_construccion?: string,
   tipo_brace_seleccionado?: string,
   eje?: string,
-  fb?: number,
-  fbx?: number,
-  fby?: number,
-  x_inserto?: number,
-  y_inserto?: number,
-
-
 ) {
+  // Only update user-editable fields. Never touch calculated fields (fb, fbx, fby, x_inserto, y_inserto).
+  const setClauses: string[] = [];
+  const values: any[] = [pid];
+  let paramIndex = 2;
+
+  if (angulo_brace !== undefined) { setClauses.push(`angulo_brace = $${paramIndex++}`); values.push(angulo_brace); }
+  if (npt !== undefined) { setClauses.push(`npt = $${paramIndex++}`); values.push(npt); }
+  if (x_braces !== undefined) { setClauses.push(`x_braces = $${paramIndex++}`); values.push(x_braces); }
+  if (tipo_construccion !== undefined) { setClauses.push(`tipo_construccion = $${paramIndex++}`); values.push(tipo_construccion); }
+  if (tipo_brace_seleccionado !== undefined) { setClauses.push(`tipo_brace_seleccionado = $${paramIndex++}`); values.push(tipo_brace_seleccionado); }
+  if (eje !== undefined) { setClauses.push(`eje = $${paramIndex++}`); values.push(eje); }
+
+  if (setClauses.length === 0) {
+    // Nothing to update, just return current muro
+    const result = await pool.query(`SELECT * FROM muro WHERE pid = $1`, [pid]);
+    return result.rows[0];
+  }
+
   const query = `
     UPDATE muro
-    SET angulo_brace = $2, npt = $3, x_braces = $4, tipo_construccion = $5, tipo_brace_seleccionado = $6, eje = $7 , fb = $8, fbx = $9, fby = $10, x_inserto = $11, y_inserto = $12
+    SET ${setClauses.join(', ')}
     WHERE pid = $1
     RETURNING *;
   `;
-
-  const values = [pid, angulo_brace, npt, x_braces, tipo_construccion, tipo_brace_seleccionado, eje, fb, fbx, fby, x_inserto, y_inserto];
 
   try {
     const result = await pool.query(query, values);

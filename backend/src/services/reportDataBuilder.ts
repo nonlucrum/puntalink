@@ -36,6 +36,8 @@ export interface MuertoResumen {
   numero: string;
   muerto: string;
   x_braces: string;
+  total_braces: string;
+  distancia_x: string;
   angulo: string;
   eje: string;
   tipo_construccion: string;
@@ -401,7 +403,9 @@ function normalizeTablaMuertos(raw?: MuertoResumen[]): MuertoResumen[] | undefin
   return raw.map((m: any) => ({
     numero: m.numero || '',
     muerto: m.muerto || '',
-    x_braces: m.x_braces || m.tipo_brace || '',
+    x_braces: m.x_braces || '',
+    total_braces: m.total_braces || '0',
+    distancia_x: m.distancia_x || m.x_inserto || '0.00',
     angulo: m.angulo || '',
     eje: m.eje || '',
     tipo_construccion: m.tipo_construccion || '',

@@ -1213,8 +1213,8 @@ async function calcularCargasViento() {
     console.log('[WIND] Respuesta de la API:', data);
 
     if (data.success && data.resultados) {
-      mostrarResultadosViento(data, progress, panelesData.length);
       globalVars.resultadosTomoIII = data.resultados;
+      await mostrarResultadosViento(data, progress, panelesData.length);
     } else {
       throw new Error(data.error || 'Error desconocido en el cálculo');
     }
@@ -1465,14 +1465,9 @@ export async function mostrarResultadosViento(data, progress = null, totalMuros 
     }
   }
   
-  // Guardar automáticamente todos los cálculos de braces en la BD
-  console.log('[BRACES] Guardando valores calculados en la base de datos...');
-  try {
-    await guardarTodosBraces();
-    console.log('[BRACES] ✅ Valores guardados exitosamente');
-  } catch (error) {
-    console.error('[BRACES] ❌ Error al guardar valores:', error);
-  }
+  // No auto-save here — let the user explicitly click "Guardar Todos los Cambios"
+  // The real-time calc already updated the UI; saving is done on button click.
+  console.log('[BRACES] Valores calculados en tiempo real. Use el botón para guardar en BD.');
 
   // Crear detalle de cálculos
   let htmlDetalle = '';
@@ -2046,7 +2041,8 @@ async function guardarTodosBraces() {
       }, 800); // Dar tiempo para que se procesen los cambios en BD
     }
   }
-  document.getElementById('btnGuardarTodosBracesTop').disabled = true;
+  const btnGuardar = document.getElementById('btnGuardarTodosBracesTop');
+  if (btnGuardar) btnGuardar.disabled = false;
 }
 
 /**

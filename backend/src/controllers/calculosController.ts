@@ -497,21 +497,11 @@ export const aplicarValoresGlobales = async (req: Request, res: Response) => {
 
     // Actualizar cada muro
     const actualizaciones = await Promise.all(
-      muros.map(muro => 
+      muros.map(muro =>
         updateMuroEditableFields(
           muro.pid!,
-          angulo_brace !== undefined ? angulo_brace : muro.angulo_brace,
-          npt !== undefined ? npt : muro.npt,
-          muro.x_braces,
-          muro.tipo_construccion,
-          muro.tipo_brace_seleccionado,
-          muro.eje,
-          muro.fb,
-          muro.fbx,
-          muro.fby,
-          muro.x_inserto,
-          muro.y_inserto,
-
+          angulo_brace !== undefined ? angulo_brace : undefined,
+          npt !== undefined ? npt : undefined,
         )
       )
     );
