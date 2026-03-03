@@ -45,8 +45,20 @@ async function generarInforme(req, res) {
             }
         }
         const coverImageBuffer = imageFile ? imageFile.buffer : undefined;
+        // Parse wind table data if provided
+        let windTableData;
+        if (req.body.windTableData) {
+            try {
+                windTableData = typeof req.body.windTableData === 'string'
+                    ? JSON.parse(req.body.windTableData)
+                    : req.body.windTableData;
+            }
+            catch (e) {
+                console.warn('[reportController] Error parsing windTableData:', e);
+            }
+        }
         if (formato === 'docx') {
-            const docxBuffer = await (0, reportService_1.generarInformeDOCX)(projectInfo, coverImageBuffer);
+            const docxBuffer = await (0, reportService_1.generarInformeDOCX)(projectInfo, coverImageBuffer, windTableData);
             const filename = `informe_${(projectInfo.nombre || 'proyecto').replace(/\s+/g, '_')}.docx`;
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
             res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -54,7 +66,7 @@ async function generarInforme(req, res) {
             return res.send(docxBuffer);
         }
         // PDF
-        const pdfBuffer = await (0, reportService_1.generarInformePDF)(projectInfo, coverImageBuffer);
+        const pdfBuffer = await (0, reportService_1.generarInformePDF)(projectInfo, coverImageBuffer, windTableData);
         const filename = `informe_${(projectInfo.nombre || 'proyecto').replace(/\s+/g, '_')}.pdf`;
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);

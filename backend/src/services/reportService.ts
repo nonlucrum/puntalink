@@ -3,7 +3,9 @@ import fs from 'fs';
 import PDFDocument from 'pdfkit';
 import {
   Document, Packer, Paragraph, TextRun, AlignmentType,
-  ImageRun, BorderStyle
+  ImageRun, BorderStyle,
+  Table, TableRow, TableCell, WidthType, ShadingType,
+  TableLayoutType
 } from 'docx';
 
 // ─── Helpers ───────────────────────────────────────────────
@@ -67,10 +69,46 @@ export interface ReportProjectInfo {
   version?: string;
 }
 
+export interface WindTableRow {
+  muro: string;
+  area: string;
+  peso: string;
+  altura: string;
+  ycg: string;
+  vd: string;
+  qz: string;
+  presion: string;
+  fuerza: string;
+  tipoBrace: string;
+  angulo: string;
+  npt: string;
+  eje: string;
+  factorW2: string;
+  xInserto: string;
+  yInserto: string;
+  longitud: string;
+  fbx: string;
+  fby: string;
+  fb: string;
+  cantCalc: string;
+  cantFinal: string;
+}
+
+export interface WindTableData {
+  summary: {
+    totalPaneles: number;
+    volumenTotal: string;
+    pesoTotal: string;
+    maxGrua: string;
+  };
+  rows: WindTableRow[];
+}
+
 // ─── PDF Generation ────────────────────────────────────────
 export async function generarInformePDF(
   projectInfo: ReportProjectInfo,
-  coverImageBuffer?: Buffer
+  coverImageBuffer?: Buffer,
+  windTableData?: WindTableData
 ): Promise<Buffer> {
   return new Promise((resolve) => {
     const doc = new PDFDocument({ size: 'A4', margin: 40 });
@@ -89,6 +127,16 @@ export async function generarInformePDF(
     if (coverImageBuffer) {
       doc.addPage();
       crearPaginaImagenPDF(doc, coverImageBuffer);
+    }
+
+    // Page 3: Project info
+    doc.addPage();
+    crearPaginaProyectoPDF(doc, projectInfo);
+
+    // Page 4+: Summary with wind table
+    if (windTableData && windTableData.rows.length > 0) {
+      doc.addPage();
+      crearPaginaResumenPDF(doc, windTableData);
     }
 
     doc.end();
@@ -189,6 +237,70 @@ function crearPortadaPDF(doc: any, projectInfo?: ReportProjectInfo) {
      );
 }
 
+function crearPaginaProyectoPDF(doc: any, projectInfo?: ReportProjectInfo) {
+  const pageW = doc.page.width;
+  const pageH = doc.page.height;
+  const marginX = 60;
+
+  // Logo
+  const logoPath = getAssetPath('logo.png');
+  if (fs.existsSync(logoPath)) {
+    const img = doc.openImage(logoPath);
+    const scale = Math.min(180 / img.width, 80 / img.height);
+    const drawW = img.width * scale;
+    const logoX = (pageW - drawW) / 2;
+    doc.image(logoPath, logoX, 70, { width: drawW });
+  }
+
+  doc.fontSize(22).fillColor('#000000').text('PUNTALINK', 0, 160, { align: 'center' });
+
+  let currentY = 210;
+  const lineHeight = 32;
+  const labelWidth = 200;
+
+  const drawField = (label: string, value?: string | number) => {
+    const displayValue = value === undefined || value === null
+      ? '—'
+      : (typeof value === 'string' ? (value.trim() === '' ? '—' : value.trim()) : String(value));
+    doc.fontSize(10).fillColor('#888888')
+       .text(label.toUpperCase(), marginX, currentY, { width: labelWidth });
+    doc.fontSize(12).fillColor('#000000')
+       .text(displayValue, marginX + labelWidth + 10, currentY);
+    currentY += lineHeight;
+  };
+
+  drawField('NOMBRE PROYECTO', projectInfo?.nombre);
+  drawField('EMPRESA CONSTRUCTORA', projectInfo?.empresa);
+  drawField('TIPO DE MUERTO', projectInfo?.tipo_muerto);
+  drawField('VELOCIDAD DEL VIENTO (KM/H)', projectInfo?.vel_viento);
+  drawField('TEMPERATURA PROMEDIO (°C)', projectInfo?.temp_promedio);
+  drawField('PRESIÓN ATMOSFÉRICA (MMHG)', projectInfo?.presion_atmo);
+  drawField('CREADOR DEL PROYECTO', projectInfo?.creadorProyecto);
+  drawField('VERSIÓN', projectInfo?.version);
+  drawField('FECHA', new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }));
+
+  doc.strokeColor('#999999')
+     .lineWidth(1)
+     .moveTo(marginX, currentY + 10)
+     .lineTo(pageW - marginX, currentY + 10)
+     .stroke();
+
+  // Image at bottom
+  const imgPath = getAssetPath('imgInfo.png');
+  if (fs.existsSync(imgPath)) {
+    try {
+      const img = doc.openImage(imgPath);
+      const scale = pageW / img.width;
+      const drawH = img.height * scale;
+      doc.save();
+      doc.image(imgPath, 0, pageH - drawH, { width: pageW, height: drawH });
+      doc.restore();
+    } catch (err) {
+      console.warn('[reportService] No se pudo insertar imgInfo.png:', (err as any)?.message || err);
+    }
+  }
+}
+
 function crearPaginaImagenPDF(doc: any, imageBuffer: Buffer) {
   const pageW = doc.page.width;
   const pageH = doc.page.height;
@@ -211,10 +323,161 @@ function crearPaginaImagenPDF(doc: any, imageBuffer: Buffer) {
   }
 }
 
+// ─── PDF Summary Page ──────────────────────────────────────
+function crearPaginaResumenPDF(doc: any, windData: WindTableData) {
+  const pageW = doc.page.width;
+  const marginX = 40;
+  const contentW = pageW - marginX * 2;
+  let y = 50;
+
+  // Title
+  doc.fontSize(18).fillColor('#1f1f1f').font('Helvetica-Bold')
+     .text('RESUMEN GENERAL', marginX, y, { align: 'center', width: contentW });
+  y += 35;
+
+  // Separator
+  doc.strokeColor('#2E86AB').lineWidth(2)
+     .moveTo(marginX, y).lineTo(pageW - marginX, y).stroke();
+  y += 20;
+
+  // Summary stats
+  const stats = [
+    { label: 'Total de paneles analizados', value: String(windData.summary.totalPaneles) },
+    { label: 'Volumen total de concreto', value: `${windData.summary.volumenTotal} m³` },
+    { label: 'Peso total', value: `${windData.summary.pesoTotal} kN` },
+    { label: 'Capacidad máxima de grúa requerida', value: `${windData.summary.maxGrua} kN` },
+  ];
+
+  for (const stat of stats) {
+    doc.fontSize(10).fillColor('#555555').font('Helvetica')
+       .text('•  ', marginX, y, { continued: true })
+       .font('Helvetica-Bold').fillColor('#333333')
+       .text(`${stat.label}: `, { continued: true })
+       .font('Helvetica').fillColor('#000000')
+       .text(stat.value);
+    y += 20;
+  }
+
+  y += 15;
+
+  // ── Tables split by column groups ──
+  const rows = windData.rows;
+
+  // Group definitions: [groupTitle, headerColor, headers[], rowDataExtractor]
+  const groups: { title: string; color: string; headers: string[]; getData: (r: WindTableRow) => string[] }[] = [
+    {
+      title: 'DATOS DEL MURO',
+      color: '#e3f2fd',
+      headers: ['Muro', 'Área (m²)', 'Peso (ton)', 'Altura (m)', 'YCG (m)'],
+      getData: (r) => [r.muro, r.area, r.peso, r.altura, r.ycg],
+    },
+    {
+      title: 'CÁLCULOS DE VIENTO',
+      color: '#fff3e0',
+      headers: ['Muro', 'Vd (km/h)', 'qz (kPa)', 'Presión (kPa)', 'Fuerza (kN)'],
+      getData: (r) => [r.muro, r.vd, r.qz, r.presion, r.fuerza],
+    },
+    {
+      title: 'PARÁMETROS BRACES',
+      color: '#f3e5f5',
+      headers: ['Muro', 'Tipo', 'Ángulo (°)', 'NPT (m)', 'Eje', 'Factor W2'],
+      getData: (r) => [r.muro, r.tipoBrace, r.angulo, r.npt, r.eje, r.factorW2],
+    },
+    {
+      title: 'GEOMETRÍA INSERTO',
+      color: '#e8f5e9',
+      headers: ['Muro', 'X (m)', 'Y (m)', 'Longitud (m)'],
+      getData: (r) => [r.muro, r.xInserto, r.yInserto, r.longitud],
+    },
+    {
+      title: 'FUERZAS Y CANTIDAD',
+      color: '#fce4ec',
+      headers: ['Muro', 'FBx (kN)', 'FBy (kN)', 'FB (kN)', 'Cant. Calc.', 'Cant. Final'],
+      getData: (r) => [r.muro, r.fbx, r.fby, r.fb, r.cantCalc, r.cantFinal],
+    },
+  ];
+
+  for (const group of groups) {
+    const tableH = 22; // row height
+    const headerH = 28;
+    const neededH = headerH + tableH * rows.length + 50;
+
+    // Check if we need a new page
+    if (y + neededH > doc.page.height - 40) {
+      doc.addPage();
+      y = 50;
+    }
+
+    // Group title
+    doc.fontSize(11).fillColor('#1f1f1f').font('Helvetica-Bold')
+       .text(group.title, marginX, y);
+    y += 18;
+
+    const colCount = group.headers.length;
+    const colW = contentW / colCount;
+
+    // Header row background
+    doc.save();
+    doc.rect(marginX, y, contentW, headerH).fill(group.color);
+    doc.restore();
+
+    // Header text
+    doc.fontSize(7).fillColor('#333333').font('Helvetica-Bold');
+    for (let c = 0; c < colCount; c++) {
+      doc.text(group.headers[c], marginX + c * colW + 3, y + 8, { width: colW - 6, align: 'center' });
+    }
+
+    // Header border
+    doc.strokeColor('#999999').lineWidth(0.5);
+    doc.moveTo(marginX, y).lineTo(marginX + contentW, y).stroke();
+    doc.moveTo(marginX, y + headerH).lineTo(marginX + contentW, y + headerH).stroke();
+    y += headerH;
+
+    // Data rows
+    doc.font('Helvetica').fontSize(7).fillColor('#000000');
+    for (let i = 0; i < rows.length; i++) {
+      const rowData = group.getData(rows[i]);
+
+      // Alternating row background
+      if (i % 2 === 0) {
+        doc.save();
+        doc.rect(marginX, y, contentW, tableH).fill('#f9f9f9');
+        doc.restore();
+        doc.fillColor('#000000');
+      }
+
+      for (let c = 0; c < colCount; c++) {
+        const val = rowData[c] || '—';
+        doc.text(val, marginX + c * colW + 3, y + 6, { width: colW - 6, align: c === 0 ? 'left' : 'center' });
+      }
+
+      // Row bottom border
+      doc.strokeColor('#dddddd').lineWidth(0.3);
+      doc.moveTo(marginX, y + tableH).lineTo(marginX + contentW, y + tableH).stroke();
+      y += tableH;
+    }
+
+    // Table outer border
+    const tableTop = y - tableH * rows.length - headerH;
+    doc.strokeColor('#999999').lineWidth(0.5);
+    doc.rect(marginX, tableTop, contentW, headerH + tableH * rows.length).stroke();
+
+    // Vertical column lines
+    for (let c = 1; c < colCount; c++) {
+      doc.moveTo(marginX + c * colW, tableTop)
+         .lineTo(marginX + c * colW, y)
+         .stroke();
+    }
+
+    y += 20;
+  }
+}
+
 // ─── DOCX Generation ───────────────────────────────────────
 export async function generarInformeDOCX(
   projectInfo: ReportProjectInfo,
-  coverImageBuffer?: Buffer
+  coverImageBuffer?: Buffer,
+  windTableData?: WindTableData
 ): Promise<Buffer> {
   const sections: any[] = [];
 
@@ -413,6 +676,10 @@ export async function generarInformeDOCX(
   });
 
   // ── Section 2: Image Page (if provided) ──
+  const a4Page = {
+    size: { width: 11906, height: 16838 },
+    margin: { top: 720, bottom: 720, left: 720, right: 720 },
+  };
   if (coverImageBuffer) {
     const imageChildren: Paragraph[] = [];
     imageChildren.push(new Paragraph({ spacing: { before: 200 } }));
@@ -450,6 +717,217 @@ export async function generarInformeDOCX(
       },
       children: imageChildren,
     });
+  }
+
+  // ── Section 3: Project Info Page ──
+  const projectChildren: Paragraph[] = [];
+
+  if (logoBuffer) {
+    projectChildren.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 200, before: 400 },
+        children: [
+          new ImageRun({
+            data: logoBuffer,
+            transformation: { width: 160, height: 80 },
+          }),
+        ],
+      })
+    );
+  }
+
+  projectChildren.push(
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 400 },
+      children: [
+        new TextRun({ text: 'PUNTALINK', bold: true, size: 40, color: '000000', font: 'Arial' }),
+      ],
+    })
+  );
+
+  const dateStr2 = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+
+  const fields: [string, string | number | undefined][] = [
+    ['NOMBRE PROYECTO', projectInfo?.nombre],
+    ['EMPRESA CONSTRUCTORA', projectInfo?.empresa],
+    ['TIPO DE MUERTO', projectInfo?.tipo_muerto],
+    ['VELOCIDAD DEL VIENTO (KM/H)', projectInfo?.vel_viento],
+    ['TEMPERATURA PROMEDIO (°C)', projectInfo?.temp_promedio],
+    ['PRESIÓN ATMOSFÉRICA (MMHG)', projectInfo?.presion_atmo],
+    ['CREADOR DEL PROYECTO', projectInfo?.creadorProyecto],
+    ['VERSIÓN', projectInfo?.version],
+    ['FECHA', dateStr2],
+  ];
+
+  for (const [label, value] of fields) {
+    const display = value === undefined || value === null
+      ? '—'
+      : (typeof value === 'string' ? (value.trim() === '' ? '—' : value.trim()) : String(value));
+
+    projectChildren.push(
+      new Paragraph({
+        spacing: { after: 80 },
+        children: [
+          new TextRun({ text: `${label}:  `, bold: true, size: 20, color: '888888', font: 'Arial' }),
+          new TextRun({ text: display, size: 24, color: '000000', font: 'Arial' }),
+        ],
+      })
+    );
+  }
+
+  sections.push({ properties: { page: a4Page }, children: projectChildren });
+
+  // ── Section 4+: Summary with wind tables ──
+  if (windTableData && windTableData.rows.length > 0) {
+    const summaryChildren: (Paragraph | Table)[] = [];
+
+    // Title
+    summaryChildren.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 200, before: 200 },
+        children: [
+          new TextRun({ text: 'RESUMEN GENERAL', bold: true, size: 32, color: '1f1f1f', font: 'Arial' }),
+        ],
+      })
+    );
+
+    // Separator
+    summaryChildren.push(
+      new Paragraph({
+        spacing: { after: 200 },
+        border: {
+          bottom: { style: BorderStyle.SINGLE, size: 4, color: '2E86AB', space: 1 },
+        },
+        children: [new TextRun({ text: ' ', size: 4 })],
+      })
+    );
+
+    // Summary stats
+    const statsItems = [
+      { label: 'Total de paneles analizados', value: String(windTableData.summary.totalPaneles) },
+      { label: 'Volumen total de concreto', value: `${windTableData.summary.volumenTotal} m³` },
+      { label: 'Peso total', value: `${windTableData.summary.pesoTotal} kN` },
+      { label: 'Capacidad máxima de grúa requerida', value: `${windTableData.summary.maxGrua} kN` },
+    ];
+
+    for (const item of statsItems) {
+      summaryChildren.push(
+        new Paragraph({
+          spacing: { after: 60 },
+          children: [
+            new TextRun({ text: '•  ', size: 20, font: 'Arial' }),
+            new TextRun({ text: `${item.label}: `, bold: true, size: 20, color: '333333', font: 'Arial' }),
+            new TextRun({ text: item.value, size: 20, color: '000000', font: 'Arial' }),
+          ],
+        })
+      );
+    }
+
+    summaryChildren.push(new Paragraph({ spacing: { after: 200 } }));
+
+    // Table group definitions
+    const docxGroups: { title: string; color: string; headers: string[]; getData: (r: WindTableRow) => string[] }[] = [
+      {
+        title: 'DATOS DEL MURO',
+        color: 'E3F2FD',
+        headers: ['Muro', 'Área (m²)', 'Peso (ton)', 'Altura (m)', 'YCG (m)'],
+        getData: (r) => [r.muro, r.area, r.peso, r.altura, r.ycg],
+      },
+      {
+        title: 'CÁLCULOS DE VIENTO',
+        color: 'FFF3E0',
+        headers: ['Muro', 'Vd (km/h)', 'qz (kPa)', 'Presión (kPa)', 'Fuerza (kN)'],
+        getData: (r) => [r.muro, r.vd, r.qz, r.presion, r.fuerza],
+      },
+      {
+        title: 'PARÁMETROS BRACES',
+        color: 'F3E5F5',
+        headers: ['Muro', 'Tipo', 'Ángulo (°)', 'NPT (m)', 'Eje', 'Factor W2'],
+        getData: (r) => [r.muro, r.tipoBrace, r.angulo, r.npt, r.eje, r.factorW2],
+      },
+      {
+        title: 'GEOMETRÍA INSERTO',
+        color: 'E8F5E9',
+        headers: ['Muro', 'X (m)', 'Y (m)', 'Longitud (m)'],
+        getData: (r) => [r.muro, r.xInserto, r.yInserto, r.longitud],
+      },
+      {
+        title: 'FUERZAS Y CANTIDAD',
+        color: 'FCE4EC',
+        headers: ['Muro', 'FBx (kN)', 'FBy (kN)', 'FB (kN)', 'Cant. Calc.', 'Cant. Final'],
+        getData: (r) => [r.muro, r.fbx, r.fby, r.fb, r.cantCalc, r.cantFinal],
+      },
+    ];
+
+    for (const group of docxGroups) {
+      // Group title
+      summaryChildren.push(
+        new Paragraph({
+          spacing: { before: 200, after: 80 },
+          children: [
+            new TextRun({ text: group.title, bold: true, size: 22, color: '1f1f1f', font: 'Arial' }),
+          ],
+        })
+      );
+
+      const colCount = group.headers.length;
+
+      // Header row
+      const headerCells = group.headers.map(h =>
+        new TableCell({
+          shading: { type: ShadingType.CLEAR, fill: group.color },
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              spacing: { before: 40, after: 40 },
+              children: [
+                new TextRun({ text: h, bold: true, size: 14, color: '333333', font: 'Arial' }),
+              ],
+            }),
+          ],
+          width: { size: Math.floor(100 / colCount), type: WidthType.PERCENTAGE },
+        })
+      );
+
+      // Data rows
+      const dataRows = windTableData.rows.map((row, idx) => {
+        const rowData = group.getData(row);
+        const cells = rowData.map((val, ci) =>
+          new TableCell({
+            shading: idx % 2 === 0
+              ? { type: ShadingType.CLEAR, fill: 'F9F9F9' }
+              : undefined,
+            children: [
+              new Paragraph({
+                alignment: ci === 0 ? AlignmentType.LEFT : AlignmentType.CENTER,
+                spacing: { before: 20, after: 20 },
+                children: [
+                  new TextRun({ text: val || '—', size: 14, color: '000000', font: 'Arial' }),
+                ],
+              }),
+            ],
+            width: { size: Math.floor(100 / colCount), type: WidthType.PERCENTAGE },
+          })
+        );
+        return new TableRow({ children: cells });
+      });
+
+      const table = new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        layout: TableLayoutType.FIXED,
+        rows: [
+          new TableRow({ children: headerCells }),
+          ...dataRows,
+        ],
+      });
+
+      summaryChildren.push(table);
+    }
+
+    sections.push({ properties: { page: a4Page }, children: summaryChildren });
   }
 
   const docx = new Document({
