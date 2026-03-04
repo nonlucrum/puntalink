@@ -1593,7 +1593,7 @@ export async function mostrarResultadosViento(data, progress = null, totalMuros 
   // Scroll hacia los resultados
   resultadosViento.scrollIntoView({ behavior: 'smooth' });
 
-  btnInforme.style.display = '';
+  // btnInforme.style.display = '';
   btnInforme.disabled = false;
 
   // Cerrar progreso y mostrar éxito AL FINAL, después de renderizar todo
