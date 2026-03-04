@@ -2746,8 +2746,17 @@ async function reagruparMuertosDesdeBaseDatos() {
       // Campos adicionales útiles
       grosor: parseFloat(muro.grosor) || 0.17,   // Grosor del muro (m)
       area: parseFloat(muro.area) || 0,          // Área del muro (m²)
+      area_m2: parseFloat(muro.area) || 0,       // Alias para compatibilidad
       peso: parseFloat(muro.peso) || 0,          // Peso del muro (kN)
-      volumen: parseFloat(muro.volumen) || 0     // Volumen del muro (m³)
+      volumen: parseFloat(muro.volumen) || 0,    // Volumen del muro (m³)
+
+      // ✅ CORREGIDO: Incluir overall_width y overall_height desde BD
+      overall_width: parseFloat(muro.overall_width) || 0,
+      overall_height: parseFloat(muro.overall_height) || 0,
+
+      // Inserto
+      x_inserto: muro.x_inserto || '0.00',
+      y_inserto: muro.y_inserto || '0.00'
     }));
     
     console.log(`[MUERTOS-BD] Procesando ${resultadosActualizados.length} muros con valores de BD`);
@@ -3024,15 +3033,26 @@ function reagruparMuertosConValoresActuales() {
       }
     }
     
-    // Buscar el muro original en lastResultadosMuertos para preservar campos calculados
-    const muroOriginal = window.lastResultadosMuertos?.find(m => 
-      m.pid === pid || m.id_muro === (muroCell ? muroCell.textContent.trim() : null)
+    // ✅ CORREGIDO: Extraer solo el texto del <strong> (evitar badge "T"/"M" del span)
+    const muroIdText = muroCell ? (muroCell.querySelector('strong')?.textContent.trim() || muroCell.textContent.trim().replace(/\s*[TM]$/, '')) : null;
+
+    // ✅ CORREGIDO: Usar == para comparar pid (string vs number) y texto limpio para id_muro
+    const muroOriginal = window.lastResultadosMuertos?.find(m =>
+      String(m.pid) === String(pid) || m.id_muro === muroIdText
     );
-    
+
+    // Fallback: buscar en panelesActuales (datos directos de BD)
+    const muroDB = !muroOriginal && window.globalVars?.panelesActuales
+      ? window.globalVars.panelesActuales.find(m => String(m.pid) === String(pid) || m.id_muro === muroIdText)
+      : null;
+
+    // Usar muroOriginal si existe, sino muroDB como fallback
+    const fuenteDatos = muroOriginal || muroDB;
+
     // Construir objeto preservando campos calculados del original
     const resultado = {
       // Campos básicos
-      id_muro: muroCell ? muroCell.textContent.trim() : `Muro_${index + 1}`,
+      id_muro: muroIdText || `Muro_${index + 1}`,
       pid: pid,
       altura_z_m: alturaCell ? parseFloat(alturaCell.textContent) || 0 : 0,
       
@@ -3053,23 +3073,33 @@ function reagruparMuertosConValoresActuales() {
       eje: ejeInput ? ejeInput.value.trim() : (row.dataset.eje || `Eje_${index + 1}`),
       tipo_construccion: row.dataset.tipoConst || 'TILT-UP',
       
-      // ✅ PRESERVAR CAMPOS CALCULADOS del muro original
-      fb: muroOriginal?.fb || 0,
-      fbx: muroOriginal?.fbx || 0,
-      fby: muroOriginal?.fby || 0,
-      cant_b14: muroOriginal?.cant_b14 || 0,
-      cant_b12: muroOriginal?.cant_b12 || 0,
-      cant_b04: muroOriginal?.cant_b04 || 0,
-      cant_b15: muroOriginal?.cant_b15 || 0,
-      grosor: muroOriginal?.grosor || 0.17,
-      area: muroOriginal?.area || 0,
-      peso: muroOriginal?.peso || 0,
-      volumen: muroOriginal?.volumen || 0,
-      overall_width: muroOriginal?.overall_width || 0,
-      overall_height: muroOriginal?.overall_height || 0
+      // ✅ PRESERVAR CAMPOS CALCULADOS (usa fuenteDatos = muroOriginal || muroDB)
+      fb: fuenteDatos?.fb || 0,
+      fbx: fuenteDatos?.fbx || 0,
+      fby: fuenteDatos?.fby || 0,
+      cant_b14: fuenteDatos?.cant_b14 || 0,
+      cant_b12: fuenteDatos?.cant_b12 || 0,
+      cant_b04: fuenteDatos?.cant_b04 || 0,
+      cant_b15: fuenteDatos?.cant_b15 || 0,
+      grosor: parseFloat(fuenteDatos?.grosor) || 0.17,
+      area: parseFloat(fuenteDatos?.area || fuenteDatos?.area_m2) || 0,
+      area_m2: parseFloat(fuenteDatos?.area_m2 || fuenteDatos?.area) || 0,
+      peso: parseFloat(fuenteDatos?.peso || fuenteDatos?.peso_ton) || 0,
+      volumen: parseFloat(fuenteDatos?.volumen) || 0,
+      // ✅ CORREGIDO: overall_width con fallback a panelesActuales y area/height
+      overall_width: (function() {
+        let ow = parseFloat(fuenteDatos?.overall_width);
+        if (!isNaN(ow) && ow > 0) return ow;
+        const dbMuro = window.globalVars?.panelesActuales?.find(m => String(m.pid) === String(pid));
+        if (dbMuro) { ow = parseFloat(dbMuro.overall_width); if (!isNaN(ow) && ow > 0) return ow; }
+        const area = parseFloat(fuenteDatos?.area_m2 || fuenteDatos?.area) || 0;
+        const height = parseFloat(fuenteDatos?.overall_height || fuenteDatos?.altura_z_m) || 0;
+        return (area > 0 && height > 0) ? area / height : 0;
+      })(),
+      overall_height: parseFloat(fuenteDatos?.overall_height) || 0
     };
-    
-    console.log(`[MUERTOS] Fila ${index + 1} - EJE: "${resultado.eje}" (PID: ${pid})`);
+
+    console.log(`[MUERTOS] Fila ${index + 1} - EJE: "${resultado.eje}" (PID: ${pid}, overall_width: ${resultado.overall_width})`);
     resultadosActualizados.push(resultado);
   });
 

@@ -2209,9 +2209,11 @@ function mostrarConfigGrupos(gruposMuertos) {
 
       if (grupo.muros && Array.isArray(grupo.muros)) {
         grupo.muros.forEach(muroId => {
+          
           const muroObj = window.lastResultadosMuertos?.find(m => m.id_muro === muroId || m.id === muroId);
+          console.log(muroObj);
           if (muroObj) {
-
+            
             let anchoRaw = parseFloat(muroObj.overall_width) || 0;
             
             console.log(`👉 Muro ${muroId}: Valor en memoria = ${muroObj.overall_width} -> Parseado = ${anchoRaw}`);
