@@ -4605,10 +4605,14 @@ const clickHandlers = {
     if (btn) btn.click();
   },
 
-  // Botón EXPORTAR PDF
-  'export-pdf': () => {
-    const btn = document.getElementById('btnInforme');
-    if (btn) btn.click();
+  // Botón GENERAR INFORME -> Sección Generar Informe
+  'generar-informe': () => {
+    var element = document.getElementById('section-generar-informe');
+    if (element) {
+      var elementPosition = element.getBoundingClientRect().top;
+      var offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+      window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+    }
   },
 
   // AYUDA (botón amarillo)
@@ -4630,7 +4634,12 @@ const clickHandlers = {
 // Top
 itemsTop.forEach(it => dock.appendChild(makeButton(it)));
 
+// Divider + Generar Informe
+dock.appendChild(el('div', { class: 'dock-divider' }));
+dock.appendChild(makeButton({ action: 'generar-informe', label: 'Generar Informe', icon: 'img/backgrounds/6.png', code: 'dock-informe' }));
+
 // Bottom (Ajustes / Ayuda)
+dock.appendChild(el('div', { class: 'dock-divider' }));
 itemsBottom.forEach(it => dock.appendChild(makeButton(it)));
 
   document.body.appendChild(dock);
