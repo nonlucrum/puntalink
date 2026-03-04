@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.actualizarBracesMasivo = exports.actualizarFactorW2 = exports.autoRecalcularTiposBraces = exports.recalcularTiposBracesMasivo = exports.aplicarValoresGlobales = exports.calcularBracesTiempoReal = exports.calcularBraces = exports.actualizarCamposEditables = exports.calculoVientoMuros = exports.parametrosVientoDefecto = void 0;
+exports.obtenerMuroPorPid = exports.actualizarBracesMasivo = exports.actualizarFactorW2 = exports.autoRecalcularTiposBraces = exports.recalcularTiposBracesMasivo = exports.aplicarValoresGlobales = exports.calcularBracesTiempoReal = exports.calcularBraces = exports.actualizarCamposEditables = exports.calculoVientoMuros = exports.parametrosVientoDefecto = void 0;
 const calculosService_1 = require("../services/calculosService");
 const Muro_1 = require("../models/Muro");
 const db_1 = __importDefault(require("../services/config/db"));
@@ -200,7 +200,7 @@ exports.actualizarCamposEditables = actualizarCamposEditables;
 const calcularBraces = async (req, res) => {
     try {
         const { pid } = req.params;
-        let { angulo_brace, x_braces, tipo_brace_seleccionado, npt } = req.body;
+        let { angulo_brace, x_braces, tipo_brace_seleccionado, npt } = req.body; //aqui se agregan a la bd e
         console.log(`[CALCULOS] Calculando braces para muro PID: ${pid}`);
         // Validaciones
         if (!pid || isNaN(parseInt(pid))) {
@@ -225,24 +225,31 @@ const calcularBraces = async (req, res) => {
                 muro: { angulo_brace: muro.angulo_brace, x_braces: muro.x_braces }
             });
         }
-        // Calcular fuerza de viento automáticamente
-        // Usamos el área y altura del muro para calcularla
+        // Usar valores de viento guardados en la BD si existen
         const area_m2 = parseFloat(muro.area?.toString() || '0');
         const altura_m = parseFloat(muro.overall_height?.toString() || '0');
-        if (area_m2 <= 0 || altura_m <= 0) {
+        const qz_kPa_bd = parseFloat(muro.qz_kpa?.toString() || '0');
+        const presion_kPa_bd = parseFloat(muro.presion_kpa?.toString() || '0');
+        const fuerza_viento_kN_bd = parseFloat(muro.fuerza_viento?.toString() || '0');
+        let qz_kPa = qz_kPa_bd;
+        let presion_kPa = presion_kPa_bd;
+        let fuerza_viento_kN = fuerza_viento_kN_bd;
+        // Si no existen valores válidos en BD, calcularlos
+        if (!qz_kPa_bd || qz_kPa_bd <= 0 || !fuerza_viento_kN_bd || fuerza_viento_kN_bd <= 0) {
+            console.warn('[CALCULOS] ⚠️ Error: Valores de viento FV/qz no encontrados en BD. Forzando error para asegurar coherencia.');
+            // Forzamos un error para que el usuario sepa que debe hacer clic en "Calcular Viento" primero.
             return res.status(400).json({
-                error: 'El muro debe tener área y altura válidas',
-                muro: { area: muro.area, altura: muro.overall_height }
+                error: 'Valores de viento FBy no encontrados. Ejecute el cálculo de viento principal primero.',
+                muro: { qz_kpa: muro.qz_kpa, fuerza_viento: muro.fuerza_viento }
             });
         }
-        // Calcular presión de viento (simplificado - usar valores típicos)
-        // qz típico para construcción en México: ~80-85 kPa
-        const qz_kPa = 82; // Valor típico
-        const fuerza_viento_kN = qz_kPa * area_m2;
-        console.log(`[CALCULOS] Fuerza de viento calculada: ${fuerza_viento_kN.toFixed(2)} kN (qz=${qz_kPa} kPa, área=${area_m2} m²)`);
+        // Si pasamos la validación, usamos los valores de la BD
+        qz_kPa = qz_kPa_bd;
+        presion_kPa = presion_kPa_bd;
+        fuerza_viento_kN = fuerza_viento_kN_bd;
+        console.log(`[CALCULOS] ✅ Usando valores de viento de BD: FV=${fuerza_viento_kN} kN, qz=${qz_kPa} kPa, presión=${presion_kPa} kPa`);
         // Calcular fuerzas de braces incluyendo coordenadas de inserto
-        const resultado = (0, calculosService_1.calculateBraceForces)(fuerza_viento_kN, 82, // qz_kPa - agregado para compatibilidad
-        altura_m, angulo_brace, npt, // Pasar NPT para calcular Y inserto
+        const resultado = (0, calculosService_1.calculateBraceForces)(fuerza_viento_kN, presion_kPa, altura_m, angulo_brace, npt, // Pasar NPT para calcular Y inserto
         0.6, // factor_w2 por defecto
         tipo_brace_seleccionado || undefined // Solo pasar si fue especificado explícitamente
         );
@@ -397,7 +404,7 @@ const aplicarValoresGlobales = async (req, res) => {
         }
         console.log(`[CALCULOS] Aplicando a ${muros.length} muros`);
         // Actualizar cada muro
-        const actualizaciones = await Promise.all(muros.map(muro => (0, Muro_1.updateMuroEditableFields)(muro.pid, angulo_brace !== undefined ? angulo_brace : muro.angulo_brace, npt !== undefined ? npt : muro.npt, muro.x_braces, muro.tipo_construccion, muro.tipo_brace_seleccionado, muro.eje)));
+        const actualizaciones = await Promise.all(muros.map(muro => (0, Muro_1.updateMuroEditableFields)(muro.pid, angulo_brace !== undefined ? angulo_brace : muro.angulo_brace, npt !== undefined ? npt : muro.npt, muro.x_braces, muro.tipo_construccion, muro.tipo_brace_seleccionado, muro.eje, muro.fb, muro.fbx, muro.fby, muro.x_inserto, muro.y_inserto)));
         console.log('[CALCULOS] Todos los muros actualizados');
         res.json({
             success: true,
@@ -686,3 +693,40 @@ const actualizarBracesMasivo = async (req, res) => {
     }
 };
 exports.actualizarBracesMasivo = actualizarBracesMasivo;
+/**
+ * Obtener un muro específico por PID
+ * GET /api/calculos/muros/:pid
+ */
+const obtenerMuroPorPid = async (req, res) => {
+    try {
+        const pid = parseInt(req.params.pid);
+        if (isNaN(pid)) {
+            return res.status(400).json({
+                success: false,
+                error: 'PID inválido'
+            });
+        }
+        console.log(`[CALCULOS] Obteniendo muro con PID ${pid}`);
+        const muro = await (0, Muro_1.getMuroByPid)(pid);
+        if (!muro) {
+            return res.status(404).json({
+                success: false,
+                error: 'Muro no encontrado'
+            });
+        }
+        console.log(`[CALCULOS] ✓ Muro ${pid} encontrado`);
+        res.json({
+            success: true,
+            muro
+        });
+    }
+    catch (error) {
+        console.error('[CALCULOS] Error obteniendo muro por PID:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Error interno del servidor',
+            details: error instanceof Error ? error.message : 'Error desconocido'
+        });
+    }
+};
+exports.obtenerMuroPorPid = obtenerMuroPorPid;

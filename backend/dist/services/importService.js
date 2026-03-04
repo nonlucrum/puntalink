@@ -1,9 +1,12 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.parseTxtRobusto = parseTxtRobusto;
 exports.removeTXT = removeTXT;
 const Muro_1 = require("../models/Muro");
-const Muro_2 = require("../models/Muro");
+const db_1 = __importDefault(require("./config/db"));
 async function parseTxtRobusto(pk_proyecto, txt) {
     console.log('[service - importService] parseTxtRobusto - Inicio');
     console.log('[service - importService] Tamaño del archivo:', txt.length, 'caracteres');
@@ -12,8 +15,8 @@ async function parseTxtRobusto(pk_proyecto, txt) {
         console.log('[service - importService] Error: Archivo vacío');
         throw new Error('El archivo está vacío o no contiene datos válidos.');
     }
-    console.log('[service - importService] Ejecutando overrideMuros(1)');
-    await (0, Muro_2.overrideMuros)(pk_proyecto); // Limpiar muros del proyecto antes de importar nuevos
+    console.log('[service - importService] Ejecutando overrideMuros (solo TXT)');
+    await (0, Muro_1.overrideMuros)(pk_proyecto, 'TXT'); // Solo eliminar muros importados, preservar manuales
     const lines = raw.split(/\r?\n/);
     console.log('[service - importService] Número de líneas encontradas:', lines.length);
     const paneles = [];
@@ -53,26 +56,18 @@ async function parseTxtRobusto(pk_proyecto, txt) {
         const areaCol = parts[2]; // "17,0" (con coma decimal)
         const pesoCol = parts[3]; // "8,6" (Weight con coma decimal)
         const volumenCol = parts[4]; // "3,6" (Volume con coma decimal)
-        // Otros datos opcionales que pueden ser útiles:
-        const cgxCol = parts[5]; // "750" (CGx)
-        const cgyCol = parts[6]; // "5677" (CGy)
-        // Otros datos que pueden ser útiles pero no necesarios para el procesamiento:
-
-        const overallWidthCol = parts.length >= 14 ? parts[13] : null; // Columna 14 (índice 13)
         // CGx = parts[5], CGy = parts[6], luego más datos...
         // Overall Width = parts[13], Overall Height = parts[14]
+        const overallWidthCol = parts.length >= 14 ? parts[13] : null; // Columna 14 (índice 13)
         const overallHeightCol = parts.length >= 15 ? parts[14] : null; // Columna 15 (índice 14)
+        const cgxCol = parts[5];
+        const cgyCol = parts[6];
         // Debug: mostrar los primeros valores para verificar parsing exacto
         console.log(`[service - importService] Debug - Panel: "${panelIdCol}"`);
-        console.log(`[service - importService] Debug - grosor:"${grosorCol}", area:"${areaCol}", peso:"${pesoCol}", volumen:"${volumenCol}", height:"${overallHeightCol}"`);
+        console.log(`[service - importService] Debug - grosor:"${grosorCol}", area:"${areaCol}", peso:"${pesoCol}", volumen:"${volumenCol}", cgx:"${cgxCol}", cgy:"${cgyCol}"`);
+        console.log(`[service - importService] Debug - overallWidth columna 13: "${overallWidthCol}"`);
         console.log(`[service - importService] Debug - overallHeight columna 14: "${overallHeightCol}"`);
         console.log(`[service - importService] Debug - partes totales: ${parts.length}`);
-        console.log(`[service - importService] Debug - CGx: "${cgxCol}", CGy: "${cgyCol}"`);
-        console.log(`[service - importService] Debug - overallWidth: "${overallWidthCol}", overallHeight: "${overallHeightCol}"`);
-        console.log(`[service - importService] Debug - columnas extra: ${parts.slice(15).map((p, idx) => `col${idx + 16}:"${p}"`).join(', ')}`);
-        
-        // Validar que tenemos los datos mínimos necesarios
-        
         // Patrón mejorado para extraer número y nombre del panel
         const panelMatch = /^\((\d+)\)\s*(.*)/.exec(panelIdCol || "");
         if (!panelMatch) {
@@ -92,6 +87,20 @@ async function parseTxtRobusto(pk_proyecto, txt) {
         const areaNum = areaCol ? Number(areaCol) : null;
         const pesoNum = pesoCol ? Number(pesoCol) : null;
         const volumenNum = volumenCol ? Number(volumenCol) : null;
+        const cgxNum = cgxCol ? Number(cgxCol) / 1000 : null;
+        const cgyNum = cgyCol ? Number(cgyCol) / 1000 : null;
+        // Para Overall Width, convertir de mm a metros si es un valor numérico (sin aproximar)
+        let overallWidthValue = overallWidthCol?.trim() || "S/N";
+        if (overallWidthValue === "") {
+            overallWidthValue = "S/N";
+        }
+        else if (!isNaN(Number(overallWidthValue))) {
+            // Si es un número, convertir de mm a metros (dividir por 1000) sin aproximar
+            const widthInMm = Number(overallWidthValue);
+            const widthInMeters = widthInMm / 1000;
+            overallWidthValue = widthInMeters.toString(); // Mantener precisión exacta
+            console.log(`[service - importService] Conversión ancho: ${widthInMm}mm → ${widthInMeters}m (exacto)`);
+        }
         // Para Overall Height, convertir de mm a metros si es un valor numérico (sin aproximar)
         let overallHeightValue = overallHeightCol?.trim() || "S/N";
         if (overallHeightValue === "") {
@@ -108,31 +117,16 @@ async function parseTxtRobusto(pk_proyecto, txt) {
         if (grosorNum === undefined || grosorNum === null || isNaN(grosorNum) ||
             areaNum === undefined || areaNum === null || isNaN(areaNum) ||
             pesoNum === undefined || pesoNum === null || isNaN(pesoNum) ||
-            volumenNum === undefined || volumenNum === null || isNaN(volumenNum)) {
-            console.log(`[service - importService] Panel ${num} (${panelName}) omitido - datos numéricos faltantes o inválidos`);
-            console.log(`[service - importService] grosor:${grosorNum}, area:${areaNum}, peso:${pesoNum}, volumen:${volumenNum}`);
-            continue;
-        }
-
-        const cgxNum = cgxCol ? Number(cgxCol) : null;
-        const cgyNum = cgyCol ? Number(cgyCol) : null;
-        if (cgxNum === undefined || cgxNum === null || isNaN(cgxNum) ||
+            volumenNum === undefined || volumenNum === null || isNaN(volumenNum) ||
+            cgxNum === undefined || cgxNum === null || isNaN(cgxNum) ||
             cgyNum === undefined || cgyNum === null || isNaN(cgyNum)) {
-            console.log(`[service - importService] Panel ${num} (${panelName}) omitido - CGx o CGy inválidos`);
-            console.log(`[service - importService] cgx:${cgxNum}, cgy:${cgyNum}`);
+            console.log(`[service - importService] Panel ${num} (${panelName}) omitido - datos numéricos faltantes o inválidos`);
+            console.log(`[service - importService] grosor:${grosorNum}, area:${areaNum}, peso:${pesoNum}, volumen:${volumenNum}, cgx:${cgxNum}, cgy:${cgyNum}`);
             continue;
         }
-
-        const overallWidthColNum = overallWidthCol ? Number(overallWidthCol) : null;
-        if (overallWidthCol && (overallWidthColNum === undefined || overallWidthColNum === null || isNaN(overallWidthColNum))) {
-            console.log(`[service - importService] Panel ${num} (${panelName}) omitido - Overall Width inválido`);
-            console.log(`[service - importService] overallWidth:${overallWidthCol}`);
-            continue;
-        }
-
-
         console.log(`[service - importService] PROCESADO: Panel ${num} procesado: ${panelName}`);
-        console.log(`[service - importService]    Valores exactos: grosor=${grosorNum}, area=${areaNum}, peso=${pesoNum}, volumen=${volumenNum}`);
+        console.log(`[service - importService]    Valores exactos: grosor=${grosorNum}, area=${areaNum}, peso=${pesoNum}, volumen=${volumenNum}, cgx=${cgxNum}, cgy=${cgyNum}`);
+        console.log(`[service - importService]    Overall Width: "${overallWidthValue}"`);
         console.log(`[service - importService]    Overall Height: "${overallHeightValue}"`);
         // Agregar número del panel al array de conteo
         panelNumbers.push(num);
@@ -143,17 +137,35 @@ async function parseTxtRobusto(pk_proyecto, txt) {
             area: areaNum,
             peso: pesoNum,
             volumen: volumenNum,
+            overall_width: overallWidthValue,
             overall_height: overallHeightValue,
-            cgx: cgxCol,
-            cgy: cgyCol ? Number(cgyCol) : null,
-            // Otros datos opcionales que pueden ser útiles:
-            overall_width: overallWidthCol ? Number(overallWidthCol) : null,
-            // Otros datos que pueden ser útiles pero no necesarios para el procesamiento:
+            cgx: cgxNum,
+            cgy: cgyNum
         });
         const nuevoMuro = await (0, Muro_1.addMuro)(pk_proyecto, // pk_proyecto
         num, // número secuencial del panel
         panelName, // id_muro
-        grosorNum, areaNum, pesoNum, volumenNum, overallHeightValue);
+        grosorNum, areaNum, pesoNum, volumenNum, overallWidthValue, overallHeightValue, cgxNum, cgyNum, undefined, undefined, undefined, undefined, // angulo_brace, npt, tipo_brace_seleccionado, factor_w2
+        undefined, undefined, undefined, undefined, // x_braces, fbx, fby, fb
+        undefined, undefined, // x_inserto, y_inserto
+        undefined, undefined, undefined, undefined, // cant_b14, cant_b12, cant_b04, cant_b15
+        undefined, undefined, // muertos, tipo_construccion
+        'TXT' // origen
+        );
+        console.log('[service - importService] Muro agregado con ID:', nuevoMuro.id_muro);
+    }
+    // Renumerar muros manuales para que queden después de los importados
+    if (paneles.length > 0) {
+        const maxTxtNum = Math.max(...panelNumbers);
+        const manualMuros = await db_1.default.query('SELECT pid, num FROM muro WHERE pk_proyecto = $1 AND origen = $2 ORDER BY num', [pk_proyecto, 'MANUAL']);
+        if (manualMuros.rows.length > 0) {
+            let nextNum = maxTxtNum + 1;
+            for (const muro of manualMuros.rows) {
+                await db_1.default.query('UPDATE muro SET num = $1 WHERE pid = $2', [nextNum, muro.pid]);
+                nextNum++;
+            }
+            console.log(`[service - importService] ${manualMuros.rows.length} muros manuales renumerados después de importados`);
+        }
     }
     console.log('[service - importService] Procesamiento completado');
     console.log('[service - importService] Total de paneles procesados:', paneles.length);
@@ -187,11 +199,11 @@ async function parseTxtRobusto(pk_proyecto, txt) {
     console.log('[service - importService] Resultado final:', JSON.stringify(paneles.slice(0, 3), null, 2), paneles.length > 3 ? '...' : '');
     return paneles;
 }
-// Función para resetear muros de un proyecto - Funcionalidad útil para futuro
+// Función para resetear muros importados de un proyecto (preserva manuales)
 function removeTXT(pk_proyecto) {
     console.log('[service - importService] removeTXT - Inicio');
-    console.log('[service - importService] Ejecutando overrideMuros()');
-    const resultado = (0, Muro_2.overrideMuros)(pk_proyecto);
+    console.log('[service - importService] Ejecutando overrideMuros (solo TXT)');
+    const resultado = (0, Muro_1.overrideMuros)(pk_proyecto, 'TXT');
     console.log('[service - importService] removeTXT completado');
     return resultado;
 }

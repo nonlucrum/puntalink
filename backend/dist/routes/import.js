@@ -8,6 +8,7 @@ const multer_1 = __importDefault(require("multer"));
 const importController_1 = require("../controllers/importController");
 const importController_2 = require("../controllers/importController");
 const importController_3 = require("../controllers/importController");
+const importController_4 = require("../controllers/importController");
 const router = (0, express_1.Router)();
 const upload = (0, multer_1.default)({
     storage: multer_1.default.memoryStorage(),
@@ -38,5 +39,9 @@ router.delete(['/', '/cancelar-import'], (req, res) => {
 router.get('/muros', (req, res) => {
     console.log('[routes - import] GET /muros - Llamando a getMuros');
     (0, importController_3.getMuros)(req, res);
+});
+router.delete('/muros/batch-delete', (req, res) => {
+    console.log('[routes - import] DELETE /muros/batch-delete - Llamando a deleteMurosBatch');
+    (0, importController_4.deleteMurosBatch)(req, res);
 });
 exports.default = router;

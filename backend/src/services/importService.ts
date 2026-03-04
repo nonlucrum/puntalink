@@ -1,5 +1,5 @@
-import { addMuro } from "../models/Muro";
-import { overrideMuros } from "../models/Muro";
+import { addMuro, overrideMuros, compactRenumber } from "../models/Muro";
+import pool from "./config/db";
 
 export async function parseTxtRobusto(pk_proyecto: number, txt: string) {
   console.log('[service - importService] parseTxtRobusto - Inicio');
@@ -11,8 +11,8 @@ export async function parseTxtRobusto(pk_proyecto: number, txt: string) {
     throw new Error('El archivo está vacío o no contiene datos válidos.');
   }
 
-  console.log('[service - importService] Ejecutando overrideMuros(1)');
-  await overrideMuros(pk_proyecto); // Limpiar muros del proyecto antes de importar nuevos
+  console.log('[service - importService] Ejecutando overrideMuros (solo TXT)');
+  await overrideMuros(pk_proyecto, 'TXT'); // Solo eliminar muros importados, preservar manuales
 
   const lines = raw.split(/\r?\n/);
   console.log('[service - importService] Número de líneas encontradas:', lines.length);
@@ -169,10 +169,33 @@ export async function parseTxtRobusto(pk_proyecto: number, txt: string) {
         overallWidthValue,
         overallHeightValue,
         cgxNum,
-        cgyNum
+        cgyNum,
+        undefined, undefined, undefined, undefined, // angulo_brace, npt, tipo_brace_seleccionado, factor_w2
+        undefined, undefined, undefined, undefined, // x_braces, fbx, fby, fb
+        undefined, undefined,                       // x_inserto, y_inserto
+        undefined, undefined, undefined, undefined, // cant_b14, cant_b12, cant_b04, cant_b15
+        undefined, undefined,                       // muertos, tipo_construccion
+        'TXT'                                       // origen
     );
     console.log('[service - importService] Muro agregado con ID:', nuevoMuro.id_muro
     );
+  }
+
+  // Renumerar muros manuales para que queden después de los importados
+  if (paneles.length > 0) {
+    const maxTxtNum = Math.max(...panelNumbers);
+    const manualMuros = await pool.query(
+      'SELECT pid, num FROM muro WHERE pk_proyecto = $1 AND origen = $2 ORDER BY num',
+      [pk_proyecto, 'MANUAL']
+    );
+    if (manualMuros.rows.length > 0) {
+      let nextNum = maxTxtNum + 1;
+      for (const muro of manualMuros.rows) {
+        await pool.query('UPDATE muro SET num = $1 WHERE pid = $2', [nextNum, muro.pid]);
+        nextNum++;
+      }
+      console.log(`[service - importService] ${manualMuros.rows.length} muros manuales renumerados después de importados`);
+    }
   }
 
   console.log('[service - importService] Procesamiento completado');
@@ -212,11 +235,11 @@ export async function parseTxtRobusto(pk_proyecto: number, txt: string) {
   return paneles;
 }
 
-// Función para resetear muros de un proyecto - Funcionalidad útil para futuro
+// Función para resetear muros importados de un proyecto (preserva manuales)
 export function removeTXT(pk_proyecto: number) {
     console.log('[service - importService] removeTXT - Inicio');
-    console.log('[service - importService] Ejecutando overrideMuros()');
-    const resultado = overrideMuros(pk_proyecto);
+    console.log('[service - importService] Ejecutando overrideMuros (solo TXT)');
+    const resultado = overrideMuros(pk_proyecto, 'TXT');
     console.log('[service - importService] removeTXT completado');
     return resultado;
 }

@@ -135,6 +135,7 @@ export function getAlphaPorClase(terrenoParams: ParametrosTerreno, clase: 'A' | 
 export interface WindResult {
   pid: number;        // ID del panel en la base de datos
   id_muro: string;
+  origen?: string;    // TXT o MANUAL
   area_m2: number;
   peso_ton: number;
   altura_z_m: number;
@@ -590,6 +591,7 @@ export function calcularVientoMuro(muro: Muro, parametros: WindParameters): Wind
   return {
     pid: muro.pid || 0,
     id_muro: muro.id_muro || 'N/A',
+    origen: muro.origen || 'TXT',
     area_m2: +parseFloat(area_m2.toString()).toFixed(2),
     peso_ton: +parseFloat(peso_ton.toString()).toFixed(2),
     altura_z_m: +parseFloat(altura_z_m.toString()).toFixed(2),

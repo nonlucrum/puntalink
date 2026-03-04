@@ -15,6 +15,9 @@ const calculosRoutes_1 = __importDefault(require("./routes/calculosRoutes"));
 const panelesRoutes_1 = __importDefault(require("./routes/panelesRoutes"));
 const projectRoutes_1 = __importDefault(require("./routes/projectRoutes"));
 const authRoutes_1 = __importDefault(require("./routes/authRoutes")); // 👈 NUEVO
+const grupoMuertoRoutes_1 = __importDefault(require("./routes/grupoMuertoRoutes")); // 👈 NUEVO - Grupos de muertos
+const muroRoutes_1 = __importDefault(require("./routes/muroRoutes"));
+const reportRoutes_1 = __importDefault(require("./routes/reportRoutes"));
 const app = (0, express_1.default)();
 const ALLOWED = (process.env.ALLOWED_ORIGINS ?? '')
     .split(',')
@@ -27,6 +30,11 @@ if (process.env.NODE_ENV === 'production') {
 // ===== Logger simple =====
 app.use((req, _res, next) => {
     console.log(`[${req.method}] ${req.url}`);
+    _res.set({
+        'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+    });
     next();
 });
 // ===== CORS (con credenciales) =====
@@ -40,7 +48,7 @@ const corsOptions = {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-project-id'],
 };
 app.use((0, cors_1.default)(corsOptions));
 app.options('*', (0, cors_1.default)(corsOptions)); // preflight
@@ -70,7 +78,13 @@ app.use('/api/calculos', calculosRoutes_1.default);
 app.use('/api/paneles', panelesRoutes_1.default);
 // ===== Proyecto =====
 app.use('/api/proyecto', projectRoutes_1.default);
-// ===== 404 para APIs =====
+// ===== Muros manuales =====
+app.use('/api/muros', muroRoutes_1.default);
+// ===== Grupos de Muertos (DEBE IR ANTES DEL 404) =====
+app.use('/api/grupos-muertos', grupoMuertoRoutes_1.default);
+// ===== Reportes (DOCX/PDF) =====
+app.use('/api/reportes', reportRoutes_1.default);
+// ===== 404 para APIs (SIEMPRE AL FINAL) =====
 app.use('/api', (_req, res) => {
     res.status(404).json({ ok: false, error: 'Recurso API no encontrado' });
 });

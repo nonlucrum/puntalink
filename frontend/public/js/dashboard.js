@@ -656,6 +656,7 @@ export async function loadProjectInfo() {
                         qz_kPa: parseFloat(muro.qz_kpa),
                         presion_kPa: parseFloat(muro.presion_kpa),
                         eje: muro.eje,
+                        origen: muro.origen || 'TXT',
                         advertencias: []
                     });
                 });
@@ -667,6 +668,11 @@ export async function loadProjectInfo() {
             }
         }
         
+        // Refrescar tabla de muros manuales
+        if (typeof window.refreshMurosTable === 'function') {
+          window.refreshMurosTable();
+        }
+
         console.log('[FRONTEND] Información del proyecto cargada:', project);
       } catch (parseError) {
         console.error('[FRONTEND] Error al parsear JSON del proyecto:', parseError);
@@ -969,7 +975,29 @@ export async function handleUploadTxt(file, elements, callbacks, globalVars) {
   }
   
   console.log('[DASHBOARD] Usando proyecto:', pid_proyecto);
-  
+
+  // Verificar si hay muros manuales existentes y advertir al usuario
+  try {
+    const checkResp = await fetch(`${API_BASE}/api/muros/project/${pid_proyecto}`, { credentials: 'include' });
+    const checkJson = await checkResp.json();
+    if (checkJson.ok && checkJson.muros) {
+      const murosManual = checkJson.muros.filter(m => m.origen === 'MANUAL');
+      if (murosManual.length > 0) {
+        const confirmar = await mostrarModalConfirmacion(
+          'Muros manuales existentes',
+          `Este proyecto tiene ${murosManual.length} muro(s) manual(es). La importación reemplazará los muros importados previamente. Los muros manuales se mantendrán al final del listado.\n\n¿Desea continuar?`,
+          { tipo: 'warning', mostrarCancelar: true }
+        );
+        if (!confirmar) {
+          tablaPaneles.innerHTML = '';
+          return;
+        }
+      }
+    }
+  } catch (e) {
+    console.log('[DASHBOARD] No se pudo verificar muros manuales, continuando con importación');
+  }
+
   const formData = new FormData();
   formData.append('pk_proyecto', pid_proyecto);
   formData.append('file', file);
@@ -1927,6 +1955,11 @@ function finalizarImportacion(murosFinales) {
     ejesPanel.style.display = 'block';
     console.log('[DASHBOARD] Sección de asignación de ejes mostrada');
   }
+
+  // Refrescar tabla de muros manuales para reflejar la importación
+  if (typeof window.refreshMurosTable === 'function') {
+    window.refreshMurosTable();
+  }
   
   // Cargar tabla de braces después de importar
   console.log('[DASHBOARD] Cargando tabla de braces...');
@@ -2176,9 +2209,11 @@ function mostrarConfigGrupos(gruposMuertos) {
 
       if (grupo.muros && Array.isArray(grupo.muros)) {
         grupo.muros.forEach(muroId => {
+          
           const muroObj = window.lastResultadosMuertos?.find(m => m.id_muro === muroId || m.id === muroId);
+          console.log(muroObj);
           if (muroObj) {
-
+            
             let anchoRaw = parseFloat(muroObj.overall_width) || 0;
             
             console.log(`👉 Muro ${muroId}: Valor en memoria = ${muroObj.overall_width} -> Parseado = ${anchoRaw}`);

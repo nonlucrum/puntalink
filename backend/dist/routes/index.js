@@ -9,6 +9,7 @@ const calculosRoutes_1 = __importDefault(require("./calculosRoutes"));
 const pdfRoutes_1 = __importDefault(require("./pdfRoutes"));
 const panelesRoutes_1 = __importDefault(require("./panelesRoutes"));
 const projectRoutes_1 = __importDefault(require("./projectRoutes"));
+const grupoMuertoRoutes_1 = __importDefault(require("./grupoMuertoRoutes"));
 const router = (0, express_1.Router)();
 // Middleware de logging para el router principal
 router.use((req, res, next) => {
@@ -45,4 +46,9 @@ router.use('/proyecto', (req, res, next) => {
     console.log('[ROUTES - index] Redirigiendo a /proyecto');
     next();
 }, projectRoutes_1.default);
+// Rutas de grupos de muertos
+router.use('/grupos-muertos', (req, res, next) => {
+    console.log('[ROUTES - index] Redirigiendo a /grupos-muertos');
+    next();
+}, grupoMuertoRoutes_1.default);
 exports.default = router;

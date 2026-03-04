@@ -100,9 +100,15 @@ CREATE TABLE muro (
     -- Relación con grupo de muerto
     fk_grupo_muerto INT,               -- FK a grupo_muerto (NULL si aún no está agrupado)
 
-    CONSTRAINT fk_muro_proyecto FOREIGN KEY (pk_proyecto) 
+    -- Origen del muro (TXT = importado, MANUAL = ingresado manualmente)
+    origen VARCHAR(10) DEFAULT 'TXT' NOT NULL,
+
+    CONSTRAINT fk_muro_proyecto FOREIGN KEY (pk_proyecto)
         REFERENCES proyecto (pid) ON DELETE CASCADE
 );
+
+-- Índice para ordenamiento eficiente
+CREATE INDEX idx_muro_proyecto_num ON muro(pk_proyecto, num);
 
 -- Trigger para actualizar timestamp de proyecto al cambiar muro
 CREATE FUNCTION update_proyecto_timestamp_on_muro_change()

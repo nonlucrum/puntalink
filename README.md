@@ -4,7 +4,6 @@
 
 Desarrollado en Node.js + Express (backend), PostgreSQL (base de datos), y HTML/CSS/JS puro (frontend).
 
-
 ## Características principales
 
 - Importación de datos estructurales desde archivos `.TXT`.
@@ -16,7 +15,6 @@ Desarrollado en Node.js + Express (backend), PostgreSQL (base de datos), y HTML/
 
 - **Node.js** v18+ (LTS recomendado)
 - **Docker Desktop** v4.46+
-
 
 ## Estructura del proyecto
 
@@ -48,45 +46,48 @@ El proyecto se puede descargar como un .zip o clonarse por medio de git.
 Docker Desktop se puede iniciar con la interfaz gráfica del sistema operativo o por medio de la consola.
 
 - Linux:
-    ```bat
-    sudo systemctl start docker
-    ```
+  ```bat
+  sudo systemctl start docker
+  ```
 - Windows:
-    ```cmd
-    docker desktop start
-    ```
+  ```cmd
+  docker desktop start
+  ```
 
 ### 3. Levantar la aplicación
 
 Estos comandos y los del paso 4 se realizan desde la carpeta raíz del proyecto.
 
 - Para correr el proceso en foreground y ver los logs en la consola (pero dejar la consola anclada al proceso):
-    ```cmd
-    docker compose up --build
-    ```
+  ```cmd
+  docker compose up --build
+  ```
 - Para correr el proceso en background (la consola queda liberada y puede ejecutar otros comandos):
+  ```cmd
+  docker compose up --build -d
+  ```
+
+  - Los logs se pueden ver en Docker Desktop o con el siguiente comando:
     ```cmd
-    docker compose up --build -d
+    docker compose logs -f
     ```
-    - Los logs se pueden ver en Docker Desktop o con el siguiente comando:
-        ```cmd
-        docker compose logs -f
-        ```
 
 ### 4. Detener la aplicación
 
 - Si está corriendo en foreground, usar la combinación de teclas <kbd>Ctrl</kbd> + <kbd>C</kbd>
-    - Puede requerirse presionar otra tecla antes de que la detención se lleve a cabo.
+  - Puede requerirse presionar otra tecla antes de que la detención se lleve a cabo.
 
 - Si está corriendo en background:
-    ```cmd
-    docker compose stop
-    ```
+  ```cmd
+  docker compose stop
+  ```
 
 ## Manual de usuario
-[Enlace al manual en Google Docs](https://drive.google.com/file/d/1zLXreBXLX6Niz4EJT39ZyNrOROOdcQHh/view?usp=drive_link)
+
+[Enlace al manual en Google Docs](https://drive.google.com/file/d/1oK9mkFXcmVkwV3rE-X_S2-Cn4tHtuPKi/view?usp=sharing)
 
 ## Contacto
+
 Equipo Nonlucrum
 
 Product Owner:\

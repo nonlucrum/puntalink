@@ -4569,3 +4569,220 @@ label {
 
 .dock-divider { height: 1px; background: rgba(0,0,0,0.08); margin: 6px 0; }
 .dock-spacer { flex: 1 1 auto; }
+
+/* ===== MUROS MANUALES ===== */
+
+/* Badge de origen */
+.badge-origen {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.badge-origen--txt {
+  background: rgba(31, 111, 235, 0.15);
+  color: #1f6feb;
+}
+.badge-origen--manual {
+  background: rgba(46, 160, 67, 0.15);
+  color: #2ea043;
+}
+
+/* Formulario de muro manual */
+.manual-muro-form .parameter-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+}
+
+/* Botones de mover */
+.btn-move {
+  background: none;
+  border: 1px solid var(--border, #ddd);
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 1px 5px;
+  font-size: 0.7rem;
+  line-height: 1;
+  color: var(--muted, #888);
+  transition: background 0.15s, color 0.15s;
+}
+.btn-move:hover:not(:disabled) {
+  background: var(--primary, #1f6feb);
+  color: #fff;
+  border-color: var(--primary, #1f6feb);
+}
+.btn-move:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Botón pequeño */
+.btn--sm {
+  padding: 4px 10px;
+  font-size: 0.8rem;
+}
+.btn--danger {
+  color: #e74c3c;
+  border-color: #e74c3c;
+}
+.btn--danger:hover {
+  background: #e74c3c;
+  color: #fff;
+}
+.btn--primary {
+  background: var(--primary, #1f6feb);
+  color: #fff;
+  border: 1px solid var(--primary, #1f6feb);
+}
+.btn--primary:hover {
+  opacity: 0.9;
+}
+
+/* ===== Sección Generar Informe ===== */
+.informe-container {
+  padding: 0.5rem 0;
+}
+
+/* Radio card group for format selection */
+.radio-card-group {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.radio-card-label {
+  cursor: pointer;
+  flex: 1;
+  min-width: 180px;
+}
+
+.radio-card-label input[type="radio"] {
+  display: none;
+}
+
+.radio-card-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  background: var(--card);
+}
+
+.radio-card-label input[type="radio"]:checked + .radio-card-content {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, var(--card));
+  box-shadow: 0 0 0 1px var(--primary);
+}
+
+.radio-card-icon {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.radio-card-label input[type="radio"]:checked + .radio-card-content .radio-card-icon {
+  color: var(--primary);
+}
+
+.radio-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.radio-card-text strong {
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.radio-card-text small {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+/* Image upload area */
+.image-upload-area {
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: border-color 0.2s ease;
+}
+
+.image-upload-area.drag-over {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 5%, transparent);
+}
+
+.image-upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2rem;
+  cursor: pointer;
+  color: var(--muted);
+  transition: color 0.2s;
+}
+
+.image-upload-placeholder:hover {
+  color: var(--primary);
+}
+
+.image-upload-placeholder span {
+  font-size: 0.9rem;
+}
+
+.image-preview-container {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem;
+  max-height: 300px;
+}
+
+.image-preview-container img {
+  max-width: 100%;
+  max-height: 260px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.btn-remove-image {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: rgba(220, 38, 38, 0.9);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-remove-image:hover {
+  background: #dc2626;
+}
+
+/* Sidebar separator and report link */
+.sidebar-separator {
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  margin: 0.5rem 0;
+  list-style: none;
+}
+
+.sidebar-report-link {
+  color: #4aa3ff !important;
+  font-weight: 600 !important;
+}
