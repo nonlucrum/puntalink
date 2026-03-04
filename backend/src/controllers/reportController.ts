@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { generarInformePDF, generarInformeDOCX, ReportProjectInfo, WindTableData, CilindricoData, RectangularData } from '../services/reportService';
+import { generarInformePDF, generarInformeDOCX, ReportProjectInfo, WindTableData, CilindricoData, RectangularData, TriangularData } from '../services/reportService';
 import { getProjectById } from '../models/Project';
 
 export async function generarInforme(req: Request, res: Response) {
@@ -85,8 +85,20 @@ export async function generarInforme(req: Request, res: Response) {
       }
     }
 
+    // Parse triangular deadman data if provided
+    let triangularData: TriangularData | undefined;
+    if (req.body.triangularData) {
+      try {
+        triangularData = typeof req.body.triangularData === 'string'
+          ? JSON.parse(req.body.triangularData)
+          : req.body.triangularData;
+      } catch (e) {
+        console.warn('[reportController] Error parsing triangularData:', e);
+      }
+    }
+
     if (formato === 'docx') {
-      const docxBuffer = await generarInformeDOCX(projectInfo, coverImageBuffer, windTableData, cilindricoData, rectangularData);
+      const docxBuffer = await generarInformeDOCX(projectInfo, coverImageBuffer, windTableData, cilindricoData, rectangularData, triangularData);
       const filename = `informe_${(projectInfo.nombre || 'proyecto').replace(/\s+/g, '_')}.docx`;
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -95,7 +107,7 @@ export async function generarInforme(req: Request, res: Response) {
     }
 
     // PDF
-    const pdfBuffer = await generarInformePDF(projectInfo, coverImageBuffer, windTableData, cilindricoData, rectangularData);
+    const pdfBuffer = await generarInformePDF(projectInfo, coverImageBuffer, windTableData, cilindricoData, rectangularData, triangularData);
     const filename = `informe_${(projectInfo.nombre || 'proyecto').replace(/\s+/g, '_')}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);

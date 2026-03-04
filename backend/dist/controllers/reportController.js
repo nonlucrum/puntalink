@@ -81,8 +81,20 @@ async function generarInforme(req, res) {
                 console.warn('[reportController] Error parsing rectangularData:', e);
             }
         }
+        // Parse triangular deadman data if provided
+        let triangularData;
+        if (req.body.triangularData) {
+            try {
+                triangularData = typeof req.body.triangularData === 'string'
+                    ? JSON.parse(req.body.triangularData)
+                    : req.body.triangularData;
+            }
+            catch (e) {
+                console.warn('[reportController] Error parsing triangularData:', e);
+            }
+        }
         if (formato === 'docx') {
-            const docxBuffer = await (0, reportService_1.generarInformeDOCX)(projectInfo, coverImageBuffer, windTableData, cilindricoData, rectangularData);
+            const docxBuffer = await (0, reportService_1.generarInformeDOCX)(projectInfo, coverImageBuffer, windTableData, cilindricoData, rectangularData, triangularData);
             const filename = `informe_${(projectInfo.nombre || 'proyecto').replace(/\s+/g, '_')}.docx`;
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
             res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -90,7 +102,7 @@ async function generarInforme(req, res) {
             return res.send(docxBuffer);
         }
         // PDF
-        const pdfBuffer = await (0, reportService_1.generarInformePDF)(projectInfo, coverImageBuffer, windTableData, cilindricoData, rectangularData);
+        const pdfBuffer = await (0, reportService_1.generarInformePDF)(projectInfo, coverImageBuffer, windTableData, cilindricoData, rectangularData, triangularData);
         const filename = `informe_${(projectInfo.nombre || 'proyecto').replace(/\s+/g, '_')}.pdf`;
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);

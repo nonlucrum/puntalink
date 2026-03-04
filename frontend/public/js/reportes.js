@@ -463,6 +463,170 @@ document.addEventListener('DOMContentLoaded', () => {
     return result;
   }
 
+  // ── Collect triangular deadman data from DOM ──
+  function collectTriangularData() {
+    const result = {};
+
+    // Helper: scrape any table into { headers, rows }
+    function scrapeTable(tableEl) {
+      if (!tableEl) return null;
+      const headers = [];
+      const thRow = tableEl.querySelector('thead tr:last-child') || tableEl.querySelector('thead tr');
+      if (thRow) {
+        thRow.querySelectorAll('th').forEach(th => headers.push(th.textContent.trim()));
+      }
+      const rows = [];
+      tableEl.querySelectorAll('tbody tr').forEach(tr => {
+        const cells = [];
+        tr.querySelectorAll('td').forEach(td => {
+          const inp = td.querySelector('input');
+          cells.push(inp ? inp.value.trim() : td.textContent.trim());
+        });
+        if (cells.length > 0) rows.push(cells);
+      });
+      if (headers.length === 0 && rows.length === 0) return null;
+      return { headers, rows };
+    }
+
+    // 1. Grouped walls table (#tablaMuertosTable)
+    const muertosTable = document.getElementById('tablaMuertosTable');
+    if (muertosTable) {
+      result.gruposMuertos = scrapeTable(muertosTable);
+    }
+
+    // 2. Sequential groups debug table
+    const debugOut = document.getElementById('muertosDebugOutput');
+    if (debugOut) {
+      const debugTable = debugOut.querySelector('table');
+      if (debugTable) {
+        result.gruposSecuenciales = scrapeTable(debugTable);
+      }
+    }
+
+    // 3. Config groups table (#configGruposContainer)
+    const configContainer = document.getElementById('configGruposContainer');
+    if (configContainer) {
+      const configTable = configContainer.querySelector('table');
+      if (configTable) {
+        result.configGrupos = scrapeTable(configTable);
+      }
+    }
+
+    // 4. Configuración Global (inputs from .configuracion-global in armado-triangular-section)
+    const triSection = document.getElementById('armado-triangular-section');
+    if (triSection) {
+      const getVal = (id) => {
+        const el = document.getElementById(id);
+        if (!el) return '';
+        if (el.tagName === 'SELECT') {
+          return el.options[el.selectedIndex]?.text || el.value || '';
+        }
+        return el.value || '';
+      };
+      result.configGlobal = {
+        geometria: {
+          base: getVal('tri_base'),
+          cantVarillasLong: getVal('tri_cant_long'),
+        },
+        varillasLong: {
+          tipo: getVal('tri_tipoVarillaLongitudinal'),
+        },
+        varillasTrans: {
+          tipo: getVal('tri_tipoVarillaTransversal'),
+          recubrimiento: getVal('tri_recubrimientoTransversal'),
+          separacion: getVal('tri_separacionTransversal'),
+          ganchos: getVal('tri_longGanchoEstribo'),
+        },
+        construccion: {
+          resistenciaConcreto: getVal('tri_tipoConcreto'),
+          factorDesperdicio: getVal('tri_factorDesperdicio'),
+        },
+        alambre: {
+          diametro: getVal('tri_diametroAlambre'),
+          longitudVuelta: getVal('tri_longitudVuelta'),
+          factorDesperdicio: getVal('tri_factorDesperdicioAlambre'),
+        },
+      };
+    }
+
+    // 5. Armado Triangular results (#tablaTriangular) - paired rows like rectangular
+    const armadoTable = document.getElementById('tablaTriangular');
+    if (armadoTable && armadoTable.querySelector('tbody tr')) {
+      const armadoGrupos = [];
+      const bodyRows = armadoTable.querySelectorAll('tbody tr');
+      for (let i = 0; i < bodyRows.length; i += 2) {
+        const row1 = bodyRows[i];
+        const row2 = bodyRows[i + 1];
+        if (!row1) break;
+        const tds1 = row1.querySelectorAll('td');
+        if (tds1.length < 12) continue;
+        const grupo = {
+          numero: tds1[0].textContent.trim(),
+          eje: tds1[1].textContent.trim(),
+          muros: tds1[2].textContent.trim(),
+          dimensiones: tds1[3].textContent.trim(),
+          aceroLongTipo: tds1[4].textContent.trim(),
+          aceroLongLong: tds1[5].textContent.trim(),
+          aceroLongPeso: tds1[6].textContent.trim(),
+          concretoVol: tds1[8].textContent.trim(),
+          concretoPeso: tds1[9].textContent.trim(),
+          alambreLong: tds1[10].textContent.trim(),
+          alambrePeso: tds1[11].textContent.trim(),
+          aceroTransTipo: '',
+          aceroTransLong: '',
+          aceroTransPeso: '',
+        };
+        if (row2) {
+          const tds2 = row2.querySelectorAll('td');
+          if (tds2.length >= 3) {
+            grupo.aceroTransTipo = tds2[0].textContent.trim();
+            grupo.aceroTransLong = tds2[1].textContent.trim();
+            grupo.aceroTransPeso = tds2[2].textContent.trim();
+          }
+        }
+        armadoGrupos.push(grupo);
+      }
+
+      // Footer totals (tfoot uses colspan so indices differ)
+      const footerRow = armadoTable.querySelector('tfoot tr');
+      let totales = null;
+      if (footerRow) {
+        const ftds = footerRow.querySelectorAll('td');
+        if (ftds.length >= 8) {
+          totales = {
+            aceroTotal: ftds[2].textContent.trim(),
+            concretoVol: ftds[4].textContent.trim(),
+            concretoPeso: ftds[5].textContent.trim(),
+            alambreLong: ftds[6].textContent.trim(),
+            alambrePeso: ftds[7].textContent.trim(),
+          };
+        }
+      }
+
+      if (armadoGrupos.length > 0) {
+        result.armadoResultados = { grupos: armadoGrupos, totales };
+      }
+    }
+
+    // 6. Summary totals (shared elements)
+    const totalConcreto = document.getElementById('totalConcreto')?.textContent?.trim();
+    const totalAcero = document.getElementById('totalAcero')?.textContent?.trim();
+    const totalAlambre = document.getElementById('totalAlambre')?.textContent?.trim();
+    const totalMetal = document.getElementById('totalMetal')?.textContent?.trim();
+    if (totalConcreto || totalAcero || totalAlambre || totalMetal) {
+      result.resumenTotales = {
+        concreto: totalConcreto || '—',
+        acero: totalAcero || '—',
+        alambre: totalAlambre || '—',
+        metal: totalMetal || '—',
+      };
+    }
+
+    // Return null if nothing collected
+    if (!result.gruposMuertos && !result.configGrupos && !result.armadoResultados) return null;
+    return result;
+  }
+
   // ── Generate Report ──
   btnGenerar.addEventListener('click', async () => {
     const formato = document.querySelector('input[name="formatoInforme"]:checked')?.value;
@@ -529,6 +693,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const rectData = collectRectangularData();
       if (rectData) {
         formData.append('rectangularData', JSON.stringify(rectData));
+      }
+    }
+
+    // ── Collect triangular deadman data if applicable ──
+    if ((projectInfo.tipo_muerto || '').toLowerCase() === 'triangular') {
+      const triData = collectTriangularData();
+      if (triData) {
+        formData.append('triangularData', JSON.stringify(triData));
       }
     }
 
