@@ -665,6 +665,59 @@ function crearPaginasRectangularPDF(doc, rectData) {
             y = drawGenericTablePDF(doc, rtHeaders, rtRow, y, marginX, contentW, '#00b6f1');
         }
     }
+    // ── Page: Configuración Global (before armado results) ──
+    if (rectData.configGlobal) {
+        doc.addPage();
+        let y = 50;
+        const pageH = doc.page.height;
+        doc.fontSize(16).fillColor('#1f1f1f').font('Helvetica-Bold')
+            .text('CONFIGURACIÓN GLOBAL', marginX, y, { align: 'center', width: contentW });
+        y += 30;
+        doc.strokeColor('#6f42c1').lineWidth(2).moveTo(marginX, y).lineTo(pageW - marginX, y).stroke();
+        y += 20;
+        const cfg = rectData.configGlobal;
+        // Helper: draw a config sub-section with key-value pairs
+        const drawConfigBlock = (title, pairs, color) => {
+            if (y + 30 + pairs.length * 22 > pageH - 40) {
+                doc.addPage();
+                y = 50;
+            }
+            doc.fontSize(12).fillColor(color).font('Helvetica-Bold').text(title, marginX, y);
+            y += 18;
+            const colW = contentW / 2;
+            pairs.forEach(([label, value]) => {
+                // Label
+                doc.fontSize(9).fillColor('#555555').font('Helvetica')
+                    .text(label, marginX + 10, y, { width: colW - 20 });
+                // Value
+                doc.fontSize(9).fillColor('#1f1f1f').font('Helvetica-Bold')
+                    .text(value || '—', marginX + colW, y, { width: colW - 10 });
+                y += 18;
+            });
+            y += 8;
+        };
+        drawConfigBlock('Varillas Longitudinales', [
+            ['Tipo de varilla:', cfg.varillasLong.tipo],
+            ['Recubrimiento (cm):', cfg.varillasLong.recubrimiento],
+            ['Varillas superiores:', cfg.varillasLong.superiores],
+            ['Varillas medias:', cfg.varillasLong.medias],
+            ['Varillas inferiores:', cfg.varillasLong.inferiores],
+        ], '#0d6efd');
+        drawConfigBlock('Varillas Transversales (Estribos)', [
+            ['Tipo de varilla:', cfg.varillasTrans.tipo],
+            ['Recubrimiento (cm):', cfg.varillasTrans.recubrimiento],
+            ['Longitud ganchos (m):', cfg.varillasTrans.ganchos],
+        ], '#28a745');
+        drawConfigBlock('Construcción', [
+            ['Resistencia del Concreto (kg/m³):', cfg.construccion.resistenciaConcreto],
+            ['Factor desperdicio:', cfg.construccion.factorDesperdicio],
+        ], '#dc3545');
+        drawConfigBlock('Alambre de Amarre', [
+            ['Diámetro alambre (mm):', cfg.alambre.diametro],
+            ['Longitud por vuelta (cm):', cfg.alambre.longitudVuelta],
+            ['Factor desperdicio alambre:', cfg.alambre.factorDesperdicio],
+        ], '#17a2b8');
+    }
     // ── Page: Armado Rectangular Results ──
     if (rectData.armadoResultados && rectData.armadoResultados.grupos.length > 0) {
         doc.addPage();
@@ -1446,6 +1499,57 @@ async function generarInformeDOCX(projectInfo, coverImageBuffer, windTableData, 
                 infoChildren.push(buildDocxTable(['Concreto Total', 'Acero Total', 'Alambre Total', 'Metal Total'], [[rt.concreto, rt.acero, rt.alambre, rt.metal]], '00b6f1', 'F0FBFF'));
             }
             sections.push({ properties: { page: a4Page }, children: infoChildren });
+        }
+        // ── Section: Configuración Global ──
+        if (rectangularData.configGlobal) {
+            const cfg = rectangularData.configGlobal;
+            const cfgGlobalChildren = [];
+            cfgGlobalChildren.push(new docx_1.Paragraph({
+                alignment: docx_1.AlignmentType.CENTER,
+                spacing: { after: 200, before: 200 },
+                children: [
+                    new docx_1.TextRun({ text: 'CONFIGURACIÓN GLOBAL', bold: true, size: 32, color: '1f1f1f', font: 'Arial' }),
+                ],
+            }));
+            cfgGlobalChildren.push(new docx_1.Paragraph({
+                spacing: { after: 200 },
+                border: {
+                    bottom: { style: docx_1.BorderStyle.SINGLE, size: 4, color: '6f42c1', space: 1 },
+                },
+                children: [new docx_1.TextRun({ text: ' ', size: 4 })],
+            }));
+            // Helper: create a config sub-section with key-value pairs
+            const addConfigSection = (title, pairs, color) => {
+                cfgGlobalChildren.push(new docx_1.Paragraph({
+                    spacing: { before: 200, after: 100 },
+                    children: [
+                        new docx_1.TextRun({ text: title, bold: true, size: 22, color, font: 'Arial' }),
+                    ],
+                }));
+                cfgGlobalChildren.push(buildDocxTable(['Parámetro', 'Valor'], pairs.map(([label, value]) => [label, value || '—']), color, 'F8F9FA'));
+            };
+            addConfigSection('Varillas Longitudinales', [
+                ['Tipo de varilla', cfg.varillasLong.tipo],
+                ['Recubrimiento (cm)', cfg.varillasLong.recubrimiento],
+                ['Varillas superiores', cfg.varillasLong.superiores],
+                ['Varillas medias', cfg.varillasLong.medias],
+                ['Varillas inferiores', cfg.varillasLong.inferiores],
+            ], '0d6efd');
+            addConfigSection('Varillas Transversales (Estribos)', [
+                ['Tipo de varilla', cfg.varillasTrans.tipo],
+                ['Recubrimiento (cm)', cfg.varillasTrans.recubrimiento],
+                ['Longitud ganchos (m)', cfg.varillasTrans.ganchos],
+            ], '28a745');
+            addConfigSection('Construcción', [
+                ['Resistencia del Concreto (kg/m³)', cfg.construccion.resistenciaConcreto],
+                ['Factor desperdicio', cfg.construccion.factorDesperdicio],
+            ], 'dc3545');
+            addConfigSection('Alambre de Amarre', [
+                ['Diámetro alambre (mm)', cfg.alambre.diametro],
+                ['Longitud por vuelta (cm)', cfg.alambre.longitudVuelta],
+                ['Factor desperdicio alambre', cfg.alambre.factorDesperdicio],
+            ], '17a2b8');
+            sections.push({ properties: { page: a4Page }, children: cfgGlobalChildren });
         }
         // ── Section: Armado Rectangular Results ──
         if (rectangularData.armadoResultados && rectangularData.armadoResultados.grupos.length > 0) {
